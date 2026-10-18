@@ -2,7 +2,7 @@
 
 Uma empresa (escritório de contabilidade, advocacia, consultório) abre um **balcão** para cada cliente com a lista de documentos que precisa. O cliente recebe um link, abre no celular e envia os arquivos. A empresa confere, aprova ou recusa cada documento.
 
-A arquitetura está descrita em `docs/arquitetura.md`. O que ainda falta para produção está em `docs/pendencias.md`.
+A arquitetura está descrita em `docs/arquitetura.md`. O que ainda falta para produção está em `docs/pendencias.md`. O passo a passo para rodar e testar está em `docs/testes.md`.
 
 ## Estrutura
 
