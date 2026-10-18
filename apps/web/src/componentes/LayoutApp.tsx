@@ -7,6 +7,7 @@ import { useCobranca, useEu, useSessao } from '../dados/consultas';
 import { iniciais, pct } from '../util';
 import { Carregando, Logo } from './comuns';
 import { Icone, type NomeIcone } from './Icone';
+import { LimiteErro } from './LimiteErro';
 
 const NAV: { para: string; rotulo: string; icone: NomeIcone; recurso?: Recurso; fim?: boolean }[] = [
   { para: '/app', rotulo: 'Balcões', icone: 'balcoes', fim: true },
@@ -114,7 +115,9 @@ export function LayoutApp() {
         </div>
       </aside>
       <main className="principal">
-        <Outlet />
+        <LimiteErro chave={local.pathname}>
+          <Outlet />
+        </LimiteErro>
       </main>
     </div>
   );
