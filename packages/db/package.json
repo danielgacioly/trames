@@ -14,9 +14,9 @@
   "scripts": {
     "build": "prisma generate",
     "typecheck": "prisma generate && tsc -p .",
-    "migrate": "dotenv -e ../../.env -- sh -c 'DATABASE_URL=$DATABASE_URL_DONO prisma migrate deploy'",
-    "migrate:dev": "dotenv -e ../../.env -- sh -c 'DATABASE_URL=$DATABASE_URL_DONO prisma migrate dev'",
-    "seed": "dotenv -e ../../.env -- sh -c 'DATABASE_URL=$DATABASE_URL_DONO tsx src/seed.ts'",
+    "migrate": "node scripts/com-dono.mjs prisma migrate deploy",
+    "migrate:dev": "node scripts/com-dono.mjs prisma migrate dev",
+    "seed": "node scripts/com-dono.mjs tsx src/seed.ts",
     "storage": "dotenv -e ../../.env -- tsx src/preparar-storage.ts"
   },
   "dependencies": {
