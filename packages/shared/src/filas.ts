@@ -5,7 +5,7 @@
 export const FILAS = ['verificar-documento', 'enviar-mensagem', 'apagar-arquivos', 'lembretes', 'expirar', 'retencao'] as const;
 export type Fila = (typeof FILAS)[number];
 
-export type TipoMensagem = 'codigo' | 'link' | 'lembrete' | 'convite';
+export type TipoMensagem = 'codigo' | 'link' | 'lembrete' | 'convite' | 'login';
 
 export interface PayloadFila {
   'verificar-documento': { organizacaoId: string; documentoId: string };
@@ -15,7 +15,7 @@ export interface PayloadFila {
     canal: 'whatsapp' | 'email';
     /** Para mensagens ao cliente. */
     balcaoId?: string;
-    /** Para convites. */
+    /** Para convites e para o código de login. */
     usuarioId?: string;
     /** JSON selado (base64) com { codigo?, url?, texto? }. */
     selado: string;

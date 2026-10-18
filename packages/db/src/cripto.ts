@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, 
 
 /*
  * Criptografia por envelope: cada registro tem uma chave de dados (DEK) própria,
- * que cifra os campos (CPF, telefone, segredo TOTP). A DEK é guardada cifrada pela
+ * que cifra os campos (CPF e telefone). A DEK é guardada cifrada pela
  * chave mestra, que fica no KMS e nunca sai dele. O organizacao_id entra como
  * dado autenticado (AAD / EncryptionContext): um campo copiado para outro
  * escritório não abre.
@@ -74,7 +74,7 @@ export function criarKms(env: NodeJS.ProcessEnv = process.env): Kms {
 export const cifrarCampo = (dek: Buffer, valor: string, contexto: string) => cifrar(dek, Buffer.from(valor, 'utf8'), contexto);
 export const decifrarCampo = (dek: Buffer, blob: Buffer, contexto: string) => decifrar(dek, blob, contexto).toString('utf8');
 
-/** Envelope num blob só: [tamanho da DEK cifrada (2 bytes)][DEK cifrada][campo cifrado]. Usado para o segredo TOTP. */
+/** Envelope num blob só: [tamanho da DEK cifrada (2 bytes)][DEK cifrada][campo cifrado]. Usado nos payloads da fila. */
 export async function selar(kms: Kms, valor: string, contexto: string) {
   const { plana, cifrada } = await kms.gerarChaveDados(contexto);
   const tam = Buffer.alloc(2);

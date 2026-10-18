@@ -10,6 +10,7 @@ import type { Tx } from '@trames/db';
 export interface Envio {
   organizacaoId: string;
   balcaoId?: string;
+  usuarioId?: string;
   canal: 'whatsapp' | 'email';
   destino: string;
   assunto: string;
@@ -42,7 +43,7 @@ async function email(destino: string, assunto: string, texto: string) {
 export async function enviar(tx: Tx, e: Envio) {
   if (modo === 'dev') {
     const final = e.canal === 'whatsapp' ? `WhatsApp terminado em ${e.destino.slice(-4)}` : `e-mail ${e.destino.replace(/^(.).*@/, '$1***@')}`;
-    await tx.caixaSaidaDev.create({ data: { organizacaoId: e.organizacaoId, balcaoId: e.balcaoId, canal: e.canal, destino: final, texto: `${e.assunto}\n\n${e.texto}` } });
+    await tx.caixaSaidaDev.create({ data: { organizacaoId: e.organizacaoId, balcaoId: e.balcaoId, usuarioId: e.usuarioId, canal: e.canal, destino: final, texto: `${e.assunto}\n\n${e.texto}` } });
     return;
   }
   if (e.canal === 'whatsapp') await whatsapp(e.destino, e.texto);

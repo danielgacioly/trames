@@ -17,6 +17,8 @@ import { rotasTuru } from './modulos/turu/turu';
 export function criarApp() {
   const app = express();
   app.disable('x-powered-by');
+  // Respostas da API têm dados pessoais e códigos: nada de cache no navegador nem em proxies.
+  app.set('etag', false);
   app.set('trust proxy', 1); // atrás do balanceador
   app.use(registrarAcesso);
   app.use(
@@ -25,6 +27,10 @@ export function criarApp() {
       crossOriginResourcePolicy: { policy: 'same-site' },
     }),
   );
+  app.use((_req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+  });
   app.use(limites.geral);
   app.use(express.json({ limit: '64kb' }));
   app.use(cookieParser());

@@ -77,7 +77,7 @@ Dois processos rodando do mesmo código:
 
 **Login da empresa**
 - Senha com argon2id.
-- 2FA (TOTP), obrigatório pelo menos para admins do escritório.
+- Segundo fator obrigatório para todos: código de 6 dígitos enviado ao e-mail de login, com validade curta e limite de tentativas. (Decidido no lugar do TOTP: ninguém precisa instalar outro app.)
 
 **Auditoria**
 - Log de eventos só de inclusão (append-only): quem viu, baixou, aprovou, recusou ou apagou cada documento, quando e de qual IP.

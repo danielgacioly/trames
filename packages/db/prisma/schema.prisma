@@ -98,9 +98,6 @@ model Usuario {
   /// argon2id. Nulo enquanto o convite não foi aceito.
   senhaHash          String?   @map("senha_hash")
   permissao          Permissao @default(admin)
-  /// Segredo TOTP cifrado (envelope). totpAtivo só vira true depois de confirmado.
-  totpCifrado        Bytes?    @map("totp_cifrado")
-  totpAtivo          Boolean   @default(false) @map("totp_ativo")
   conviteHash        String?   @unique @map("convite_hash")
   conviteExpiraEm    DateTime? @map("convite_expira_em")
   criadoEm           DateTime  @default(now()) @map("criado_em")
@@ -119,6 +116,10 @@ model Sessao {
   /// SHA-256 do token do cookie. O token em si nunca é guardado.
   tokenHash     String   @unique @map("token_hash")
   segundoFator  Boolean  @default(false) @map("segundo_fator")
+  /// Segundo fator por e-mail: HMAC do código de 6 dígitos desta sessão, nunca o código.
+  codigoHash       String?   @map("codigo_hash")
+  codigoExpiraEm   DateTime? @map("codigo_expira_em")
+  codigoTentativas Int       @default(0) @map("codigo_tentativas")
   expiraEm      DateTime @map("expira_em")
   criadaEm      DateTime @default(now()) @map("criada_em")
 
@@ -327,6 +328,7 @@ model CaixaSaidaDev {
   id            String   @id @default(uuid()) @db.Uuid
   organizacaoId String   @map("organizacao_id") @db.Uuid
   balcaoId      String?  @map("balcao_id") @db.Uuid
+  usuarioId     String?  @map("usuario_id") @db.Uuid
   canal         String
   destino       String
   texto         String

@@ -48,7 +48,7 @@ rotasOrganizacao.get(
   '/equipe',
   rota(async (req, res) => {
     const pessoas = await naOrganizacao(req.empresa!.organizacao.id, (tx) => tx.usuario.findMany({ orderBy: { criadoEm: 'asc' } }));
-    res.json(pessoas.map((p): PessoaDto => ({ id: p.id, nome: p.nome, email: p.email, permissao: p.permissao, totpAtivo: p.totpAtivo, convitePendente: !p.senhaHash })));
+    res.json(pessoas.map((p): PessoaDto => ({ id: p.id, nome: p.nome, email: p.email, permissao: p.permissao, convitePendente: !p.senhaHash })));
   }),
 );
 

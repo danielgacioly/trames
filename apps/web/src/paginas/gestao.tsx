@@ -135,7 +135,7 @@ export function Equipe() {
         <div>
           <h1 className="titulo-1">Equipe</h1>
           <p className="subtitulo">
-            {limite === null ? `${plural(pessoas.length, 'pessoa', 'pessoas')} na conta. O plano ${s.plano.nome} não tem limite de pessoas.` : `${pessoas.length} de ${limite} ${limite === 1 ? 'pessoa' : 'pessoas'} no plano ${s.plano.nome}.`} Quem administra precisa usar o app autenticador (2FA).
+            {limite === null ? `${plural(pessoas.length, 'pessoa', 'pessoas')} na conta. O plano ${s.plano.nome} não tem limite de pessoas.` : `${pessoas.length} de ${limite} ${limite === 1 ? 'pessoa' : 'pessoas'} no plano ${s.plano.nome}.`} Para entrar, cada pessoa confirma um código enviado ao e-mail dela.
           </p>
         </div>
       </div>
@@ -147,7 +147,6 @@ export function Equipe() {
               <th>Pessoa</th>
               <th>E-mail</th>
               <th>Permissão</th>
-              <th>2FA</th>
               <th />
             </tr>
           </thead>
@@ -182,7 +181,6 @@ export function Equipe() {
                     <span className="texto-suave">Acesso completo</span>
                   )}
                 </td>
-                <td>{p.totpAtivo ? <Status status="aprovado" texto="Ativo" /> : <span className="texto-suave">—</span>}</td>
                 <td style={{ textAlign: 'right' }}>
                   {p.id !== s.usuario.id && souAdmin && (
                     <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" style={{ color: 'var(--recusado)' }} onClick={() => window.confirm(`Tirar ${p.nome} da conta?`) && remover.mutate(p.id)}>

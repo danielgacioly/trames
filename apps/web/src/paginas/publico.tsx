@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react';
+import { useEffect, useState, type FormEvent, type MouseEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ORDEM_PLANOS, PLANOS, type AreaId, type EtapaSessao } from '@trames/shared';
@@ -343,7 +343,7 @@ export function Entrar() {
                   <Icone nome="seta" />
                 </button>
               ))}
-              <span className="miudo texto-suave">Depois da senha vem o código do autenticador. Em desenvolvimento há um botão que preenche o código das contas de teste.</span>
+              <span className="miudo texto-suave">Depois da senha vem o código enviado por e-mail. Em desenvolvimento, ele fica na caixa de saída e a tela tem um botão que o preenche.</span>
             </div>
           )}
         </form>
@@ -353,7 +353,10 @@ export function Entrar() {
   );
 }
 
-/** Segunda etapa do login: confirmar o código do app autenticador, ou configurar o 2FA (obrigatório para quem administra). */
+/** Mostra só o começo do e-mail: "an***@albuquerquelima.adv.br". */
+const mascararEmail = (email: string) => email.replace(/^(.{1,2})[^@]*@/, '$1***@');
+
+/** Segunda etapa do login: o código de 6 dígitos que chegou no e-mail. */
 export function SegundoFator() {
   const eu = useEu();
   const navegar = useNavigate();
@@ -362,16 +365,8 @@ export function SegundoFator() {
   const estado = local.state as { de?: string; novo?: boolean } | null;
   const [codigo, setCodigo] = useState('');
   const [erro, setErro] = useState('');
-  const [config, setConfig] = useState<{ segredo: string; qr: string } | null>(null);
+  const [aviso, setAviso] = useState('');
   const etapa = eu.data?.etapa;
-
-  const iniciado = useRef(false);
-  useEffect(() => {
-    // Uma vez só: cada chamada gera um segredo novo.
-    if (etapa !== 'configurar_2fa' || iniciado.current) return;
-    iniciado.current = true;
-    api<{ segredo: string; qr: string }>('POST', '/auth/2fa/iniciar').then(setConfig, (e) => setErro(mensagemDe(e)));
-  }, [etapa]);
 
   if (eu.isPending) return <Carregando />;
   if (!eu.data) return <Navigate to="/entrar" replace />;
@@ -381,9 +376,20 @@ export function SegundoFator() {
     e.preventDefault();
     setErro('');
     try {
-      await api('POST', etapa === 'configurar_2fa' ? '/auth/2fa/confirmar' : '/auth/2fa/verificar', { codigo });
+      await api('POST', '/auth/2fa/verificar', { codigo });
       await qc.invalidateQueries({ queryKey: chaves.eu });
       navegar(estado?.novo ? '/criar-conta/area' : (estado?.de ?? '/app'), { replace: true });
+    } catch (x) {
+      setErro(mensagemDe(x));
+    }
+  }
+
+  async function reenviar() {
+    setErro('');
+    setCodigo('');
+    try {
+      await api('POST', '/auth/2fa/reenviar');
+      setAviso('Mandamos um código novo. O anterior deixou de valer.');
     } catch (x) {
       setErro(mensagemDe(x));
     }
@@ -395,25 +401,11 @@ export function SegundoFator() {
         <Logo altura={32} para="/" />
         <form className="formulario" style={{ maxWidth: 400 }} onSubmit={confirmar}>
           <div className="coluna">
-            <h1 style={{ fontSize: 32, lineHeight: '38px', letterSpacing: '-.02em' }}>{etapa === 'configurar_2fa' ? 'Proteja a sua conta' : 'Código do autenticador'}</h1>
+            <h1 style={{ fontSize: 32, lineHeight: '38px', letterSpacing: '-.02em' }}>Confira o seu e-mail</h1>
             <p className="texto-suave">
-              {etapa === 'configurar_2fa'
-                ? 'Quem administra a conta precisa de um segundo fator. Abra um app autenticador (Google Authenticator, 1Password, Authy…), leia o QR code e digite o código de 6 números.'
-                : 'Abra o app autenticador no celular e digite o código de 6 números da Trames.'}
+              Enviamos um código de 6 números para <strong style={{ fontWeight: 500, color: 'var(--tinta)' }}>{mascararEmail(eu.data.usuario.email)}</strong>. Ele vale por 10 minutos.
             </p>
           </div>
-          {etapa === 'configurar_2fa' &&
-            (config ? (
-              <div className="cartao" style={{ alignItems: 'center', gap: 10 }}>
-                <img src={config.qr} alt="QR code para o app autenticador" width={200} height={200} />
-                <span className="miudo texto-suave">Ou digite a chave:</span>
-                <code className="tr-protocolo" style={{ wordBreak: 'break-all', textAlign: 'center' }}>
-                  {config.segredo}
-                </code>
-              </div>
-            ) : (
-              <Carregando />
-            ))}
           <label className={`tr-campo tr-campo--largo${erro ? ' tr-campo--erro' : ''}`}>
             <span className="tr-campo__rotulo">Código</span>
             <input className="tr-campo__entrada tr-protocolo" inputMode="numeric" autoComplete="one-time-code" required pattern="\d{6}" maxLength={6} value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/\D/g, ''))} autoFocus />
@@ -424,23 +416,32 @@ export function SegundoFator() {
               </span>
             )}
           </label>
+          {aviso && !erro && <p className="pequeno texto-suave">{aviso}</p>}
           <button type="submit" className="tr-btn tr-btn--primario tr-btn--bloco" style={{ height: 48 }} disabled={codigo.length !== 6}>
-            Confirmar
+            Entrar
           </button>
-          {import.meta.env.DEV && etapa === 'verificar_2fa' && CONTAS_TESTE.some((c) => c.email === eu.data!.usuario.email) && (
+          <div className="linha linha--entre pequeno">
+            <span className="texto-suave">
+              Não chegou? Veja a caixa de spam ou{' '}
+              <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" style={{ padding: 0, height: 'auto' }} onClick={reenviar}>
+                peça outro código
+              </button>
+            </span>
+          </div>
+          {import.meta.env.DEV && (
             <button
               type="button"
               className="tr-btn tr-btn--discreto tr-btn--sm"
-              style={{ alignSelf: 'flex-start' }}
-              onClick={() => api<{ codigo: string }>('GET', `/auth/dev/totp/${eu.data!.usuario.email}`).then((r) => setCodigo(r.codigo))}
+              style={{ alignSelf: 'flex-start', paddingLeft: 0 }}
+              onClick={() => api<{ codigo: string | null }>('GET', '/auth/dev/codigo').then((r) => r.codigo && setCodigo(r.codigo))}
             >
-              Preencher o código da conta de teste
+              Desenvolvimento: preencher o código da caixa de saída
             </button>
           )}
           <button
             type="button"
             className="tr-btn tr-btn--discreto tr-btn--sm"
-            style={{ alignSelf: 'flex-start' }}
+            style={{ alignSelf: 'flex-start', paddingLeft: 0 }}
             onClick={async () => {
               await api('POST', '/auth/sair');
               qc.clear();

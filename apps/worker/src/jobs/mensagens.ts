@@ -12,6 +12,19 @@ export async function enviarMensagem(p: PayloadFila['enviar-mensagem']) {
   await naOrganizacao(p.organizacaoId, async (tx) => {
     const org = await tx.organizacao.findUniqueOrThrow({ where: { id: p.organizacaoId } });
 
+    if (p.tipo === 'login') {
+      const u = await tx.usuario.findUnique({ where: { id: p.usuarioId! } });
+      if (!u) return;
+      return enviar(tx, {
+        organizacaoId: org.id,
+        usuarioId: u.id,
+        canal: 'email',
+        destino: u.email,
+        assunto: 'Seu código para entrar na Trames',
+        texto: `Seu código para entrar na Trames é ${conteudo.codigo}. Ele vale por ${VALIDADE_CODIGO_MINUTOS} minutos. Se não foi você que tentou entrar, troque a sua senha.`,
+      });
+    }
+
     if (p.tipo === 'convite') {
       const u = await tx.usuario.findUnique({ where: { id: p.usuarioId! } });
       if (!u) return;

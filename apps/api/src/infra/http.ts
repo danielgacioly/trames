@@ -84,12 +84,15 @@ const limite = (janelaMin: number, max: number, chave?: (req: Request) => string
     legacyHeaders: false,
     keyGenerator: chave,
     message: { erro: 'Muitas tentativas. Espere alguns minutos e tente de novo.', codigo: 'limite' },
+    // Os testes de integração fazem muitos logins seguidos do mesmo IP.
+    skip: () => config.NODE_ENV === 'test',
   });
 
 export const limites = {
   geral: limite(1, 300),
   login: limite(15, 20),
   segundoFator: limite(15, 10),
+  reenviarCodigo: limite(15, 5),
   /** Pedir código: por link e por IP. */
   pedirCodigo: limite(15, 5, (req) => `${req.get('x-link') ?? ''}:${req.ip}`),
   entrarCliente: limite(15, 15),

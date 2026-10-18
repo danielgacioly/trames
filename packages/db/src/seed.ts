@@ -7,7 +7,7 @@
 import { randomUUID } from 'node:crypto';
 import argon2 from 'argon2';
 import { BUCKET_DOCUMENTOS, chaveDocumento, enviar } from './armazenamento';
-import { criarKms, selar } from './cripto';
+import { criarKms } from './cripto';
 import { cifrarDadosCliente } from './dados-cliente';
 import { MODELOS_PADRAO } from './modelos-padrao';
 import { CONTAS_TESTE, SENHA_TESTE } from './contas-teste';
@@ -155,21 +155,9 @@ async function criarOrganizacao(o: { nome: string; sigla: string; cor: string; a
   });
 }
 
-async function criarUsuario(organizacaoId: string, nome: string, email: string, permissao: 'admin' | 'monta' | 'confere', totp?: string) {
+async function criarUsuario(organizacaoId: string, nome: string, email: string, permissao: 'admin' | 'monta' | 'confere') {
   const senhaHash = await argon2.hash(SENHA_TESTE, { type: argon2.argon2id });
-  const id = randomUUID();
-  return db.usuario.create({
-    data: {
-      id,
-      organizacaoId,
-      nome,
-      email,
-      senhaHash,
-      permissao,
-      totpCifrado: totp ? await selar(kms, totp, `totp:${id}`) : null,
-      totpAtivo: !!totp,
-    },
-  });
+  return db.usuario.create({ data: { organizacaoId, nome, email, senhaHash, permissao } });
 }
 
 async function main() {
@@ -186,14 +174,14 @@ async function main() {
 
   // Grátis
   const g = await criarOrganizacao({ nome: 'Clínica Boa Vista', sigla: 'BV', cor: '#1c5d84', area: 'saude', plano: 'gratis' });
-  await criarUsuario(g.id, 'Carla Menezes', CONTAS_TESTE[0].email, 'admin', CONTAS_TESTE[0].totp);
+  await criarUsuario(g.id, 'Carla Menezes', CONTAS_TESTE[0].email, 'admin');
   await criarBalcao({ organizacaoId: g.id, n: 3101, tipo: 'Pré-operatório', cliente: cliFalso('Roberta Lins', 3101), prazo: 6, itens: itensDoModelo('sau-preop', [A, A, E]) });
   await criarBalcao({ organizacaoId: g.id, n: 3107, tipo: 'Reembolso do plano', cliente: cliFalso('Marcos Teixeira', 3107), prazo: 9, itens: itensDoModelo('sau-reembolso', []) });
   await criarBalcao({ organizacaoId: g.id, n: 3088, tipo: 'Primeira consulta', cliente: cliFalso('Helena Prado', 3088), prazo: -3, itens: itensDoModelo('sau-consulta', [A, A, A, A]), concluido: true });
 
   // Pro
   const p = await criarOrganizacao({ nome: 'Albuquerque & Lima Advocacia', sigla: 'AL', cor: '#8a5330', area: 'advocacia', plano: 'pro' });
-  await criarUsuario(p.id, 'Ana Albuquerque', CONTAS_TESTE[1].email, 'admin', CONTAS_TESTE[1].totp);
+  await criarUsuario(p.id, 'Ana Albuquerque', CONTAS_TESTE[1].email, 'admin');
   await criarUsuario(p.id, 'Bruno Lima', 'bruno@albuquerquelima.adv.br', 'monta');
   await criarBalcao({
     organizacaoId: p.id,
@@ -227,7 +215,7 @@ async function main() {
 
   // Ultra
   const u = await criarOrganizacao({ nome: 'Lins & Moura Contabilidade', sigla: 'LM', cor: '#13594b', area: 'contabilidade', plano: 'ultra' });
-  await criarUsuario(u.id, 'Rafael Moura', CONTAS_TESTE[2].email, 'admin', CONTAS_TESTE[2].totp);
+  await criarUsuario(u.id, 'Rafael Moura', CONTAS_TESTE[2].email, 'admin');
   await criarUsuario(u.id, 'Patrícia Lins', 'patricia@linsmoura.com.br', 'admin');
   await criarUsuario(u.id, 'Diego Santos', 'diego@linsmoura.com.br', 'monta');
   await criarUsuario(u.id, 'Juliana Rocha', 'juliana@linsmoura.com.br', 'monta');

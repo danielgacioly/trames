@@ -12,7 +12,7 @@ export type Acao =
   | 'login.senha'
   | 'login.segundo_fator'
   | 'login.falhou'
-  | '2fa.ativado'
+  | 'login.codigo_errado'
   | 'conta.criada'
   | 'balcao.criado'
   | 'balcao.concluido'

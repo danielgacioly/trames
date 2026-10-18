@@ -55,7 +55,6 @@ export interface UsuarioParaLogin {
   id: string;
   organizacao_id: string;
   senha_hash: string | null;
-  totp_ativo: boolean;
   permissao: 'admin' | 'monta' | 'confere';
 }
 

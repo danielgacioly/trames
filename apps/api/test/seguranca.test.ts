@@ -4,27 +4,49 @@
  * limites de plano, origem das requisições e auditoria só de inclusão.
  */
 import request from 'supertest';
-import { authenticator } from 'otplib';
 import { describe, expect, it } from 'vitest';
-import { prisma, usuarioParaLogin } from '@trames/db';
+import { abrir, criarKms, prisma, usuarioParaLogin } from '@trames/db';
 import { CONTAS_TESTE, SENHA_TESTE } from '@trames/db/contas-teste';
 import { criarApp } from '../src/app';
 
 const app = criarApp();
 const ORIGEM = process.env.URL_WEB!;
 
+const kms = criarKms();
+
+/** O código do e-mail sai pela fila; o teste lê o job mais recente e abre o conteúdo selado. */
+async function ultimoCodigoDeLogin(email: string) {
+  const u = (await usuarioParaLogin(email))!;
+  const [job] = await prisma.$queryRaw<{ data: { selado: string } }[]>`
+    SELECT data FROM pgboss.job WHERE name = 'enviar-mensagem' AND data->>'tipo' = 'login' AND data->>'usuarioId' = ${u.id}
+    ORDER BY created_on DESC LIMIT 1`;
+  return (JSON.parse(await abrir(kms, Buffer.from(job.data.selado, 'base64'), `fila:${u.organizacao_id}`)) as { codigo: string }).codigo;
+}
+
 async function entrar(plano: 0 | 1 | 2) {
   const agente = request.agent(app);
   const conta = CONTAS_TESTE[plano];
   await agente.post('/api/auth/entrar').set('origin', ORIGEM).send({ email: conta.email, senha: SENHA_TESTE }).expect(200);
-  await agente.post('/api/auth/2fa/verificar').set('origin', ORIGEM).send({ codigo: authenticator.generate(conta.totp) }).expect(200);
+  await agente.post('/api/auth/2fa/verificar').set('origin', ORIGEM).send({ codigo: await ultimoCodigoDeLogin(conta.email) }).expect(200);
   return agente;
 }
 
 describe('segurança', () => {
-  it('não entra sem o segundo fator', async () => {
+  it('não entra sem o código do e-mail', async () => {
     const a = request.agent(app);
     await a.post('/api/auth/entrar').set('origin', ORIGEM).send({ email: CONTAS_TESTE[1].email, senha: SENHA_TESTE }).expect(200);
+    await a.get('/api/balcoes').expect(401);
+  });
+
+  it('código de login errado: no máximo 5 tentativas, depois só com código novo', async () => {
+    const a = request.agent(app);
+    const email = CONTAS_TESTE[0].email;
+    await a.post('/api/auth/entrar').set('origin', ORIGEM).send({ email, senha: SENHA_TESTE }).expect(200);
+    const certo = await ultimoCodigoDeLogin(email);
+    const errado = certo === '000000' ? '111111' : '000000';
+    for (let k = 0; k < 5; k++) await a.post('/api/auth/2fa/verificar').set('origin', ORIGEM).send({ codigo: errado }).expect(400);
+    const r = await a.post('/api/auth/2fa/verificar').set('origin', ORIGEM).send({ codigo: certo }).expect(400);
+    expect(r.body.codigo).toBe('codigo_vencido');
     await a.get('/api/balcoes').expect(401);
   });
 

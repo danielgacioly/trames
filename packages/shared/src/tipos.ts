@@ -16,8 +16,8 @@ export type StatusItem = z.infer<typeof StatusItem>;
 export const StatusDocumento = z.enum(['quarentena', 'disponivel', 'rejeitado', 'apagado']);
 export type StatusDocumento = z.infer<typeof StatusDocumento>;
 
-/** Etapa do login da empresa. */
-export const EtapaSessao = z.enum(['configurar_2fa', 'verificar_2fa', 'completa']);
+/** Etapa do login da empresa: depois da senha, falta o código enviado por e-mail. */
+export const EtapaSessao = z.enum(['verificar_2fa', 'completa']);
 export type EtapaSessao = z.infer<typeof EtapaSessao>;
 
 export const CanalCodigo = z.enum(['whatsapp', 'email']);

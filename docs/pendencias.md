@@ -7,7 +7,7 @@ O que falta para colocar a Trames em produção e não deu para fazer no código
 As cinco decisões de `arquitetura.md` seguiram a recomendação:
 
 1. **Fila:** pg-boss, no próprio Postgres. A troca por BullMQ fica concentrada em `apps/api/src/infra/fila.ts` e `apps/worker/src/main.ts`.
-2. **Login:** implementação própria (argon2id + TOTP).
+2. **Login:** implementação própria (argon2id + código de 6 dígitos por e-mail como segundo fator; o app autenticador foi descartado).
 3. **Hospedagem:** o código está pronto para AWS em São Paulo (S3, KMS, SES, `sa-east-1`), mas nada foi provisionado.
 4. **Front:** dois apps, `web` e `balcao`.
 5. **RLS:** ativo desde a primeira migração.
@@ -27,7 +27,7 @@ As cinco decisões de `arquitetura.md` seguiram a recomendação:
 
 - [ ] **Antivírus:** ClamAV com `freshclam` em produção (sidecar do worker). Aqui a rede bloqueou o download das assinaturas, então testei só com uma assinatura local do EICAR. A detecção funcionou. Se o clamd cair, o job tenta 5 vezes e o arquivo fica em quarentena: falta um alerta e um jeito de reprocessar.
 - [ ] **WhatsApp:** conta WhatsApp Business (Meta) verificada, número e **templates aprovados**. Mensagem iniciada pela empresa fora da janela de 24 h só pode sair por template; o código atual manda texto livre. A Meta entra como suboperadora.
-- [ ] **E-mail:** Amazon SES em `sa-east-1` com domínio verificado (SPF, DKIM, DMARC) e fora do sandbox.
+- [ ] **E-mail:** Amazon SES em `sa-east-1` com domínio verificado (SPF, DKIM, DMARC) e fora do sandbox. Agora é também por onde passa o segundo fator do login: sem ele em produção, ninguém do escritório entra. Vale monitorar a entrega e ter um remetente reservado só para códigos.
 - [ ] **Turu com Claude:** configurar `ANTHROPIC_API_KEY`. Não testei a chamada real (não havia chave aqui); testei só o modo sem IA. A Anthropic precisa constar como suboperadora. Também falta confirmar as condições de retenção de dados e o fato de o processamento acontecer fora do Brasil.
 - [ ] **Pagamento:** escolher o provedor (Pix, cartão e nota fiscal: Asaas, Pagar.me, Iugu, Stripe…). Falta implementar no módulo `cobranca`: assinatura, webhooks, inadimplência e o que fazer quando alguém desce de plano tendo mais balcões ativos que o novo limite. Hoje a troca de plano é só simulada (`COBRANCA_SIMULADA=1`).
 
@@ -41,7 +41,7 @@ As cinco decisões de `arquitetura.md` seguiram a recomendação:
 
 ## Funcionalidades que faltam
 
-- [ ] "Esqueci a senha" e recuperação do 2FA (códigos de recuperação, e um administrador poder resetar o 2FA de alguém da equipe).
+- [ ] "Esqueci a senha". Com o código por e-mail, o segundo fator não precisa de recuperação própria, mas a troca de senha precisa existir. Atenção: quem controla o e-mail da pessoa passa a ter os dois fatores; a troca de senha deve pedir o código e avisar por e-mail.
 - [ ] Exportação do titular com os arquivos. Hoje ela leva os dados e a lista de arquivos; falta um ZIP gerado pelo worker, com URL temporária.
 - [ ] Avisar o cliente pelo WhatsApp quando um documento é recusado. Hoje ele só vê ao abrir o link.
 - [ ] Miniatura de PDF e de HEIC. Hoje só imagens JPG, PNG e WebP ganham miniatura.
@@ -53,5 +53,6 @@ As cinco decisões de `arquitetura.md` seguiram a recomendação:
 ## Decisões de produto para confirmar
 
 - [ ] **Lembrete gera link novo.** Como o banco guarda só o hash do link, o lembrete (manual ou automático) gera um link novo e revoga o anterior. Quem abrir um link antigo vê a mensagem "use o link da mensagem mais recente". A alternativa seria guardar o token cifrado, mas a arquitetura pede só o hash.
-- [ ] **Permissões fora do Ultra.** No Grátis e no Pro todo mundo administra, então todo mundo precisa de 2FA. Avaliar se é isso mesmo.
+- [ ] **Permissões fora do Ultra.** No Grátis e no Pro todo mundo administra. Avaliar se é isso mesmo.
+- [ ] **Segundo fator para todos.** O código por e-mail vale para todas as pessoas da conta, não só para quem administra (a arquitetura pedia "pelo menos admins"). Como não exige instalar nada, ficou para todos.
 - [ ] **Prazo do link.** O link vence 30 dias depois do prazo do balcão e é revogado quando o balcão é concluído.

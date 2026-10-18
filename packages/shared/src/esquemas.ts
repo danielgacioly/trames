@@ -27,7 +27,7 @@ export const Telefone = z
   .refine((s) => s.length >= 10 && s.length <= 13, 'Confira o WhatsApp, com DDD.');
 
 export const EntrarEntrada = z.object({ email: Email, senha: z.string().min(1).max(200) });
-export const CodigoTotpEntrada = z.object({ codigo: CodigoSeisDigitos });
+export const CodigoLoginEntrada = z.object({ codigo: CodigoSeisDigitos });
 
 export const CriarContaEntrada = z.object({
   nome: texto(120).min(2),
@@ -105,7 +105,7 @@ export const IniciarUploadEntrada = z.object({
 /* ---------- Respostas ---------- */
 
 export interface Eu {
-  usuario: { id: string; nome: string; email: string; permissao: Permissao; totpAtivo: boolean };
+  usuario: { id: string; nome: string; email: string; permissao: Permissao };
   organizacao: { id: string; nome: string; sigla: string; cor: string; area: AreaId; diasRetencao: number };
   plano: PlanoId;
   etapa: EtapaSessao;
@@ -177,7 +177,6 @@ export interface PessoaDto {
   nome: string;
   email: string;
   permissao: Permissao;
-  totpAtivo: boolean;
   convitePendente: boolean;
 }
 
