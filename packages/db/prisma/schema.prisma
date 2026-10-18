@@ -1,0 +1,337 @@
+// Banco compartilhado entre escritórios: toda tabela com dados de escritório tem
+// organizacao_id, e o Row-Level Security do Postgres (migração rls) garante que
+// uma query só enxergue o escritório definido em app.organizacao_id.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plano {
+  gratis
+  pro
+  ultra
+}
+
+enum Area {
+  contabilidade
+  advocacia
+  saude
+}
+
+enum Permissao {
+  admin
+  monta
+  confere
+}
+
+enum StatusItem {
+  pendente
+  analise
+  aprovado
+  recusado
+}
+
+enum StatusDocumento {
+  quarentena
+  disponivel
+  rejeitado
+  apagado
+}
+
+enum StatusAssinatura {
+  ativa
+  cancelada
+  inadimplente
+}
+
+enum TipoAtor {
+  usuario
+  cliente
+  sistema
+}
+
+model Organizacao {
+  id           String   @id @db.Uuid
+  nome         String
+  sigla        String
+  cor          String   @default("#13594b")
+  area         Area     @default(advocacia)
+  /// Dias, depois de concluído o balcão, até os arquivos serem apagados.
+  diasRetencao Int      @default(90) @map("dias_retencao")
+  criadaEm     DateTime @default(now()) @map("criada_em")
+
+  assinaturas Assinatura[]
+  usuarios    Usuario[]
+  clientes    Cliente[]
+  balcoes     Balcao[]
+  modelos     Modelo[]
+
+  @@map("organizacoes")
+}
+
+model Assinatura {
+  id            String           @id @default(uuid()) @db.Uuid
+  organizacaoId String           @map("organizacao_id") @db.Uuid
+  plano         Plano
+  status        StatusAssinatura @default(ativa)
+  inicioEm      DateTime         @default(now()) @map("inicio_em")
+  fimEm         DateTime?        @map("fim_em")
+  /// Identificador no provedor de pagamento (ainda não escolhido).
+  provedorId    String?          @map("provedor_id")
+
+  organizacao Organizacao @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+
+  @@index([organizacaoId, status])
+  @@map("assinaturas")
+}
+
+model Usuario {
+  id                 String    @id @default(uuid()) @db.Uuid
+  organizacaoId      String    @map("organizacao_id") @db.Uuid
+  nome               String
+  email              String    @unique
+  /// argon2id. Nulo enquanto o convite não foi aceito.
+  senhaHash          String?   @map("senha_hash")
+  permissao          Permissao @default(admin)
+  /// Segredo TOTP cifrado (envelope). totpAtivo só vira true depois de confirmado.
+  totpCifrado        Bytes?    @map("totp_cifrado")
+  totpAtivo          Boolean   @default(false) @map("totp_ativo")
+  conviteHash        String?   @unique @map("convite_hash")
+  conviteExpiraEm    DateTime? @map("convite_expira_em")
+  criadoEm           DateTime  @default(now()) @map("criado_em")
+
+  organizacao Organizacao @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+  sessoes     Sessao[]
+
+  @@index([organizacaoId])
+  @@map("usuarios")
+}
+
+model Sessao {
+  id            String   @id @default(uuid()) @db.Uuid
+  organizacaoId String   @map("organizacao_id") @db.Uuid
+  usuarioId     String   @map("usuario_id") @db.Uuid
+  /// SHA-256 do token do cookie. O token em si nunca é guardado.
+  tokenHash     String   @unique @map("token_hash")
+  segundoFator  Boolean  @default(false) @map("segundo_fator")
+  expiraEm      DateTime @map("expira_em")
+  criadaEm      DateTime @default(now()) @map("criada_em")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([organizacaoId])
+  @@map("sessoes")
+}
+
+model Cliente {
+  id              String   @id @default(uuid()) @db.Uuid
+  organizacaoId   String   @map("organizacao_id") @db.Uuid
+  nome            String
+  email           String   @default("")
+  /// Chave de dados do registro, cifrada pela chave mestra (KMS). Cifra CPF e telefone.
+  chaveCifrada    Bytes    @map("chave_cifrada")
+  cpfCifrado      Bytes?   @map("cpf_cifrado")
+  /// HMAC do CPF, para buscar sem decifrar.
+  cpfHmac         String?  @map("cpf_hmac")
+  telefoneCifrado Bytes    @map("telefone_cifrado")
+  telefoneHmac    String   @map("telefone_hmac")
+  /// Últimos 4 dígitos, para mostrar "terminado em 4127" sem decifrar.
+  telefoneFinal   String   @map("telefone_final")
+  criadoEm        DateTime @default(now()) @map("criado_em")
+
+  organizacao Organizacao @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+  balcoes     Balcao[]
+
+  @@index([organizacaoId, cpfHmac])
+  @@index([organizacaoId, telefoneHmac])
+  @@map("clientes")
+}
+
+model Balcao {
+  id                 String    @id @default(uuid()) @db.Uuid
+  organizacaoId      String    @map("organizacao_id") @db.Uuid
+  clienteId          String    @map("cliente_id") @db.Uuid
+  protocolo          String
+  tipo               String    @default("")
+  prazo              DateTime  @db.Date
+  lembrete           Boolean   @default(false)
+  ultimoLembreteEm   DateTime? @map("ultimo_lembrete_em")
+  criadoPorId        String?   @map("criado_por_id") @db.Uuid
+  criadoEm           DateTime  @default(now()) @map("criado_em")
+  concluidoEm        DateTime? @map("concluido_em")
+  arquivosApagadosEm DateTime? @map("arquivos_apagados_em")
+
+  organizacao Organizacao   @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+  cliente     Cliente       @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  itens       ItemBalcao[]
+  documentos  Documento[]
+  links       LinkAcesso[]
+
+  @@unique([organizacaoId, protocolo])
+  @@index([organizacaoId, concluidoEm])
+  @@map("balcoes")
+}
+
+/// Documento pedido ao cliente.
+model ItemBalcao {
+  id            String     @id @default(uuid()) @db.Uuid
+  organizacaoId String     @map("organizacao_id") @db.Uuid
+  balcaoId      String     @map("balcao_id") @db.Uuid
+  ordem         Int
+  nome          String
+  detalhe       String     @default("")
+  obrigatorio   Boolean    @default(true)
+  status        StatusItem @default(pendente)
+  motivoRecusa  String?    @map("motivo_recusa")
+
+  balcao     Balcao      @relation(fields: [balcaoId], references: [id], onDelete: Cascade)
+  documentos Documento[]
+
+  @@index([organizacaoId, balcaoId])
+  @@map("itens_balcao")
+}
+
+/// Arquivo enviado pelo cliente. O arquivo fica no storage; aqui só os metadados.
+model Documento {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizacaoId  String          @map("organizacao_id") @db.Uuid
+  balcaoId       String          @map("balcao_id") @db.Uuid
+  itemId         String          @map("item_id") @db.Uuid
+  /// Chave do objeto no bucket. Aleatória: não carrega nome de arquivo nem dado pessoal.
+  chave          String          @unique
+  nomeArquivo    String          @map("nome_arquivo")
+  tipoDeclarado  String          @map("tipo_declarado")
+  tipoReal       String?         @map("tipo_real")
+  tamanho        Int
+  status         StatusDocumento @default(quarentena)
+  motivo         String?
+  chaveMiniatura String?         @map("chave_miniatura")
+  enviadoEm      DateTime        @default(now()) @map("enviado_em")
+  verificadoEm   DateTime?       @map("verificado_em")
+  apagadoEm      DateTime?       @map("apagado_em")
+
+  balcao Balcao     @relation(fields: [balcaoId], references: [id], onDelete: Cascade)
+  item   ItemBalcao @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([organizacaoId, itemId])
+  @@map("documentos")
+}
+
+/// Modelo de lista de documentos. organizacao_id nulo = modelo padrão da Trames.
+model Modelo {
+  id            String       @id @default(uuid()) @db.Uuid
+  organizacaoId String?      @map("organizacao_id") @db.Uuid
+  area          Area
+  nome          String
+  quando        String       @default("")
+  criadoEm      DateTime     @default(now()) @map("criado_em")
+
+  organizacao Organizacao? @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+  itens       ItemModelo[]
+
+  @@index([organizacaoId])
+  @@map("modelos")
+}
+
+model ItemModelo {
+  id            String  @id @default(uuid()) @db.Uuid
+  organizacaoId String? @map("organizacao_id") @db.Uuid
+  modeloId      String  @map("modelo_id") @db.Uuid
+  ordem         Int
+  nome          String
+  detalhe       String  @default("")
+  obrigatorio   Boolean @default(true)
+
+  modelo Modelo @relation(fields: [modeloId], references: [id], onDelete: Cascade)
+
+  @@index([modeloId])
+  @@map("itens_modelo")
+}
+
+/// Link que o cliente recebe. Só o hash do token fica no banco.
+model LinkAcesso {
+  id            String    @id @default(uuid()) @db.Uuid
+  organizacaoId String    @map("organizacao_id") @db.Uuid
+  balcaoId      String    @map("balcao_id") @db.Uuid
+  tokenHash     String    @unique @map("token_hash")
+  criadoEm      DateTime  @default(now()) @map("criado_em")
+  expiraEm      DateTime  @map("expira_em")
+  revogadoEm    DateTime? @map("revogado_em")
+
+  balcao   Balcao          @relation(fields: [balcaoId], references: [id], onDelete: Cascade)
+  codigos  CodigoAcesso[]
+  sessoes  SessaoCliente[]
+
+  @@index([organizacaoId, balcaoId])
+  @@map("links_acesso")
+}
+
+/// Código de 6 dígitos mandado por WhatsApp ou e-mail.
+model CodigoAcesso {
+  id            String    @id @default(uuid()) @db.Uuid
+  organizacaoId String    @map("organizacao_id") @db.Uuid
+  linkId        String    @map("link_id") @db.Uuid
+  codigoHash    String    @map("codigo_hash")
+  canal         String
+  tentativas    Int       @default(0)
+  expiraEm      DateTime  @map("expira_em")
+  usadoEm       DateTime? @map("usado_em")
+  criadoEm      DateTime  @default(now()) @map("criado_em")
+
+  link LinkAcesso @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@index([organizacaoId, linkId])
+  @@map("codigos_acesso")
+}
+
+model SessaoCliente {
+  id            String   @id @default(uuid()) @db.Uuid
+  organizacaoId String   @map("organizacao_id") @db.Uuid
+  linkId        String   @map("link_id") @db.Uuid
+  balcaoId      String   @map("balcao_id") @db.Uuid
+  tokenHash     String   @unique @map("token_hash")
+  expiraEm      DateTime @map("expira_em")
+  criadaEm      DateTime @default(now()) @map("criada_em")
+
+  link LinkAcesso @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@index([organizacaoId])
+  @@map("sessoes_cliente")
+}
+
+/// Log só de inclusão: um trigger impede UPDATE e DELETE.
+model EventoAuditoria {
+  id            BigInt   @id @default(autoincrement())
+  organizacaoId String   @map("organizacao_id") @db.Uuid
+  atorTipo      TipoAtor @map("ator_tipo")
+  atorId        String?  @map("ator_id") @db.Uuid
+  acao          String
+  alvoTipo      String   @map("alvo_tipo")
+  alvoId        String?  @map("alvo_id") @db.Uuid
+  ip            String?
+  detalhes      Json?
+  criadoEm      DateTime @default(now()) @map("criado_em")
+
+  @@index([organizacaoId, alvoTipo, alvoId])
+  @@index([organizacaoId, criadoEm])
+  @@map("eventos_auditoria")
+}
+
+/// Só em desenvolvimento: as mensagens que iriam por WhatsApp ou e-mail.
+model CaixaSaidaDev {
+  id            String   @id @default(uuid()) @db.Uuid
+  organizacaoId String   @map("organizacao_id") @db.Uuid
+  balcaoId      String?  @map("balcao_id") @db.Uuid
+  canal         String
+  destino       String
+  texto         String
+  criadaEm      DateTime @default(now()) @map("criada_em")
+
+  @@index([organizacaoId, balcaoId])
+  @@map("caixa_saida_dev")
+}
