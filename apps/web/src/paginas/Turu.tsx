@@ -29,7 +29,9 @@ export function Turu() {
   const salvarModelo = useAcao((corpo: unknown) => api('POST', '/modelos', corpo), [chaves.modelos]);
   const [toast, avisar] = useToast();
   const fim = useRef<HTMLDivElement>(null);
-  useEffect(() => fim.current?.scrollIntoView({ block: 'nearest' }), [mensagens, pensando]);
+  useEffect(() => {
+    fim.current?.scrollIntoView({ block: 'nearest' });
+  }, [mensagens, pensando]);
 
   if (!sessao.tem('turu')) {
     return (

@@ -49,7 +49,9 @@ export function LayoutApp() {
   const navegar = useNavigate();
   const local = useLocation();
   const [menu, setMenu] = useState(false);
-  useEffect(() => setMenu(false), [local.pathname]);
+  useEffect(() => {
+    setMenu(false);
+  }, [local.pathname]);
 
   if (eu.isPending) return <Carregando />;
   if (eu.error) {
