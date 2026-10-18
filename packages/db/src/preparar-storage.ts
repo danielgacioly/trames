@@ -1,5 +1,5 @@
 /*
- * Cria os buckets em desenvolvimento (moto ou MinIO) com CORS para o upload
+ * Cria os buckets em desenvolvimento (moto) com CORS para o upload
  * direto do navegador. Em produção os buckets vêm da infraestrutura.
  */
 import { CreateBucketCommand, PutBucketCorsCommand } from '@aws-sdk/client-s3';
@@ -10,7 +10,7 @@ for (const Bucket of [BUCKET_QUARENTENA, BUCKET_DOCUMENTOS]) {
     if (!/BucketAlready/.test(e.name)) throw e;
   });
 }
-// O MinIO não aceita CORS por bucket (usa MINIO_API_CORS_ALLOW_ORIGIN); o moto e o S3 aceitam.
+// O moto e o S3 aceitam CORS por bucket; outros storages locais podem não aceitar.
 await s3.send(
   new PutBucketCorsCommand({
     Bucket: BUCKET_QUARENTENA,

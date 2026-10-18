@@ -15,7 +15,7 @@ apps/
 packages/
   db        schema Prisma, migrações (com RLS), cliente, criptografia, storage, seed
   shared    esquemas Zod, tipos, planos, regras de arquivo, estilos do design system
-infra/dev   docker compose com Postgres, MinIO e ClamAV
+infra/dev   docker compose com Postgres, S3 local (moto) e ClamAV
 ```
 
 Módulos da API (`apps/api/src/modulos`): `auth`, `organizacoes`, `balcoes`, `documentos`, `modelos`, `acesso-cliente`, `clientes`, `turu`, `cobranca`, `auditoria`.
@@ -26,7 +26,7 @@ Precisa de Node 22 e pnpm 10.
 
 ```bash
 pnpm install
-docker compose -f infra/dev/docker-compose.yml up -d   # Postgres, MinIO, ClamAV
+docker compose -f infra/dev/docker-compose.yml up -d   # Postgres, S3 local (moto), ClamAV
 cp .env.example .env                                    # gere CHAVE_MESTRA_LOCAL e CHAVE_HMAC com: openssl rand -base64 32
 pnpm preparar                                           # migrações, fila, buckets e dados de teste
 pnpm dev                                                # api, worker, web e balcao
