@@ -95,7 +95,7 @@ pnpm preparar
 pnpm dev
 ```
 
-O `pnpm preparar` aplica as migrações novas do banco, cria as filas novas do worker, prepara os buckets e roda o seed.
+O `pnpm install` baixa as bibliotecas novas. O `pnpm preparar` atualiza o cliente do banco, aplica as migrações novas, cria as filas novas do worker, prepara os buckets e roda o seed.
 
 ## 3. Endereços
 

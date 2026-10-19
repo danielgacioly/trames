@@ -10,7 +10,7 @@
     "db:migrate": "pnpm --filter @trames/db migrate",
     "db:seed": "pnpm --filter @trames/db seed && pnpm --filter @trames/worker miniaturas",
     "fila:instalar": "pnpm --filter @trames/worker fila:instalar",
-    "preparar": "pnpm db:migrate && pnpm fila:instalar && pnpm --filter @trames/db storage && pnpm db:seed",
+    "preparar": "pnpm --filter @trames/db build && pnpm db:migrate && pnpm fila:instalar && pnpm --filter @trames/db storage && pnpm db:seed",
     "storage": "pnpm --filter @trames/db storage",
     "caixa": "pnpm --silent --filter @trames/db caixa"
   },
