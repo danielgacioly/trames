@@ -38,7 +38,7 @@ export function Perfil() {
             </div>
           </div>
           <AvisoErro erro={salvar.error} />
-          <div className="campos-2">
+          <div className="campos-3c">
             <label className="tr-campo tr-campo--largo">
               <span className="tr-campo__rotulo">Nome completo</span>
               <input className="tr-campo__entrada" required minLength={2} maxLength={120} autoComplete="name" value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} />
@@ -47,12 +47,12 @@ export function Perfil() {
               <span className="tr-campo__rotulo">Cargo (opcional)</span>
               <input className="tr-campo__entrada" maxLength={80} placeholder="Ex.: Advogada, Contador, Secretária" autoComplete="organization-title" value={f.cargo} onChange={(e) => setF({ ...f, cargo: e.target.value })} />
             </label>
+            <label className="tr-campo tr-campo--largo">
+              <span className="tr-campo__rotulo">E-mail de acesso</span>
+              <input className="tr-campo__entrada" value={s.usuario.email} disabled />
+              <span className="tr-campo__dica">É por ele que você entra e recebe o código. Para trocar, fale com o suporte.</span>
+            </label>
           </div>
-          <label className="tr-campo tr-campo--largo">
-            <span className="tr-campo__rotulo">E-mail de acesso</span>
-            <input className="tr-campo__entrada" value={s.usuario.email} disabled />
-            <span className="tr-campo__dica">É por ele que você entra e recebe o código de acesso. Para trocar, fale com o suporte.</span>
-          </label>
         </div>
         <div className="secao__rodape">
           <span className="miudo texto-suave">Permissão: {PERMISSOES[s.usuario.permissao]}</span>

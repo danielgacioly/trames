@@ -39,12 +39,14 @@ import { selarConteudo } from './links';
  * Acesso do cliente, em duas etapas:
  *  1. o link (token no cabeçalho x-link; a busca é pelo hash) mostra para quem é o balcão;
  *  2. o código de 6 dígitos, por e-mail (ou WhatsApp, se o escritório escolheu no Pro/Ultra),
- *     abre uma sessão de 30 dias naquele aparelho, só para aquele balcão.
+ *     abre uma sessão de no máximo 1 dia naquele aparelho, só para aquele balcão.
+ * Cada entrada pede um código novo: abrir o link (GET /acesso) encerra a sessão
+ * que o aparelho tinha naquele balcão.
  * A sessão cai antes se o balcão for concluído, o link for revogado ou o escritório
  * encerrar o acesso (a função acesso_sessao_cliente confere tudo isso a cada pedido).
  */
 
-const VALIDADE_SESSAO_CLIENTE_MS = 30 * 86_400_000;
+const VALIDADE_SESSAO_CLIENTE_MS = 86_400_000;
 /** Limites por balcão, contados no banco (somam todos os links e todas as instâncias). */
 const CODIGOS_POR_HORA = 10;
 const ERROS_POR_15_MIN = 15;
@@ -91,6 +93,12 @@ rotasAcesso.get(
   '/',
   rota(async (req, res) => {
     const l = await linkValido(req);
+    // Abrir o link é uma entrada nova: a sessão anterior deste aparelho cai e o código é pedido de novo.
+    const anterior = req.cookies?.[cookieDoBalcao(l.balcao_id)];
+    if (typeof anterior === 'string' && anterior) {
+      await naOrganizacao(l.organizacao_id, (tx) => tx.sessaoCliente.deleteMany({ where: { tokenHash: hashToken(anterior), balcaoId: l.balcao_id } }));
+      limparCookie(res, cookieDoBalcao(l.balcao_id));
+    }
     const info = await naOrganizacao(l.organizacao_id, async (tx): Promise<AcessoInfo> => {
       const b = await tx.balcao.findUniqueOrThrow({ where: { id: l.balcao_id }, include: { cliente: true, _count: { select: { itens: { where: { removidoEm: null } } } } } });
       return {

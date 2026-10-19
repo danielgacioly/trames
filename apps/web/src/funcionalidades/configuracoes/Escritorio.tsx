@@ -24,7 +24,7 @@ export function Escritorio() {
 
   return (
     <form onSubmit={enviar} style={{ display: 'contents' }}>
-      <fieldset disabled={!admin} style={{ border: 0, padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
+      <fieldset disabled={!admin} className="config__grade">
         <section className="secao">
           <div className="secao__cabeca">
             <h2>Escritório</h2>
@@ -32,7 +32,7 @@ export function Escritorio() {
           </div>
           <div className="secao__corpo">
             <AvisoErro erro={salvar.error} />
-            <div className="campos-2">
+            <div className="campos-2" style={{ gridTemplateColumns: '1fr' }}>
               <label className="tr-campo tr-campo--largo">
                 <span className="tr-campo__rotulo">Nome do escritório ou da clínica</span>
                 <input className="tr-campo__entrada" required minLength={2} value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} />
@@ -83,10 +83,10 @@ export function Escritorio() {
           </div>
         </section>
 
-        <section className="secao">
+        <section className="secao inteira">
           <div className="secao__cabeca">
             <h2>Guarda dos arquivos</h2>
-            <p className="pequeno texto-suave">Depois de concluído o balcão, os arquivos saem do armazenamento; fica só o registro de que existiram. Uma semana antes, você recebe um e-mail.</p>
+            <p className="pequeno texto-suave">Só os balcões concluídos têm os arquivos apagados: depois do prazo escolhido, eles saem do armazenamento e fica só o registro de que existiram. Uma semana antes, você recebe um e-mail. Balcões arquivados guardam os arquivos.</p>
           </div>
           <div className="secao__corpo">
             {plano.retencao.opcoes.length > 1 ? (
@@ -110,7 +110,7 @@ export function Escritorio() {
         </section>
 
         {admin && (
-          <div className="linha" style={{ justifyContent: 'flex-end' }}>
+          <div className="linha inteira" style={{ justifyContent: 'flex-end' }}>
             <button type="submit" className="tr-btn tr-btn--primario" disabled={salvar.isPending}>
               {salvar.isPending ? 'Salvando…' : 'Salvar alterações'}
             </button>

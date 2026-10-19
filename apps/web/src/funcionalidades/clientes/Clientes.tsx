@@ -6,6 +6,13 @@ import { AvisoErro, Carregando, useToast } from '../../ui/comuns';
 import { Icone } from '../../ui/Icone';
 import { plural } from '../../util/formatos';
 import { useConfirmar } from '../../ui/Confirmar';
+import { Ordenar, useOrdem } from '../../ui/Ordenar';
+
+const ORDENS = [
+  { id: 'nome', rotulo: 'Nome' },
+  { id: 'abertos', rotulo: 'Mais balcões abertos' },
+  { id: 'total', rotulo: 'Mais balcões no total' },
+] as const;
 
 export function Clientes() {
   const confirmar = useConfirmar();
@@ -13,6 +20,7 @@ export function Clientes() {
   const consulta = useClientes();
   const [busca, setBusca] = useState('');
   const [toast, avisar] = useToast();
+  const [ordem, setOrdem] = useOrdem('clientes', ORDENS);
   const excluir = useAcao((id: string) => api('DELETE', `/clientes/${id}`), [chaves.clientes, chaves.balcoes, chaves.cobranca]);
   const admin = s.usuario.permissao === 'admin';
 
@@ -29,7 +37,9 @@ export function Clientes() {
 
   if (consulta.isPending) return <Carregando />;
   const termo = busca.trim().toLowerCase();
-  const linhas = (consulta.data ?? []).filter((c) => c.nome.toLowerCase().includes(termo));
+  const linhas = (consulta.data ?? [])
+    .filter((c) => c.nome.toLowerCase().includes(termo))
+    .sort((a, b) => (ordem === 'abertos' ? b.balcoesAbertos - a.balcoesAbertos : ordem === 'total' ? b.balcoesTotal - a.balcoesTotal : 0) || a.nome.localeCompare(b.nome, 'pt-BR'));
 
   return (
     <>
@@ -38,10 +48,13 @@ export function Clientes() {
           <h1 className="titulo-1">Clientes</h1>
           <p className="subtitulo">Todo mundo para quem você já abriu um balcão. A pedido do cliente, dá para exportar ou apagar os dados dele (LGPD).</p>
         </div>
-        <label className="busca">
-          <Icone nome="lupa" tamanho={18} />
-          <input placeholder="Buscar cliente" aria-label="Buscar cliente" value={busca} onChange={(e) => setBusca(e.target.value)} />
-        </label>
+        <div className="acoes-cabecalho">
+          <Ordenar valor={ordem} mudar={setOrdem} opcoes={ORDENS} />
+          <label className="busca">
+            <Icone nome="lupa" tamanho={18} />
+            <input placeholder="Buscar cliente" aria-label="Buscar cliente" value={busca} onChange={(e) => setBusca(e.target.value)} />
+          </label>
+        </div>
       </div>
       <AvisoErro erro={excluir.error} />
       <div className="tabela-caixa">

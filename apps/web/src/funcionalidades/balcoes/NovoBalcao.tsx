@@ -5,10 +5,14 @@ import { api } from '../../dados/api';
 import { chaves as chavesConsulta, useAcao, useCobranca, useModelos, usePastas, useSessao } from '../../dados/consultas';
 import { Bloqueio, Carregando, SeloConta } from '../../ui/comuns';
 import { Icone } from '../../ui/Icone';
+import { Iphone } from '../../ui/Iphone';
 import { useNotificar } from '../../ui/Notificacoes';
 import { dataLonga, diaDaqui, primeiroNome, soDigitos } from '../../util/formatos';
 import { comChave, ListaDocumentos, PuxarModelo, type Item } from './ListaDocumentos';
 
+
+const ARTIGOS = ['de', 'do', 'da', 'para'] as const;
+const OUTRO = 'outro';
 
 /** Carrega o modelo (se veio ?modelo=) antes de montar o formulário. */
 export function NovoBalcao() {
@@ -37,6 +41,10 @@ function FormularioBalcao({ modelo, pastaInicial }: { modelo?: { nome: string; i
   const navegar = useNavigate();
   const uso = useCobranca().data;
   const [tipo, setTipo] = useState(modelo?.nome ?? '');
+  // A palavra antes do tipo de caso é só da frase e da prévia; o balcão guarda só o tipo.
+  const [artigo, setArtigo] = useState<string>(ARTIGOS[0]);
+  const [artigoLivre, setArtigoLivre] = useState('');
+  const conector = artigo === OUTRO ? artigoLivre.trim() : artigo;
   const pastas = usePastas().data ?? [];
   const [pastaId, setPastaId] = useState(pastaInicial ?? '');
   const [itens, setItens] = useState<Item[]>(() => comChave(modelo?.itens ?? []));
@@ -127,10 +135,25 @@ function FormularioBalcao({ modelo, pastaInicial }: { modelo?: { nome: string; i
           <div className="folha__frase">
             <span className="rotulo">Novo balcão</span>
             <p className="frase">
-              Documentos de{' '}
-              <input aria-label="Tipo de caso" placeholder="tipo de caso" value={tipo} onChange={(e) => setTipo(e.target.value)} {...nomeEscrito(tipo, 12)} /> para{' '}
-              <input aria-label="Nome completo do cliente" placeholder="nome do cliente" required autoFocus {...campo('nome')} {...nomeEscrito(cliente.nome, 15)} />, até{' '}
-              <input aria-label="Prazo para o cliente" type="date" required value={prazo} min={diaDaqui(0)} onChange={(e) => setPrazo(e.target.value)} />.
+              <span className="frase__pedaco">
+                Documentos{' '}
+                <select className="frase__artigo" aria-label="Palavra antes do tipo de caso" value={artigo} onChange={(e) => setArtigo(e.target.value)} style={{ width: `${(artigo === OUTRO ? 6 : artigo.length) + 1.2}ch` }}>
+                  {ARTIGOS.map((x) => (
+                    <option key={x} value={x}>
+                      {x}
+                    </option>
+                  ))}
+                  <option value={OUTRO}>outro…</option>
+                </select>
+                {artigo === OUTRO && <input aria-label="Palavra antes do tipo de caso, do seu jeito" placeholder="escreva" value={artigoLivre} onChange={(e) => setArtigoLivre(e.target.value)} {...nomeEscrito(artigoLivre, 6)} />}{' '}
+                <input aria-label="Tipo de caso" placeholder="tipo de caso" value={tipo} onChange={(e) => setTipo(e.target.value)} {...nomeEscrito(tipo, 12)} />
+              </span>{' '}
+              <span className="frase__pedaco">
+                para <input aria-label="Nome completo do cliente" placeholder="nome do cliente" required autoFocus {...campo('nome')} {...nomeEscrito(cliente.nome, 15)} />,
+              </span>{' '}
+              <span className="frase__pedaco">
+                até <input aria-label="Prazo para o cliente" type="date" required value={prazo} min={diaDaqui(0)} onChange={(e) => setPrazo(e.target.value)} />.
+              </span>
             </p>
             <span className="miudo texto-suave">O tipo de caso agrupa os balcões numa pasta em Início. Ex.: Inventário, Imposto de Renda, Primeira consulta.</span>
           </div>
@@ -183,7 +206,7 @@ function FormularioBalcao({ modelo, pastaInicial }: { modelo?: { nome: string; i
               <div className="opcoes-envio">
                 <div className="opcao-envio">
                   <Canal rotulo="Código de acesso por" valor={canalCodigo} mudar={setCanalCodigo} pode={comWhatsapp} />
-                  <span className="miudo texto-suave">No mesmo celular, só pede de novo depois de 30 dias.</span>
+                  <span className="miudo texto-suave">Cada vez que o cliente abrir o link, chega um código novo.</span>
                 </div>
                 <div className="opcao-envio">
                   <label className="linha linha--entre" style={{ flexWrap: 'nowrap', cursor: 'pointer' }}>
@@ -222,21 +245,20 @@ function FormularioBalcao({ modelo, pastaInicial }: { modelo?: { nome: string; i
               )}
             </div>
           </section>
-        </div>
 
-        <aside className="painel-pedido" aria-label="Resumo">
-          <span className="rotulo">
-            Assim {nomeCliente === 'cliente' ? 'o cliente' : nomeCliente} vai ver no celular
-          </span>
-          <div className="previa-cliente" aria-hidden="true">
-            <div className="previa-cliente__tela">
-              <div className="linha miudo texto-suave">
+          <section className="previa-secao" aria-label="Prévia do celular">
+            <div className="previa-secao__texto">
+              <h2 className="titulo-cartao">Assim {nomeCliente === 'cliente' ? 'o cliente' : nomeCliente} vai ver no celular</h2>
+              <p className="miudo texto-suave">A prévia acompanha o que você escreve acima: o nome do escritório, a frase de abertura e a lista na ordem em que está.</p>
+            </div>
+            <Iphone>
+              <div className="linha miudo texto-suave" style={{ gap: 8 }}>
                 {sessao.tem('marca') && <SeloConta conta={sessao.organizacao} tamanho={24} />}
                 {sessao.organizacao.nome}
               </div>
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, lineHeight: '28px', fontWeight: 600 }}>Olá, {primeiroNome(cliente.nome) || '[nome]'}</div>
               <p className="miudo texto-suave" style={{ lineHeight: '19px' }}>
-                O escritório está reunindo os documentos{tipo ? ` de ${tipo.toLowerCase()}` : ''} e pediu {itens.length} {itens.length === 1 ? 'item' : 'itens'} até {dataLonga(prazo)}.
+                O escritório está reunindo os documentos{tipo ? ` ${conector ? `${conector} ` : ''}${tipo.toLowerCase()}` : ''} e pediu {itens.length} {itens.length === 1 ? 'item' : 'itens'} até {dataLonga(prazo)}.
               </p>
               <div className="coluna" style={{ gap: 6 }}>
                 {itens.map((d) => (
@@ -246,8 +268,11 @@ function FormularioBalcao({ modelo, pastaInicial }: { modelo?: { nome: string; i
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
+            </Iphone>
+          </section>
+        </div>
+
+        <aside className="painel-pedido" aria-label="Resumo">
           <div className="cartao" style={{ gap: 14 }}>
             <ul className="falta">
               {falta.map((f) => (

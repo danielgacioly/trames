@@ -7,7 +7,8 @@ import { Icone } from '../../ui/Icone';
 import { useNotificar } from '../../ui/Notificacoes';
 import { iniciais, plural } from '../../util/formatos';
 import { ListaBalcoes } from './ListaBalcoes';
-import { acharPasta, busca, ordenar } from './pastas';
+import { Ordenar, useOrdem } from '../../ui/Ordenar';
+import { acharPasta, busca, ORDENS_BALCAO, ordenarPor } from './pastas';
 import { FormularioPasta } from './PastasUi';
 import { useConfirmar } from '../../ui/Confirmar';
 
@@ -25,6 +26,7 @@ export function PastaPagina() {
   const [termo, setTermo] = useState('');
   const [encerrados, setEncerrados] = useState(false);
   const [editando, setEditando] = useState(false);
+  const [ordem, setOrdem] = useOrdem('pasta', ORDENS_BALCAO);
   const apagar = useAcao((id: string) => api('DELETE', `/pastas/${id}`), [chaves.pastas, chaves.balcoes]);
   const podeMontar = !(s.tem('permissoes') && s.usuario.permissao === 'confere');
 
@@ -47,7 +49,7 @@ export function PastaPagina() {
   const fechados = pasta.porSituacao ? [] : dela.filter((b) => !!b.concluidoEm);
   const mostrar = encerrados ? fechados : abertos;
   const t = termo.trim().toLowerCase();
-  const lista = encerrados ? mostrar.filter((b) => busca(b, t)) : ordenar(mostrar.filter((b) => busca(b, t)));
+  const lista = ordenarPor(mostrar.filter((b) => busca(b, t)), encerrados && ordem === 'acao' ? 'recentes' : ordem);
   const daConta = pasta.grupo === 'minhas' ? consultaPastas.data?.find((p) => p.id === pasta.valor) : undefined;
   const paraConferir = abertos.filter((b) => !b.concluidoEm && b.contagem.analise > 0).length;
 
@@ -111,9 +113,9 @@ export function PastaPagina() {
       )}
       <AvisoErro erro={apagar.error} />
 
-      <div className="linha linha--entre" style={{ gap: 12 }}>
+      <div className="filtro-e-ordem">
         {fechados.length > 0 ? (
-          <div className="abas" role="tablist" style={{ borderBottom: 0 }}>
+          <div className="abas" role="tablist">
             <button type="button" role="tab" className="aba" aria-selected={!encerrados} onClick={() => setEncerrados(false)}>
               Abertos <span className="num">{abertos.length}</span>
             </button>
@@ -124,12 +126,15 @@ export function PastaPagina() {
         ) : (
           <span />
         )}
-        {dela.length > 6 && (
-          <label className="busca">
-            <Icone nome="lupa" tamanho={18} />
-            <input placeholder="Buscar nesta pasta" aria-label="Buscar nesta pasta" value={termo} onChange={(e) => setTermo(e.target.value)} />
-          </label>
-        )}
+        <div className="linha" style={{ gap: 12, paddingBottom: 6 }}>
+          {dela.length > 6 && (
+            <label className="busca">
+              <Icone nome="lupa" tamanho={18} />
+              <input placeholder="Buscar nesta pasta" aria-label="Buscar nesta pasta" value={termo} onChange={(e) => setTermo(e.target.value)} />
+            </label>
+          )}
+          <Ordenar valor={ordem} mudar={setOrdem} opcoes={ORDENS_BALCAO} />
+        </div>
       </div>
 
       {lista.length ? <ListaBalcoes balcoes={lista} /> : <p className="texto-suave">{t ? 'Nenhum balcão encontrado.' : encerrados ? 'Nenhum balcão encerrado.' : pasta.vazia}</p>}

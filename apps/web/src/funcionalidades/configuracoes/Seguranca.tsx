@@ -29,7 +29,7 @@ export function Seguranca() {
   }
 
   return (
-    <>
+    <div className="config__grade">
       <form className="secao" onSubmit={enviar}>
         <div className="secao__cabeca">
           <h2>Senha</h2>
@@ -37,11 +37,11 @@ export function Seguranca() {
         </div>
         <div className="secao__corpo">
           <AvisoErro erro={erro ? new Error(erro) : trocar.error} />
-          <label className="tr-campo tr-campo--largo" style={{ maxWidth: 360 }}>
+          <label className="tr-campo tr-campo--largo">
             <span className="tr-campo__rotulo">Senha atual</span>
             <input className="tr-campo__entrada" type="password" required autoComplete="current-password" value={f.atual} onChange={(e) => setF({ ...f, atual: e.target.value })} />
           </label>
-          <div className="campos-2">
+          <div className="campos-2" style={{ gridTemplateColumns: '1fr' }}>
             <label className="tr-campo tr-campo--largo">
               <span className="tr-campo__rotulo">Senha nova</span>
               <input className="tr-campo__entrada" type="password" required minLength={10} autoComplete="new-password" value={f.nova} onChange={(e) => setF({ ...f, nova: e.target.value })} />
@@ -95,6 +95,6 @@ export function Seguranca() {
         )}
       </section>
       {toast}
-    </>
+    </div>
   );
 }

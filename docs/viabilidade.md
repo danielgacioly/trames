@@ -44,11 +44,12 @@ Regras:
 
 - O código de 6 dígitos vai por **e-mail** por padrão.
 - Nos planos Pro e Ultra, o escritório pode escolher WhatsApp como canal do código, balcão a balcão. Esse envio conta na cota.
-- Depois de validar o código, criar uma **sessão de 30 dias naquele aparelho**:
+- Depois de validar o código, criar uma **sessão de no máximo 1 dia naquele aparelho**:
   - cookie `HttpOnly`, `Secure`, `SameSite=Strict`;
   - o banco guarda só o hash do identificador da sessão;
   - a sessão vale só para aquele balcão.
-- A sessão cai antes dos 30 dias se o balcão for concluído, o link for revogado ou o escritório encerrar o acesso manualmente.
+- Cada entrada pede um código novo: abrir o link derruba a sessão anterior do aparelho e o código é enviado na hora.
+- A sessão cai antes se o balcão for concluído, o link for revogado ou o escritório encerrar o acesso manualmente.
 - Mantêm-se as regras de segurança do código: validade curta, limite de tentativas e rate limit por IP e por balcão.
 
 ## 4. Lembretes

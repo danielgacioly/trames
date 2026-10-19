@@ -45,7 +45,7 @@ Ficam como estavam (confirme se concordar):
 ## Segurança
 
 - [ ] **Isolar a geração de miniatura de PDF.** O worker abre PDFs enviados por clientes com o pdf.js (versão 4.10, sem `eval`), com limite de 20 segundos. Falta limite de memória, idealmente rodando essa etapa num processo ou container separado, para um PDF malicioso ou pesado não derrubar o worker.
-- [ ] **Pentest externo** antes de lançar, incluindo a sessão de 30 dias do cliente, os vários links por balcão e a geração de miniaturas.
+- [ ] **Pentest externo** antes de lançar, incluindo a sessão de 1 dia do cliente (código novo a cada entrada), os vários links por balcão e a geração de miniaturas.
 
 ## Jurídico e LGPD
 

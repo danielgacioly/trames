@@ -1,5 +1,4 @@
-import { criarKms, naOrganizacao, planoDe, selar, todasAsOrganizacoes } from '@trames/db';
-import { diasRetencao } from '@trames/shared';
+import { criarKms, naOrganizacao, selar, todasAsOrganizacoes } from '@trames/db';
 import { apagar, BUCKET_DOCUMENTOS, BUCKET_QUARENTENA } from '@trames/db/armazenamento';
 import { log } from '../log';
 import type { Enfileirar } from '../fila';
@@ -110,7 +109,7 @@ export async function arquivar() {
           tx,
           org,
           `${avisar.length} ${avisar.length === 1 ? 'balcão será arquivado' : 'balcões serão arquivados'} em 7 dias`,
-          `Estes balcões estão abertos e com o prazo vencido há semanas:\n${linhas.join('\n')}\n\nEm 7 dias eles serão arquivados: o link do cliente para de valer e começa a contar o prazo para apagar os arquivos. Para evitar, mude o prazo ou conclua o balcão.`,
+          `Estes balcões estão abertos e com o prazo vencido há semanas:\n${linhas.join('\n')}\n\nEm 7 dias eles serão arquivados: o link do cliente para de valer. Os arquivos continuam guardados; eles só são apagados depois que o balcão é concluído. Para evitar, mude o prazo ou conclua o balcão.`,
         );
         await tx.balcao.updateMany({ where: { id: { in: avisar.map((b) => b.id) } }, data: { avisoArquivoEm: new Date() } });
       }
@@ -118,15 +117,13 @@ export async function arquivar() {
       // Só arquiva quem já recebeu o aviso há 7 dias: nenhum balcão é arquivado sem aviso.
       const vencidos = await tx.balcao.findMany({ where: { concluidoEm: null, prazo: { lt: limite }, avisoArquivoEm: { lte: new Date(Date.now() - 7 * DIA_MS) } }, select: { id: true } });
       if (!vencidos.length) return;
-      const o = await tx.organizacao.findUniqueOrThrow({ where: { id: org } });
-      const dias = diasRetencao(await planoDe(tx, org), o.diasRetencao);
       const agora = new Date();
       const ids = vencidos.map((b) => b.id);
-      await tx.balcao.updateMany({ where: { id: { in: ids } }, data: { concluidoEm: agora, arquivadoEm: agora, apagarArquivosEm: new Date(agora.getTime() + dias * DIA_MS), avisoRetencaoEm: null } });
+      await tx.balcao.updateMany({ where: { id: { in: ids } }, data: { concluidoEm: agora, arquivadoEm: agora, apagarArquivosEm: null, avisoRetencaoEm: null } });
       await tx.linkAcesso.updateMany({ where: { balcaoId: { in: ids }, revogadoEm: null }, data: { revogadoEm: agora } });
       await tx.sessaoCliente.deleteMany({ where: { balcaoId: { in: ids } } });
       for (const id of ids) {
-        await tx.eventoAuditoria.create({ data: { organizacaoId: org, atorTipo: 'sistema', acao: 'balcao.arquivado', alvoTipo: 'balcao', alvoId: id, detalhes: { automatico: true, diasRetencao: dias } } });
+        await tx.eventoAuditoria.create({ data: { organizacaoId: org, atorTipo: 'sistema', acao: 'balcao.arquivado', alvoTipo: 'balcao', alvoId: id, detalhes: { automatico: true } } });
       }
       total += ids.length;
     });

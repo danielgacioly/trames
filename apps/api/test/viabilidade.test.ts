@@ -92,7 +92,7 @@ describe('planos e canais', () => {
 });
 
 describe('acesso do cliente', () => {
-  it('sessão de 30 dias vale só para aquele balcão e cai quando o escritório encerra ou conclui', async () => {
+  it('sessão de 1 dia vale só para aquele balcão, cai ao abrir o link de novo e quando o escritório encerra', async () => {
     const { agente, org } = await entrar(1);
     const b1 = await criar(agente);
     const b2 = await criar(agente);
@@ -106,7 +106,7 @@ describe('acesso do cliente', () => {
     const cookie = String(entrou.headers['set-cookie']);
     expect(cookie).toMatch(/HttpOnly/i);
     expect(cookie).toMatch(/SameSite=Strict/i);
-    expect(cookie).toMatch(/Max-Age=2592000/);
+    expect(cookie).toMatch(/Max-Age=86400/);
 
     await cliente.get('/api/cliente/balcao').set('x-link', token1).expect(200);
     // O mesmo aparelho, com o link de outro balcão, não entra.
@@ -122,6 +122,15 @@ describe('acesso do cliente', () => {
     const colunas = await dono.$queryRaw<{ column_name: string }[]>`SELECT column_name FROM information_schema.columns WHERE table_name = 'links_acesso'`;
     expect(colunas.map((c) => c.column_name)).not.toContain('token_selado');
 
+    // Abrir o link de novo é outra entrada: a sessão cai e o código é pedido outra vez.
+    await cliente.get('/api/acesso').set('x-link', token1).expect(200);
+    await cliente.get('/api/cliente/balcao').set('x-link', token1).expect(401);
+
+    // Entrando de novo, o escritório pode encerrar o acesso.
+    await cliente.post('/api/acesso/codigo').set('origin', ORIGEM).set('x-link', token1).send({}).expect(202);
+    const segundo = await ultimoSelado<{ codigo: string }>({ tipo: 'codigo', campo: 'balcaoId', valor: b1.id }, org);
+    await cliente.post('/api/acesso/entrar').set('origin', ORIGEM).set('x-link', token1).send({ codigo: segundo.codigo }).expect(200);
+    await cliente.get('/api/cliente/balcao').set('x-link', token1).expect(200);
     await agente.delete(`/api/balcoes/${b1.id}/sessoes`).set('origin', ORIGEM).expect(204);
     await cliente.get('/api/cliente/balcao').set('x-link', token1).expect(401);
 
@@ -175,14 +184,14 @@ describe('editar a lista', () => {
     expect(ultimo.body.codigo).toBe('ultimo_item');
   });
 
-  it('arquivar: deixa de ser ativo, derruba o acesso, agenda a exclusão e dá para reabrir', async () => {
+  it('arquivar: deixa de ser ativo, derruba o acesso, não apaga os arquivos e dá para reabrir', async () => {
     const { agente } = await entrar(1);
     const b = await criar(agente);
     const ativosAntes = (await agente.get('/api/cobranca').expect(200)).body.balcoesAtivos;
     await agente.post(`/api/balcoes/${b.id}/arquivar`).set('origin', ORIGEM).expect(204);
     const det = (await agente.get(`/api/balcoes/${b.id}`).expect(200)).body;
     expect(det.arquivadoEm).toBeTruthy();
-    expect(Math.round((new Date(det.apagarArquivosEm).getTime() - new Date(det.concluidoEm).getTime()) / 86_400_000)).toBe(90);
+    expect(det.apagarArquivosEm).toBeNull(); // só a conclusão agenda a exclusão
     expect((await agente.get('/api/cobranca').expect(200)).body.balcoesAtivos).toBe(ativosAntes - 1);
     expect((await request(app).get('/api/acesso').set('x-link', b.link.url.split('#')[1]).expect(410)).body.codigo).toBe('balcao_concluido');
     await agente.post(`/api/balcoes/${b.id}/itens`).set('origin', ORIGEM).send({ itens: [{ nome: 'Outro', detalhe: '', obrigatorio: true }] }).expect(409);
@@ -196,7 +205,10 @@ describe('editar a lista', () => {
     const { agente, org } = await entrar(2);
     const recente = await criar(agente);
     const antigo = await criar(agente);
-    for (const b of [recente, antigo]) await agente.post(`/api/balcoes/${b.id}/arquivar`).set('origin', ORIGEM).expect(204);
+    const arquivado = await criar(agente);
+    await dono.itemBalcao.updateMany({ where: { balcaoId: { in: [recente.id, antigo.id] } }, data: { status: 'aprovado' } });
+    for (const b of [recente, antigo]) await agente.post(`/api/balcoes/${b.id}/concluir`).set('origin', ORIGEM).expect(204);
+    await agente.post(`/api/balcoes/${arquivado.id}/arquivar`).set('origin', ORIGEM).expect(204);
     // O "antigo" foi encerrado há 60 dias, com 90 de retenção: faltam 30.
     const DIA = 86_400_000;
     await dono.balcao.update({ where: { id: antigo.id }, data: { concluidoEm: new Date(Date.now() - 60 * DIA), apagarArquivosEm: new Date(Date.now() + 30 * DIA) } });
@@ -206,6 +218,7 @@ describe('editar a lista', () => {
       await agente.put('/api/organizacao').set('origin', ORIGEM).send({ nome: o.nome, diasRetencao: 30 }).expect(204);
       expect(Math.round(await faltam(recente.id))).toBe(30); // encerrado agora: 30 dias
       expect(Math.round(await faltam(antigo.id))).toBe(7); // já passaria do prazo: 7 dias, para o aviso sair
+      expect((await dono.balcao.findUniqueOrThrow({ where: { id: arquivado.id } })).apagarArquivosEm).toBeNull(); // arquivado não entra
     } finally {
       await dono.organizacao.update({ where: { id: org }, data: { diasRetencao: o.diasRetencao } });
     }

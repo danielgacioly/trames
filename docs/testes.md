@@ -133,7 +133,7 @@ Avisos de uso (limite de balcões, excedente, cota de WhatsApp) aparecem só no 
 
 - [ ] A tela **Início** tem três ações rápidas: **Novo balcão**, **Novo modelo** (bloqueado no Grátis) e **Todos os balcões**.
 - [ ] Logo abaixo, **Pedem a sua atenção** mostra até 3 balcões com documento para conferir ou prazo vencido, com o link **Ver todos os balcões**.
-- [ ] A tela **Balcões** (no menu) mostra todos os balcões numa grade de cartões, com filtros (Abertos, Para conferir, Com o cliente, Concluídos e arquivados), busca e o botão **Novo balcão**.
+- [ ] A tela **Balcões** (no menu) mostra todos os balcões numa lista em linhas, com abas de filtro (Abertos, Para conferir, Com o cliente, Concluídos e arquivados) e, à direita, **Ordenar por** (Precisa de ação, Mais recentes, Mais antigos, Prazo mais próximo, Nome do cliente). A escolha fica salva. Pastas, Clientes e Modelos também têm **Ordenar por**.
 - [ ] Os balcões ficam em pastas, cada uma com quantos estão abertos e, no círculo azul, quantos têm documento para conferir:
   - **Situação**: Para conferir, Com o cliente, Prazo vencido, Tudo aprovado, Todos os abertos, Encerrados.
   - **Minhas pastas**: as que o escritório cria. O seed traz "Prioridade" e "Esperando cartório" no Pro, e três no Ultra.
@@ -174,7 +174,7 @@ Avisos de uso (limite de balcões, excedente, cota de WhatsApp) aparecem só no 
 - [ ] Ao entrar, aparece o aviso "A cota de WhatsApp está no fim". **Plano e uso** mostra 6 de 40 balcões e 298 de 300 mensagens.
 - [ ] Abra o balcão do Júlio. A tela de conferir mostra a **miniatura** do documento; o original só sai em **Baixar original** (e fica no Histórico).
 - [ ] **Link do cliente**: a Trames não guarda links (só uma impressão digital), então clique em **Gerar link para enviar**. Os links já mandados continuam valendo e o cliente continua conectado. "Enviar pelo WhatsApp" abre o seu WhatsApp (wa.me) com a mensagem pronta; "Enviar por e-mail" manda pela Trames; "Copiar link" fica no Histórico.
-- [ ] **Arquivar**: num balcão aberto, clique em **Arquivar**. Ele sai dos ativos, o link do cliente para de valer e a tela mostra quando os arquivos serão apagados. **Reabrir balcão** desfaz.
+- [ ] **Arquivar**: num balcão aberto, clique em **Arquivar**. Ele sai dos ativos e o link do cliente para de valer. Os arquivos continuam guardados: só os balcões concluídos têm os arquivos apagados pela retenção. **Reabrir balcão** desfaz.
 - [ ] O balcão da Marta (prazo vencido) mostra quando será arquivado sozinho, se ninguém mexer.
 - [ ] **Editar lista**: inclua um documento, puxe itens de um modelo, mude a ordem (arrastando ou pelas setas), marque "Pedir de novo" num item aprovado e tire um item que já tem arquivo (pede confirmação). Salve e confira o Histórico, com o antes e o depois.
 - [ ] Tente tirar todos os itens: o último não sai.
@@ -202,9 +202,9 @@ Em desenvolvimento a cobrança é simulada. Em **Configurações › Plano e uso
 
 1. Entre com uma conta (Pro é a mais completa) e crie um balcão.
 2. Na tela **"Balcão criado"**, clique em **Ver como o cliente**, no topo à direita, (ou copie o link e abra numa janela anônima, no modo celular do navegador).
-3. Clique em **Receber o código**: ele vai pelo canal que o escritório escolheu (e-mail, por padrão). Como nada sai em desenvolvimento, use **"preencher o código da caixa de saída"**.
+3. O código sai sozinho ao abrir o link, pelo canal que o escritório escolheu (e-mail, por padrão). Como nada sai em desenvolvimento, use **"preencher o código da caixa de saída"**.
 4. Envie uma foto e um PDF. O arquivo aparece como **"Recebido. Estamos verificando o arquivo."** enquanto o worker confere o tipo, passa o antivírus e gera a miniatura. Depois fica **em análise**, e o cliente pode tocar em **Ver o que enviei** (a miniatura, nunca o original).
-5. Feche a aba e abra o link de novo: entra direto na lista, sem código. A sessão vale 30 dias naquele aparelho e só para aquele balcão, por qualquer link dele (o do lembrete também).
+5. Recarregue ou abra o link de novo: chega um código novo e é preciso digitá-lo outra vez. A sessão dura no máximo 1 dia e vale só para aquele balcão.
 6. No painel, abra o balcão (Início › Para conferir) e aprove ou recuse cada documento. Recarregue a tela do cliente: o recusado aparece com o motivo.
 7. No painel, clique em **Encerrar acesso**: no celular, o código é pedido de novo. Concluir, arquivar ou **Cancelar links e gerar novo** também encerra o acesso.
 8. Edite a lista e inclua um documento: 10 minutos depois o worker manda ao cliente um e-mail com o que mudou (todas as mudanças desses 10 minutos vão juntas).

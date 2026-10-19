@@ -136,7 +136,7 @@
 <div style="display: flex; flex-direction: column; gap: 8px;">
 <span style="font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--raiz);">2</span>
 <h3 style="margin: 0; font-family: var(--font-display); font-size: 22px; line-height: 28px; font-weight: 600; letter-spacing: -.01em;">Envie o link</h3>
-<p style="margin: 0; color: var(--tinta-suave);">Os dados do cliente você já preenche. Ele recebe o link pelo seu WhatsApp ou por e-mail, confirma um código de seis números e pronto. No mesmo celular, não precisa repetir por 30 dias.</p>
+<p style="margin: 0; color: var(--tinta-suave);">Os dados do cliente você já preenche. Ele recebe o link pelo seu WhatsApp ou por e-mail, confirma um código de seis números e pronto. A cada entrada, chega um código novo.</p>
 </div>
 </div>
 
@@ -232,8 +232,11 @@
 </div>
 </div>
 <div style="flex: 1 1 340px; min-width: 0; display: flex; justify-content: center;">
-<div style="width: 300px; border-radius: 44px; background: var(--lama); padding: 12px; box-sizing: border-box;">
-<div style="border-radius: 34px; background: var(--areia); overflow: hidden; padding: 28px 18px 22px; display: flex; flex-direction: column; gap: 14px;">
+<div class="iphone" aria-hidden="true">
+<span class="iphone__botao iphone__botao--acao"></span><span class="iphone__botao iphone__botao--mais"></span><span class="iphone__botao iphone__botao--menos"></span><span class="iphone__botao iphone__botao--lado"></span>
+<div class="iphone__tela">
+<div class="iphone__status"><span>9:41</span><span class="iphone__ilha"></span><span class="iphone__icones"><span class="iphone__sinal"><i></i><i></i><i></i><i></i></span><span class="iphone__bateria"></span></span></div>
+<div class="iphone__conteudo">
 <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--tinta-suave);"><span style="width: 24px; height: 24px; border-radius: 6px; background: var(--raiz); color: #fff; display: grid; place-items: center; font-size: 11px; font-weight: 600;">AL</span>Albuquerque &amp; Lima Advocacia</div>
 <div style="font-family: var(--font-display); font-size: 22px; line-height: 26px; font-weight: 600;">Olá, Júlio</div>
 <div class="tr-progresso" style="gap: 6px;">
@@ -246,6 +249,8 @@
 <div style="background: var(--recusado-suave); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 18px;"><span style="display: flex; justify-content: space-between; gap: 8px;">Holerite de agosto<span style="color: var(--recusado); font-weight: 500;">Reenviar</span></span><span style="color: var(--recusado); font-size: 12px; line-height: 16px;">A foto ficou cortada embaixo.</span></div>
 <div style="background: var(--areia-elevada); border: 1px solid var(--linha); border-radius: 12px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; line-height: 18px; color: var(--tinta-suave);">RG ou CNH<span style="color: var(--mangue); font-weight: 500;">Aprovado</span></div>
 </div>
+</div>
+<span class="iphone__home"></span>
 </div>
 </div>
 </div>

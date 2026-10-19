@@ -161,17 +161,9 @@ a.pasta:hover { border-color: var(--linha-forte); box-shadow: var(--shadow-sm); 
 .seletor-pasta:focus-within { box-shadow: var(--focus-ring); }
 
 /* ---------- Balcão criado / enviar link ---------- */
-.link-grade { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); gap: 16px; align-items: start; }
-@media (max-width: 960px) { .link-grade { grid-template-columns: 1fr; } }
 .selo-ok { width: 48px; height: 48px; border-radius: 9999px; background: var(--mangue-suave); color: var(--mangue); display: grid; place-items: center; flex: none; }
 .campo-link { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 14px; border: 1px solid var(--linha-forte); border-radius: 10px; background: var(--areia); }
 .campo-link .tr-protocolo { flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.resumo { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; font-size: 14px; line-height: 20px; }
-.resumo dt { color: var(--tinta-suave); }
-.resumo dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
-.documentos-pedidos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; font-size: 14px; line-height: 20px; }
-.documentos-pedidos li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--linha); }
-.documentos-pedidos li:first-child { border-top: 0; padding-top: 0; }
 
 .pasta__conferir { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 9999px; background: var(--em-analise-suave); color: var(--em-analise); font-size: 12px; font-weight: 600; display: grid; place-items: center; flex: none; }
 .cabecalho-pagina > .acoes-cabecalho { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px; max-width: none; }
@@ -342,15 +334,13 @@ a.pasta:hover { border-color: var(--linha-forte); box-shadow: var(--shadow-sm); 
 
 /* Painel ao lado: prévia do celular (sempre clara, como o cliente vê) e o que falta */
 .painel-pedido { position: sticky; top: 24px; display: flex; flex-direction: column; gap: 16px; }
-.previa-cliente { --areia: #f7f4ee; --areia-elevada: #ffffff; --areia-funda: #eee8dd; --linha: #ddd3c3; --tinta: #221b14; --tinta-suave: #5c5244; --mangue: #13594b; --raiz: #8a5330; --raiz-suave: #f3e3d5; color: var(--tinta); border-radius: 34px; background: #2e241b; padding: 9px; }
-.previa-cliente__tela { border-radius: 26px; background: var(--areia); padding: 22px 16px; display: flex; flex-direction: column; gap: 12px; max-height: 420px; overflow: hidden; }
 .falta { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 20px; }
 .falta li { display: flex; align-items: center; gap: 10px; color: var(--tinta-suave); }
 .falta li .tr-icone { width: 18px; height: 18px; flex: none; }
 .falta li.ok { color: var(--tinta); }
 .falta li.ok .tr-icone { color: var(--mangue); }
 .falta__bolinha { width: 18px; height: 18px; border-radius: 9999px; border: 1.5px solid var(--linha-forte); flex: none; }
-@media (max-width: 1080px) { .folha-pedido { grid-template-columns: 1fr; } .painel-pedido { position: static; } .previa-cliente { display: none; } }
+@media (max-width: 1080px) { .folha-pedido { grid-template-columns: 1fr; } .painel-pedido { position: static; } }
 @media (max-width: 640px) {
   .folha__frase { padding: 22px 18px; }
   .frase { font-size: 22px; line-height: 38px; }
@@ -500,3 +490,97 @@ details.grupo-linhas[open] > summary::after { content: '–'; }
 .app .aviso, .app .pilula, .app .tr-etiqueta, .app .tr-status, .app .pasta__conferir, .app .seletor-pasta { font-size: 13px; }
 .app .tr-etiqueta { border-radius: 6px; }
 .app .selo-ok { width: 40px; height: 40px; }
+
+/* Filtro (abas) à esquerda e "Ordenar por" à direita, na mesma faixa */
+.filtro-e-ordem { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--linha); }
+.filtro-e-ordem .abas { border-bottom: 0; flex: 1; min-width: 0; }
+.ordenar { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--tinta-suave); padding-bottom: 6px; white-space: nowrap; }
+.ordenar select { font: inherit; font-size: 13px; font-weight: 500; color: var(--tinta); height: 40px; padding: 0 28px 0 10px; border: 1px solid var(--linha-forte); border-radius: 6px; background: var(--areia-elevada); cursor: pointer; }
+.ordenar select:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+@media (max-width: 760px) { .filtro-e-ordem { flex-direction: column; align-items: stretch; gap: 4px; } .ordenar { padding: 6px 0 10px; } }
+.outras-areas { margin-top: 36px; display: flex; flex-direction: column; gap: 4px; }
+.outras-areas > .miudo { margin-bottom: 12px; }
+
+/* ---------- Modelo de iPhone: prévia do que o cliente vê (painel e landing) ----------
+ * A tela é sempre clara, como a página do cliente, mesmo no tema escuro do painel. */
+.iphone {
+  --areia: #f7f4ee; --areia-elevada: #ffffff; --areia-funda: #eee8dd; --linha: #ddd3c3; --tinta: #221b14; --tinta-suave: #5c5244;
+  --mangue: #13594b; --raiz: #8a5330; --raiz-suave: #f3e3d5; --recusado: #a9361b; --recusado-suave: #f8e0d7;
+  position: relative; width: 300px; max-width: 100%; aspect-ratio: 300 / 620; flex: none; box-sizing: border-box;
+  padding: 11px; border-radius: 54px; background: #221b14; border: 3px solid #5c5244; color: var(--tinta);
+}
+.iphone__botao { position: absolute; width: 4px; border-radius: 2px; background: #5c5244; }
+.iphone__botao--acao { left: -7px; top: 112px; height: 28px; }
+.iphone__botao--mais { left: -7px; top: 162px; height: 52px; }
+.iphone__botao--menos { left: -7px; top: 226px; height: 52px; }
+.iphone__botao--lado { right: -7px; top: 180px; height: 82px; }
+.iphone__tela { position: relative; height: 100%; border-radius: 42px; background: var(--areia); overflow: hidden; display: flex; flex-direction: column; }
+.iphone__status { position: relative; flex: none; height: 50px; display: flex; align-items: center; justify-content: space-between; padding: 4px 26px 0 32px; font-family: var(--font-sans); font-size: 15px; font-weight: 600; color: var(--tinta); }
+.iphone__ilha { position: absolute; left: 50%; top: 11px; transform: translateX(-50%); width: 96px; height: 28px; border-radius: 20px; background: #221b14; }
+.iphone__icones { display: flex; align-items: center; gap: 6px; }
+.iphone__sinal { display: flex; align-items: flex-end; gap: 1.5px; height: 11px; }
+.iphone__sinal i { display: block; width: 3px; border-radius: 1px; background: var(--tinta); }
+.iphone__sinal i:nth-child(1) { height: 4px; } .iphone__sinal i:nth-child(2) { height: 6px; } .iphone__sinal i:nth-child(3) { height: 8px; } .iphone__sinal i:nth-child(4) { height: 11px; }
+.iphone__bateria { position: relative; width: 24px; height: 12px; border: 1.5px solid var(--tinta); border-radius: 4px; box-sizing: border-box; padding: 1.5px; }
+.iphone__bateria::before { content: ''; display: block; height: 100%; width: 75%; border-radius: 1.5px; background: var(--tinta); }
+.iphone__bateria::after { content: ''; position: absolute; right: -4px; top: 3px; width: 2px; height: 4px; border-radius: 0 1px 1px 0; background: var(--tinta); }
+.iphone__conteudo { flex: 1; min-height: 0; overflow: hidden; padding: 10px 18px 28px; display: flex; flex-direction: column; gap: 14px; }
+.iphone__home { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); width: 112px; height: 4px; border-radius: 4px; background: var(--tinta); }
+
+/* Novo balcão: a prévia vira a última seção da folha */
+.previa-secao { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 32px; align-items: start; padding: 28px 0 8px; border-top: 1px solid var(--linha); }
+.previa-secao__texto { display: flex; flex-direction: column; gap: 6px; max-width: 360px; }
+@media (max-width: 760px) { .previa-secao { grid-template-columns: 1fr; justify-items: center; } }
+.frase__pedaco { white-space: nowrap; }
+.frase__artigo { font: inherit; font-weight: 600; color: var(--tinta); border: 0; border-bottom: 2px dashed var(--linha-forte); background: transparent; padding: 0 2px; margin: 0 2px; cursor: pointer; appearance: none; -webkit-appearance: none; border-radius: 0; }
+.frase__artigo:focus { outline: none; border-bottom: 2px solid var(--mangue); }
+.app .painel-pedido { top: 24px; }
+@media (max-width: 640px) { .frase__pedaco { white-space: normal; } }
+
+/* ---------- Balcão criado / enviar link ---------- */
+.criado-topo { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding-bottom: 16px; border-bottom: 1px solid var(--linha); }
+.criado-topo__titulo { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.criado-grade { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 32px; align-items: start; }
+.criado-envio { padding: 24px; gap: 18px; }
+.campo-link--destaque { padding: 6px 6px 6px 16px; min-height: 52px; background: var(--areia-elevada); border-color: var(--linha-forte); }
+.campo-link--destaque .tr-protocolo { font-size: 15px; color: var(--tinta); }
+.criado-envio__botoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.criado-envio__mensagem { min-height: 64px; background: var(--areia); }
+.criado-envio__mensagem:focus { min-height: 112px; }
+.criado-resumo { display: flex; flex-direction: column; }
+.criado-resumo__grupo { display: flex; flex-direction: column; gap: 2px; padding: 14px 0; border-bottom: 1px solid var(--linha); }
+.criado-resumo__grupo:first-child { padding-top: 4px; }
+.criado-resumo__grupo:last-child { border-bottom: 0; }
+.criado-resumo__grupo .rotulo { margin-bottom: 4px; }
+.criado-resumo__grupo strong { font-weight: 500; }
+.criado-docs { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; }
+.criado-docs__lista { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px; border-top: 1px solid var(--linha); }
+.criado-docs__lista li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 10px 4px; border-bottom: 1px solid var(--linha); }
+.criado-docs__nome { display: flex; flex-direction: column; min-width: 0; }
+@media (max-width: 960px) { .criado-grade { grid-template-columns: 1fr; gap: 20px; } .criado-docs__lista { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .criado-envio__botoes { grid-template-columns: 1fr; } }
+
+/* Configurações ocupando a largura toda, como as outras telas */
+.app .config { grid-template-columns: 220px minmax(0, 1fr); }
+.app .config__conteudo { max-width: none; }
+.config__grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; border: 0; padding: 0; margin: 0; min-width: 0; }
+.config__grade > .inteira { grid-column: 1 / -1; }
+.campos-3c { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.uso-grade { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 32px; }
+@media (max-width: 1100px) { .config__grade, .campos-3c, .uso-grade { grid-template-columns: 1fr; } }
+
+/* Pastas do Início: cada uma é um botão com contorno, não texto solto */
+.app .pastas { gap: 10px; }
+.app .pasta { border: 1px solid var(--linha); background: var(--areia-elevada); border-radius: 10px; padding: 10px 12px; min-height: 56px; }
+.app a.pasta:hover { background: var(--areia-elevada); border-color: var(--linha-forte); }
+.app .pasta--vazia { background: transparent; }
+.app .pasta--nova { border: 1px dashed var(--linha-forte); background: transparent; }
+
+/* Tipografia secundária: sem Mono e sem rótulos em maiúsculas espaçadas.
+ * Números e datas em Plex Sans com algarismos tabulares; o Mono fica só nos protocolos. */
+.app .num { font-family: var(--font-sans); font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.rotulo { font-size: 13px; line-height: 18px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--tinta-suave); }
+.app .tabela th { font-size: 13px; letter-spacing: 0; text-transform: none; font-weight: 600; }
+.app .tabela-caixa--solta .tabela td:first-child { font-family: var(--font-sans); font-variant-numeric: tabular-nums; }
+.app .pasta__corpo > .miudo, .app .pasta__conferir { font-family: var(--font-sans); font-variant-numeric: tabular-nums; }
+.app .doc__num { font-family: var(--font-sans); font-variant-numeric: tabular-nums; font-weight: 500; }

@@ -77,7 +77,7 @@ export function PlanoEUso() {
         </div>
         <div className="secao__corpo">
           {uso && (
-            <>
+            <div className="uso-grade">
               {plano.balcoesNoMes !== null ? (
                 <Uso
                   rotulo="Balcões novos neste mês"
@@ -94,7 +94,7 @@ export function PlanoEUso() {
               )}
               {plano.cotaWhatsapp > 0 && <Uso rotulo="Mensagens de WhatsApp neste mês" usado={uso.whatsappEnviados} total={plano.cotaWhatsapp} dica="Quando acaba, códigos e lembretes vão por e-mail até o mês virar." />}
               <Uso rotulo="Pessoas na conta" usado={uso.pessoas} total={plano.limitePessoas} />
-            </>
+            </div>
           )}
         </div>
       </section>

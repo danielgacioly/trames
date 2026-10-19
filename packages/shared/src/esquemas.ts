@@ -177,6 +177,7 @@ export interface BalcaoResumo {
   tipo: string;
   clienteNome: string;
   prazo: string;
+  criadoEm: string;
   lembrete: boolean;
   canalLembrete: CanalCodigo;
   canalCodigo: CanalCodigo;

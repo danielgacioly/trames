@@ -68,6 +68,7 @@ export function resumo(b: BalcaoComItens): BalcaoResumo {
     tipo: b.tipo,
     clienteNome: b.cliente.nome,
     prazo: dataISO(b.prazo),
+    criadoEm: b.criadoEm.toISOString(),
     lembrete: b.lembrete,
     canalLembrete: b.canalLembrete as 'email' | 'whatsapp',
     canalCodigo: b.canalCodigo as 'email' | 'whatsapp',
@@ -169,12 +170,15 @@ async function balcaoAberto(tx: Tx, id: string) {
   return b;
 }
 
-/** Conclui ou arquiva: revoga os links, derruba as sessões do cliente e agenda a exclusão dos arquivos. */
+/**
+ * Conclui ou arquiva: revoga os links e derruba as sessões do cliente. Só a conclusão
+ * agenda a exclusão dos arquivos; um balcão arquivado guarda os arquivos até ser reaberto e concluído.
+ */
 export async function encerrar(tx: Tx, balcaoId: string, diasRet: number, arquivar: boolean) {
   const agora = new Date();
   await tx.balcao.update({
     where: { id: balcaoId },
-    data: { concluidoEm: agora, arquivadoEm: arquivar ? agora : null, apagarArquivosEm: new Date(agora.getTime() + diasRet * 86_400_000), avisoRetencaoEm: null },
+    data: { concluidoEm: agora, arquivadoEm: arquivar ? agora : null, apagarArquivosEm: arquivar ? null : new Date(agora.getTime() + diasRet * 86_400_000), avisoRetencaoEm: null },
   });
   await tx.linkAcesso.updateMany({ where: { balcaoId, revogadoEm: null }, data: { revogadoEm: agora } });
   await tx.sessaoCliente.deleteMany({ where: { balcaoId } });
@@ -190,7 +194,7 @@ export async function limitarRetencao(tx: Tx, diasRet: number) {
     UPDATE balcoes SET
       apagar_arquivos_em = GREATEST(concluido_em + make_interval(days => ${diasRet}::int), now() + interval '7 days'),
       aviso_retencao_em = NULL
-    WHERE concluido_em IS NOT NULL AND arquivos_apagados_em IS NULL
+    WHERE concluido_em IS NOT NULL AND arquivado_em IS NULL AND arquivos_apagados_em IS NULL
       AND apagar_arquivos_em > GREATEST(concluido_em + make_interval(days => ${diasRet}::int), now() + interval '7 days')`;
 }
 
@@ -475,18 +479,17 @@ rotasBalcoes.post(
 
 /**
  * Arquiva um balcão que não vai ser concluído (o cliente desistiu, o caso parou).
- * Para de contar como ativo, o acesso do cliente cai e a retenção começa a contar,
- * como na conclusão. O worker também arquiva sozinho 30 dias depois do prazo.
+ * Para de contar como ativo e o acesso do cliente cai. Os arquivos não são apagados:
+ * a retenção só vale para balcões concluídos. O worker também arquiva sozinho 30 dias depois do prazo.
  */
 rotasBalcoes.post(
   '/:id/arquivar',
   rota(async (req, res) => {
     exigirMontar(req);
-    const dias = diasRetencao(req.empresa!.plano, req.empresa!.organizacao.diasRetencao);
     await naOrganizacao(req.empresa!.organizacao.id, async (tx) => {
       const b = await balcaoAberto(tx, req.params.id);
-      await encerrar(tx, b.id, dias, true);
-      await auditar(tx, req, { acao: 'balcao.arquivado', alvoTipo: 'balcao', alvoId: b.id, detalhes: { diasRetencao: dias, automatico: false } });
+      await encerrar(tx, b.id, 0, true);
+      await auditar(tx, req, { acao: 'balcao.arquivado', alvoTipo: 'balcao', alvoId: b.id, detalhes: { automatico: false } });
     });
     res.status(204).end();
   }),

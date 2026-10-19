@@ -85,6 +85,25 @@ export function acharPasta(grupo: string, valor: string, balcoes: BalcaoResumo[]
 export const enderecoDa = (p: Pasta) => `/app/pastas/${p.grupo}/${encodeURIComponent(p.valor)}`;
 
 /** Para conferir primeiro; depois, o prazo mais perto. */
+/** Opções de "Ordenar por" das listas de balcões. A primeira é a padrão. */
+export const ORDENS_BALCAO = [
+  { id: 'acao', rotulo: 'Precisa de ação' },
+  { id: 'recentes', rotulo: 'Mais recentes' },
+  { id: 'antigos', rotulo: 'Mais antigos' },
+  { id: 'prazo', rotulo: 'Prazo mais próximo' },
+  { id: 'nome', rotulo: 'Nome do cliente' },
+] as const;
+export type OrdemBalcao = (typeof ORDENS_BALCAO)[number]['id'];
+
+export function ordenarPor(lista: BalcaoResumo[], ordem: OrdemBalcao) {
+  const l = [...lista];
+  if (ordem === 'recentes') return l.sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
+  if (ordem === 'antigos') return l.sort((a, b) => a.criadoEm.localeCompare(b.criadoEm));
+  if (ordem === 'prazo') return l.sort((a, b) => a.prazo.localeCompare(b.prazo));
+  if (ordem === 'nome') return l.sort((a, b) => a.clienteNome.localeCompare(b.clienteNome, 'pt-BR'));
+  return ordenar(l);
+}
+
 export const ordenar = (lista: BalcaoResumo[]) => [...lista].sort((a, b) => Number(b.contagem.analise > 0) - Number(a.contagem.analise > 0) || a.prazo.localeCompare(b.prazo));
 
 export const busca = (b: BalcaoResumo, termo: string) => !termo || b.clienteNome.toLowerCase().includes(termo) || b.protocolo.toLowerCase().includes(termo) || b.tipo.toLowerCase().includes(termo);

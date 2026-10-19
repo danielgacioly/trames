@@ -3,8 +3,16 @@ import { NOMES_AREA, type ModeloDto as Modelo } from '@trames/shared';
 import { useModelos, useSessao } from '../../dados/consultas';
 import { Bloqueio, Carregando } from '../../ui/comuns';
 import { Icone } from '../../ui/Icone';
+import { Ordenar, useOrdem } from '../../ui/Ordenar';
 
 type Area = keyof typeof NOMES_AREA;
+
+const ORDENS = [
+  { id: 'padrao', rotulo: 'Sugerida' },
+  { id: 'nome', rotulo: 'Nome' },
+  { id: 'mais', rotulo: 'Mais documentos' },
+  { id: 'menos', rotulo: 'Menos documentos' },
+] as const;
 
 function LinhaModelo({ m, podeEditar }: { m: Modelo; podeEditar: boolean }) {
   return (
@@ -44,12 +52,15 @@ export function Modelos() {
   const sessao = useSessao();
   const consulta = useModelos();
   const proprios = sessao.tem('modelosProprios');
+  const [ordem, setOrdem] = useOrdem('modelos', ORDENS);
   const area = sessao.organizacao.area;
   if (consulta.isPending) return <Carregando />;
   const todos = consulta.data ?? [];
-  const meus = todos.filter((m) => m.proprio);
+  const ordenar = (l: Modelo[]) =>
+    ordem === 'nome' ? [...l].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')) : ordem === 'mais' ? [...l].sort((a, b) => b.itens.length - a.itens.length) : ordem === 'menos' ? [...l].sort((a, b) => a.itens.length - b.itens.length) : l;
+  const meus = ordenar(todos.filter((m) => m.proprio));
   const outras = (Object.keys(NOMES_AREA) as Area[]).filter((a) => a !== area);
-  const daArea = (a: Area) => todos.filter((m) => !m.proprio && m.area === a);
+  const daArea = (a: Area) => ordenar(todos.filter((m) => !m.proprio && m.area === a));
 
   return (
     <>
@@ -58,12 +69,15 @@ export function Modelos() {
           <h1 className="titulo-1">Modelos</h1>
           <p className="subtitulo">Um modelo é a lista de documentos que você costuma pedir num tipo de caso. Ao abrir um balcão a partir dele, você ainda pode tirar ou acrescentar itens.</p>
         </div>
-        {proprios && (
-          <Link to="/app/modelos/novo" className="tr-btn tr-btn--primario">
-            <Icone nome="mais" />
-            Criar modelo
-          </Link>
-        )}
+        <div className="acoes-cabecalho">
+          <Ordenar valor={ordem} mudar={setOrdem} opcoes={ORDENS} />
+          {proprios && (
+            <Link to="/app/modelos/novo" className="tr-btn tr-btn--primario">
+              <Icone nome="mais" />
+              Criar modelo
+            </Link>
+          )}
+        </div>
       </div>
 
       <div>
@@ -95,20 +109,19 @@ export function Modelos() {
           )}
         </section>
 
-        {outras.map((a) =>
-          daArea(a).length ? (
-            <details key={a} className="grupo-linhas">
-              <summary className="rotulo">
-                {NOMES_AREA[a]} <span className="num">{daArea(a).length}</span>
-              </summary>
-              <ul className="linhas">
+        <section className="outras-areas">
+          <h2 className="titulo-cartao">Modelos de outras áreas</h2>
+          <p className="miudo texto-suave">Prontos para usar ou duplicar, mesmo fora da área do escritório.</p>
+          {outras.map((a) =>
+            daArea(a).length ? (
+              <GrupoModelos key={a} titulo={NOMES_AREA[a]} n={daArea(a).length}>
                 {daArea(a).map((m) => (
                   <LinhaModelo key={m.id} m={m} podeEditar={proprios} />
                 ))}
-              </ul>
-            </details>
-          ) : null,
-        )}
+              </GrupoModelos>
+            ) : null,
+          )}
+        </section>
       </div>
     </>
   );

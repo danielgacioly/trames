@@ -332,9 +332,9 @@ export function Conferir() {
                   className="tr-btn tr-btn--discreto tr-btn--sm"
                   disabled={arquivar.isPending}
                   onClick={async () => {
-                    if (!(await confirmar({ titulo: `Arquivar o balcão de ${nome}?`, texto: `Ele deixa de contar como ativo, o acesso de ${nome} é encerrado e os arquivos serão apagados em ${dias} dias. Dá para reabrir antes disso.`, botao: 'Arquivar' }))) return;
+                    if (!(await confirmar({ titulo: `Arquivar o balcão de ${nome}?`, texto: `Ele deixa de contar como ativo e o acesso de ${nome} é encerrado. Os arquivos continuam guardados: só são apagados depois que o balcão é concluído. Dá para reabrir quando quiser.`, botao: 'Arquivar' }))) return;
                     await arquivar.mutateAsync();
-                    avisar(`Balcão arquivado. Os arquivos serão apagados em ${dias} dias.`);
+                    avisar('Balcão arquivado. Os arquivos continuam guardados.');
                   }}
                 >
                   Arquivar
@@ -388,7 +388,7 @@ export function Conferir() {
             <Icone nome="cadeado" />
             <span style={{ flex: 1 }}>
               {b.sessoesCliente > 0
-                ? `${nome} está conectado em ${b.sessoesCliente === 1 ? '1 aparelho' : `${b.sessoesCliente} aparelhos`} (o acesso vale 30 dias).`
+                ? `${nome} está conectado em ${b.sessoesCliente === 1 ? '1 aparelho' : `${b.sessoesCliente} aparelhos`} (o acesso vale até 1 dia; cada entrada pede um código novo).`
                 : b.link
                   ? `${nome} ainda não entrou com o código, ou o acesso foi encerrado.`
                   : 'Este balcão está sem link ativo.'}

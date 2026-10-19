@@ -107,8 +107,16 @@ function Acesso({ entrou }: { entrou: () => void }) {
   const [digitos, setDigitos] = useState<string[]>(Array(6).fill(''));
   const campos = useRef<(HTMLInputElement | null)[]>([]);
 
+  // Cada entrada pede um código novo: ao abrir, ele já sai, sem precisar tocar em nada.
+  const pediu = useRef(false);
   useEffect(() => {
-    api<AcessoInfo>('GET', '/acesso').then(setInfo, (e) => setErro(e.message));
+    api<AcessoInfo>('GET', '/acesso').then((i) => {
+      setInfo(i);
+      if (!pediu.current) {
+        pediu.current = true;
+        pedir();
+      }
+    }, (e) => setErro(e.message));
   }, []);
 
   /** O canal é o que o escritório escolheu para o balcão; a API diz por onde foi. */
@@ -214,7 +222,7 @@ function Acesso({ entrou }: { entrou: () => void }) {
             {info.canal === 'whatsapp' ? `Receber o código no WhatsApp final ${info.whatsappFinal}` : `Receber o código no e-mail ${info.emailMascarado}`}
           </button>
           <p className="pequeno texto-suave" style={{ textAlign: 'center' }}>
-            Depois do código, este celular fica conectado por 30 dias.
+            Por segurança, cada vez que você abrir o link chega um código novo.
           </p>
         </div>
       )}
@@ -477,9 +485,9 @@ export function App() {
   }, [token]);
 
   useEffect(() => {
-    // Sem link, não há como saber o balcão. Com link, a sessão de 30 dias deste aparelho (se houver) já abre a lista.
+    // Sem link, não há como saber o balcão. Com link, toda entrada passa pelo código (a API derruba a sessão anterior).
     if (!token) setEtapa({ tela: 'erro', texto: 'Abra o link que o escritório mandou para você.' });
-    else carregar().then((b) => b && setEtapa({ tela: 'lista' }));
+    else setEtapa({ tela: 'acesso' });
   }, [token, carregar]);
 
   // Enquanto algum arquivo está no antivírus, atualiza a lista sozinho.
