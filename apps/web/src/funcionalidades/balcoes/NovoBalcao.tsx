@@ -125,9 +125,7 @@ function FormularioBalcao({ modelo, pastaInicial }: { modelo?: { nome: string; i
       <div className="folha-pedido">
         <div className="folha">
           <div className="folha__frase">
-            <span className="miudo texto-suave" style={{ fontWeight: 500, letterSpacing: '.06em', textTransform: 'uppercase' }}>
-              Novo balcão
-            </span>
+            <span className="rotulo">Novo balcão</span>
             <p className="frase">
               Documentos de{' '}
               <input aria-label="Tipo de caso" placeholder="tipo de caso" value={tipo} onChange={(e) => setTipo(e.target.value)} {...nomeEscrito(tipo, 12)} /> para{' '}
@@ -227,7 +225,7 @@ function FormularioBalcao({ modelo, pastaInicial }: { modelo?: { nome: string; i
         </div>
 
         <aside className="painel-pedido" aria-label="Resumo">
-          <span className="miudo texto-suave" style={{ fontWeight: 500 }}>
+          <span className="rotulo">
             Assim {nomeCliente === 'cliente' ? 'o cliente' : nomeCliente} vai ver no celular
           </span>
           <div className="previa-cliente" aria-hidden="true">
@@ -236,7 +234,7 @@ function FormularioBalcao({ modelo, pastaInicial }: { modelo?: { nome: string; i
                 {sessao.tem('marca') && <SeloConta conta={sessao.organizacao} tamanho={24} />}
                 {sessao.organizacao.nome}
               </div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, lineHeight: '26px', fontWeight: 600 }}>Olá, {primeiroNome(cliente.nome) || '[nome]'}</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, lineHeight: '28px', fontWeight: 600 }}>Olá, {primeiroNome(cliente.nome) || '[nome]'}</div>
               <p className="miudo texto-suave" style={{ lineHeight: '19px' }}>
                 O escritório está reunindo os documentos{tipo ? ` de ${tipo.toLowerCase()}` : ''} e pediu {itens.length} {itens.length === 1 ? 'item' : 'itens'} até {dataLonga(prazo)}.
               </p>

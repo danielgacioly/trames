@@ -113,7 +113,7 @@ export function PuxarModelo({ adicionar }: { adicionar: (itens: ItemModelo[]) =>
       <span className="pequeno texto-suave">ou</span>
       <select
         className="tr-campo__entrada"
-        style={{ height: 36, maxWidth: 280, fontSize: 14 }}
+        style={{ height: 40, maxWidth: 280, fontSize: 13 }}
         value=""
         aria-label="Puxar documentos de um modelo"
         onChange={(e) => {

@@ -39,6 +39,11 @@ export function Status({ status, texto }: { status: StatusDoc; texto?: string })
   );
 }
 
+/** Status em listas: ponto de 8px + texto. A pílula com fundo (Status) fica nas telas de detalhe. */
+export function PontoStatus({ status, texto }: { status: StatusDoc; texto?: string }) {
+  return <span className={`ponto ponto--${status}`}>{texto ?? STATUS[status].texto}</span>;
+}
+
 export function Progresso({ feitos, total, rotulo, direita }: { feitos: number; total: number; rotulo?: ReactNode; direita?: ReactNode }) {
   const p = total ? Math.round((feitos / total) * 100) : 0;
   return (

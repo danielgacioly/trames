@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { diasRetencao, type BalcaoDetalhe, type CanalCodigo, type DocumentoDto, type ItemDetalhe, type LinkGerado } from '@trames/shared';
 import { api } from '../../dados/api';
 import { chaves, useAcao, useBalcao, useCobranca, useHistorico, useSessao } from '../../dados/consultas';
-import { AvisoErro, Carregando, Progresso, Status, useToast } from '../../ui/comuns';
+import { AvisoErro, Carregando, PontoStatus, Progresso, Status, useToast } from '../../ui/comuns';
 import { Icone } from '../../ui/Icone';
 import { PastaDoBalcao } from './PastaDoBalcao';
 import { dataLonga, primeiroNome, quandoEnviado, tamanhoLegivel } from '../../util/formatos';
@@ -69,7 +69,7 @@ function Miniatura({ d }: { d: DocumentoDto }) {
     if (!d.temMiniatura) return;
     api<{ url: string }>('GET', `/documentos/${d.id}/miniatura`).then((r) => setUrl(r.url), () => setFalhou(true));
   }, [d.id, d.temMiniatura]);
-  if (url) return <img src={url} alt={`Miniatura de ${d.nomeArquivo}`} style={{ maxWidth: '100%', maxHeight: 520, borderRadius: 4, boxShadow: 'var(--shadow-sm)', background: '#fff' }} />;
+  if (url) return <img src={url} alt={`Miniatura de ${d.nomeArquivo}`} style={{ maxWidth: '100%', maxHeight: 520, borderRadius: 4, background: '#fff', border: '1px solid var(--linha)' }} />;
   return (
     <>
       <Icone nome="envio" tamanho={32} />
@@ -103,7 +103,7 @@ function Arquivo({ item }: { item: ItemDetalhe }) {
   }
   return (
     <div className="coluna" style={{ gap: 16 }}>
-      <div style={{ background: 'var(--areia-funda)', borderRadius: 12, padding: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+      <div style={{ background: 'var(--areia-funda)', borderRadius: 10, padding: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
         <Miniatura d={d} />
       </div>
       <AvisoErro erro={erro} />
@@ -285,7 +285,7 @@ export function Conferir() {
         <div className="linha linha--entre" style={{ alignItems: 'flex-end', gap: 20 }}>
           <div className="coluna" style={{ gap: 6 }}>
             <div className="linha" style={{ gap: 12 }}>
-              <h1 style={{ fontSize: 32, lineHeight: '38px', letterSpacing: '-.02em' }}>{b.cliente.nome}</h1>
+              <h1 className="titulo-1">{b.cliente.nome}</h1>
               {b.tipo && <span className="tr-etiqueta">{b.tipo}</span>}
               {!aberto && (b.arquivadoEm ? <Status status="pendente" texto="Arquivado" /> : <Status status="aprovado" texto="Concluído" />)}
               <PastaDoBalcao id={b.id} pastaId={b.pastaId} editavel={!soConfere} />
@@ -437,7 +437,7 @@ export function Conferir() {
         historico.isPending ? (
           <Carregando />
         ) : (
-          <div className="tabela-caixa">
+          <div className="tabela-caixa tabela-caixa--solta">
             <table className="tabela">
               <thead>
                 <tr>
@@ -462,7 +462,7 @@ export function Conferir() {
         )
       ) : (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start' }}>
-          <ul style={{ flex: '1 1 340px', minWidth: 0, listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <ul className="itens-conferir">
             {b.itens.map((d) => {
               const ativo = d.id === sel.id;
               return (
@@ -474,10 +474,10 @@ export function Conferir() {
                       setRecusando(false);
                     }}
                     aria-current={ativo}
-                    style={{ width: '100%', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, padding: ativo ? '13px 15px' : '14px 16px', borderRadius: 12, border: ativo ? '2px solid var(--mangue)' : '1px solid var(--linha)', background: 'var(--areia-elevada)', color: 'var(--tinta)' }}
+                    className="item-conferir"
                   >
                     <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ fontWeight: 500 }}>{d.nome}</span>
+                      <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.nome}</span>
                       <span className="miudo texto-suave">
                         {d.documento?.status === 'quarentena'
                           ? 'Verificando o arquivo…'
@@ -486,14 +486,14 @@ export function Conferir() {
                             : (d.documento?.nomeArquivo ?? (d.historico.length ? 'Pedido de novo' : d.obrigatorio ? 'Ainda não enviado' : 'Se tiver'))}
                       </span>
                     </span>
-                    <Status status={d.status} />
+                    <PontoStatus status={d.status} />
                   </button>
                 </li>
               );
             })}
           </ul>
 
-          <section className="cartao" style={{ flex: '999 1 520px', minWidth: 0, gap: 20 }} aria-label="Documento selecionado">
+          <section className="cartao" style={{ flex: '999 1 520px', minWidth: 0, gap: 20, padding: 24 }} aria-label="Documento selecionado">
             <div className="linha linha--entre" style={{ alignItems: 'flex-start', gap: 12 }}>
               <div className="coluna" style={{ gap: 4 }}>
                 <h2 className="titulo-2">{sel.nome}</h2>
@@ -505,7 +505,7 @@ export function Conferir() {
             {sel.documento ? (
               <Arquivo key={sel.documento.id} item={sel} />
             ) : (
-              <div style={{ background: 'var(--areia-funda)', borderRadius: 12, padding: '40px 24px', textAlign: 'center' }}>
+              <div style={{ background: 'var(--areia-funda)', borderRadius: 10, padding: '40px 24px', textAlign: 'center' }}>
                 <p className="texto-suave">{nome} ainda não enviou este documento.</p>
               </div>
             )}
@@ -532,7 +532,7 @@ export function Conferir() {
 
             {recusando && (
               <form
-                style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 16, borderRadius: 12, background: 'var(--recusado-suave)' }}
+                style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 16, borderRadius: 10, background: 'var(--recusado-suave)' }}
                 onSubmit={async (e) => {
                   e.preventDefault();
                   await recusar.mutateAsync({ itemId: sel.id, motivo: motivo.trim() });

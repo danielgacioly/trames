@@ -54,9 +54,7 @@ function FormularioModelo({ existente, base }: { existente?: Modelo; base?: Mode
       <div className="folha-pedido">
         <div className="folha">
           <div className="folha__frase">
-            <span className="miudo texto-suave" style={{ fontWeight: 500, letterSpacing: '.06em', textTransform: 'uppercase' }}>
-              {existente ? 'Editar modelo' : 'Novo modelo'}
-            </span>
+            <span className="rotulo">{existente ? 'Editar modelo' : 'Novo modelo'}</span>
             <p className="frase">
               Modelo{' '}
               <input aria-label="Nome do modelo" placeholder="nome do modelo" required minLength={2} autoFocus={!existente} value={nome} onChange={(e) => setNome(e.target.value)} {...tamanho(nome, 14)} />
@@ -82,7 +80,7 @@ function FormularioModelo({ existente, base }: { existente?: Modelo; base?: Mode
         <aside className="painel-pedido" aria-label="Resumo do modelo">
           <div className="cartao" style={{ gap: 14 }}>
             <div className="coluna" style={{ gap: 2 }}>
-              <strong style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 600 }}>{nome.trim() || 'Modelo sem nome'}</strong>
+              <strong style={{ fontSize: 18, fontWeight: 500 }}>{nome.trim() || 'Modelo sem nome'}</strong>
               <span className="pequeno texto-suave">
                 {itens.length} {itens.length === 1 ? 'documento' : 'documentos'}
                 {itens.length > 0 && ` · ${obrigatorios} ${obrigatorios === 1 ? 'obrigatório' : 'obrigatórios'}`}

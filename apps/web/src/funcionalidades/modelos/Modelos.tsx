@@ -1,64 +1,55 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { NOMES_AREA, type ModeloDto as Modelo } from '@trames/shared';
 import { useModelos, useSessao } from '../../dados/consultas';
 import { Bloqueio, Carregando } from '../../ui/comuns';
 import { Icone } from '../../ui/Icone';
 
-type Aba = 'area' | 'meus' | 'outras';
+type Area = keyof typeof NOMES_AREA;
 
-function CartaoModelo({ m, podeEditar }: { m: Modelo; podeEditar: boolean }) {
+function LinhaModelo({ m, podeEditar }: { m: Modelo; podeEditar: boolean }) {
   return (
-    <article className="cartao" style={{ padding: 18, gap: 12 }}>
-      <div className="linha linha--entre" style={{ alignItems: 'flex-start', flexWrap: 'nowrap', gap: 12 }}>
-        <h2 className="titulo-cartao">{m.nome}</h2>
-        <span className="miudo texto-suave" style={{ flex: 'none', paddingTop: 4 }}>
-          {m.itens.length} documentos
-        </span>
+    <li className="linha-m">
+      <div className="coluna" style={{ gap: 0, minWidth: 0 }}>
+        <span style={{ fontWeight: 500 }}>{m.nome}</span>
+        <span className="miudo texto-suave">{m.quando}</span>
       </div>
-      <p className="texto-suave" style={{ fontSize: 15, lineHeight: '22px' }}>
-        {m.quando}
-      </p>
-      <div className="linha" style={{ gap: 6 }}>
-        {m.itens.slice(0, 3).map((d) => (
-          <span key={d.nome} className="pilula">
-            {d.nome}
-          </span>
-        ))}
-      </div>
-      <div className="linha" style={{ marginTop: 'auto', paddingTop: 6 }}>
-        <Link to={`/app/novo?modelo=${m.id}`} className="tr-btn tr-btn--primario tr-btn--sm">
-          Usar modelo
-        </Link>
+      <span className="num miudo texto-suave">{m.itens.length} documentos</span>
+      <div className="linha-m__acoes">
         {podeEditar && (
           <Link to={m.proprio ? `/app/modelos/${m.id}` : `/app/modelos/novo?base=${m.id}`} className="tr-btn tr-btn--discreto tr-btn--sm">
             {m.proprio ? 'Editar' : 'Duplicar e editar'}
           </Link>
         )}
+        <Link to={`/app/novo?modelo=${m.id}`} className="tr-btn tr-btn--secundario tr-btn--sm">
+          Usar modelo
+        </Link>
       </div>
-    </article>
+    </li>
   );
 }
 
+function GrupoModelos({ titulo, children, n }: { titulo: string; n: number; children: React.ReactNode }) {
+  return (
+    <section className="grupo-linhas">
+      <h2 className="grupo-linhas__titulo rotulo">
+        {titulo} <span className="num">{n}</span>
+      </h2>
+      <ul className="linhas">{children}</ul>
+    </section>
+  );
+}
+
+/** Modelos numa lista agrupada: primeiro a área do escritório, depois os próprios, depois as outras áreas. */
 export function Modelos() {
   const sessao = useSessao();
   const consulta = useModelos();
-  const [aba, setAba] = useState<Aba>('area');
   const proprios = sessao.tem('modelosProprios');
   const area = sessao.organizacao.area;
   if (consulta.isPending) return <Carregando />;
   const todos = consulta.data ?? [];
-
-  const listas: Record<Aba, Modelo[]> = {
-    area: todos.filter((m) => !m.proprio && m.area === area),
-    meus: todos.filter((m) => m.proprio),
-    outras: todos.filter((m) => !m.proprio && m.area !== area),
-  };
-  const abas: { id: Aba; rotulo: string }[] = [
-    { id: 'area', rotulo: NOMES_AREA[area] },
-    { id: 'meus', rotulo: 'Meus modelos' },
-    { id: 'outras', rotulo: 'Outras áreas' },
-  ];
+  const meus = todos.filter((m) => m.proprio);
+  const outras = (Object.keys(NOMES_AREA) as Area[]).filter((a) => a !== area);
+  const daArea = (a: Area) => todos.filter((m) => !m.proprio && m.area === a);
 
   return (
     <>
@@ -75,31 +66,50 @@ export function Modelos() {
         )}
       </div>
 
-      <div role="tablist" aria-label="Grupos de modelos" className="abas">
-        {abas.map((a) => (
-          <button key={a.id} type="button" role="tab" aria-selected={aba === a.id} className="aba" onClick={() => setAba(a.id)}>
-            {a.rotulo}
-            {a.id === 'meus' && !proprios && <Icone nome="cadeado" tamanho={14} />}
-          </button>
-        ))}
-      </div>
-
-      {aba === 'meus' && !proprios ? (
-        <Bloqueio recurso="modelosProprios" />
-      ) : listas[aba].length ? (
-        <div className="grade">
-          {listas[aba].map((m) => (
-            <CartaoModelo key={m.id} m={m} podeEditar={proprios} />
+      <div>
+        <GrupoModelos titulo={NOMES_AREA[area]} n={daArea(area).length}>
+          {daArea(area).map((m) => (
+            <LinhaModelo key={m.id} m={m} podeEditar={proprios} />
           ))}
-        </div>
-      ) : (
-        <div className="cartao cartao--fundo" style={{ alignItems: 'flex-start' }}>
-          <p className="texto-suave">Você ainda não criou nenhum modelo.</p>
-          <Link to="/app/modelos/novo" className="tr-btn tr-btn--primario tr-btn--sm">
-            Criar modelo
-          </Link>
-        </div>
-      )}
+        </GrupoModelos>
+
+        <section className="grupo-linhas">
+          <h2 className="grupo-linhas__titulo rotulo">
+            Meus modelos {proprios ? <span className="num">{meus.length}</span> : <Icone nome="cadeado" tamanho={14} />}
+          </h2>
+          {!proprios ? (
+            <Bloqueio recurso="modelosProprios" compacto />
+          ) : meus.length ? (
+            <ul className="linhas">
+              {meus.map((m) => (
+                <LinhaModelo key={m.id} m={m} podeEditar />
+              ))}
+            </ul>
+          ) : (
+            <div className="linha" style={{ gap: 12, padding: '8px 12px', borderTop: '1px solid var(--linha)' }}>
+              <p className="texto-suave">Você ainda não criou nenhum modelo.</p>
+              <Link to="/app/modelos/novo" className="tr-btn tr-btn--secundario tr-btn--sm">
+                Criar modelo
+              </Link>
+            </div>
+          )}
+        </section>
+
+        {outras.map((a) =>
+          daArea(a).length ? (
+            <details key={a} className="grupo-linhas">
+              <summary className="rotulo">
+                {NOMES_AREA[a]} <span className="num">{daArea(a).length}</span>
+              </summary>
+              <ul className="linhas">
+                {daArea(a).map((m) => (
+                  <LinhaModelo key={m.id} m={m} podeEditar={proprios} />
+                ))}
+              </ul>
+            </details>
+          ) : null,
+        )}
+      </div>
     </>
   );
 }

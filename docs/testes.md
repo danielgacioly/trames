@@ -242,7 +242,7 @@ Com o Docker no ar e o seed rodado:
 pnpm test
 ```
 
-Rodam 15 testes de integração da API: isolamento entre escritórios, código de login, limites e canais por plano, excedente do Ultra, sessão de 30 dias do cliente, links só com hash, edição da lista, arquivamento, retenção por plano (e quando ela diminui), checagem de origem e auditoria. Os testes apagam o que criam.
+Rodam 16 testes de integração da API, um arquivo de cada vez (eles entram nas mesmas contas de teste e leem o código de login na fila; em paralelo, um pegava o código do outro): isolamento entre escritórios, código de login, limites e canais por plano, excedente do Ultra, sessão de 30 dias do cliente, links só com hash, edição da lista, arquivamento, retenção por plano (e quando ela diminui), checagem de origem e auditoria. Os testes apagam o que criam.
 
 ```
 pnpm typecheck

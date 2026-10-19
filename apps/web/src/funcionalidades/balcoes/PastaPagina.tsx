@@ -113,12 +113,12 @@ export function PastaPagina() {
 
       <div className="linha linha--entre" style={{ gap: 12 }}>
         {fechados.length > 0 ? (
-          <div className="linha" style={{ gap: 6 }}>
-            <button type="button" className="filtro" aria-pressed={!encerrados} onClick={() => setEncerrados(false)}>
-              Abertos · {abertos.length}
+          <div className="abas" role="tablist" style={{ borderBottom: 0 }}>
+            <button type="button" role="tab" className="aba" aria-selected={!encerrados} onClick={() => setEncerrados(false)}>
+              Abertos <span className="num">{abertos.length}</span>
             </button>
-            <button type="button" className="filtro" aria-pressed={encerrados} onClick={() => setEncerrados(true)}>
-              Encerrados · {fechados.length}
+            <button type="button" role="tab" className="aba" aria-selected={encerrados} onClick={() => setEncerrados(true)}>
+              Encerrados <span className="num">{fechados.length}</span>
             </button>
           </div>
         ) : (

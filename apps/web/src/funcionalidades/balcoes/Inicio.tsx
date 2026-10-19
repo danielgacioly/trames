@@ -5,7 +5,7 @@ import { useBalcoes, useModelos, usePastas, useSessao } from '../../dados/consul
 import { AvisoErro, Carregando } from '../../ui/comuns';
 import { Icone, type NomeIcone } from '../../ui/Icone';
 import { diasAte, plural, primeiroNome, saudacao } from '../../util/formatos';
-import { CartaoBalcao } from './Balcoes';
+import { ListaBalcoes } from './ListaBalcoes';
 import { busca, minhasPastas, ordenar, pastasDePessoa, pastasDeTipo, SITUACOES, type Pasta } from './pastas';
 import { CartaoPasta, FormularioPasta } from './PastasUi';
 
@@ -14,27 +14,27 @@ function PrimeiroAcesso() {
   const s = useSessao();
   const modelos = (useModelos().data ?? []).filter((m) => !m.proprio && m.area === s.organizacao.area).slice(0, 3);
   return (
-    <div style={{ flex: 1, borderRadius: 14, border: '1px dashed var(--linha-forte)', backgroundImage: 'radial-gradient(circle, #ddd3c3 1.2px, transparent 1.3px)', backgroundSize: '24px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 24px' }}>
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 0' }}>
       <div style={{ width: '100%', maxWidth: 880, display: 'flex', flexDirection: 'column', gap: 32 }}>
         <div className="coluna" style={{ gap: 10, textAlign: 'center', alignItems: 'center' }}>
-          <h1 style={{ fontSize: 40, lineHeight: '44px', letterSpacing: '-.02em' }}>Seu espaço está pronto, {primeiroNome(s.usuario.nome)}</h1>
-          <p className="texto-suave" style={{ fontSize: 18, lineHeight: '28px', maxWidth: 520 }}>
+          <h1 className="titulo-1">Seu espaço está pronto, {primeiroNome(s.usuario.nome)}</h1>
+          <p className="texto-suave" style={{ fontSize: 18, lineHeight: '26px', maxWidth: 520 }}>
             Comece por um modelo de {NOMES_AREA[s.organizacao.area].toLowerCase()} ou monte um balcão do zero. Você pode mudar qualquer coisa depois.
           </p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 16 }}>
           {modelos.map((m) => (
-            <Link key={m.id} to={`/app/novo?modelo=${m.id}`} className="cartao" style={{ textDecoration: 'none', color: 'var(--tinta)', padding: 20, gap: 10, minHeight: 168 }}>
+            <Link key={m.id} to={`/app/novo?modelo=${m.id}`} className="cartao" style={{ textDecoration: 'none', color: 'var(--tinta)', padding: 20, gap: 10, minHeight: 160, borderColor: 'var(--linha-forte)' }}>
               <span className="tr-etiqueta" style={{ alignSelf: 'flex-start' }}>
                 Modelo
               </span>
-              <span style={{ fontFamily: 'var(--font-display)', fontSize: 19, lineHeight: '24px', fontWeight: 600 }}>{m.nome}</span>
+              <span style={{ fontSize: 18, lineHeight: '24px', fontWeight: 500 }}>{m.nome}</span>
               <span className="pequeno texto-suave">
                 {plural(m.itens.length, 'documento', 'documentos')}. {m.quando}
               </span>
             </Link>
           ))}
-          <Link to="/app/novo" style={{ textDecoration: 'none', color: 'var(--mangue)', border: '1.5px dashed var(--mangue)', borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 168, textAlign: 'center' }}>
+          <Link to="/app/novo" style={{ textDecoration: 'none', color: 'var(--mangue)', border: '1px dashed var(--mangue)', borderRadius: 10, padding: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 160, textAlign: 'center' }}>
             <Icone nome="mais" tamanho={28} />
             <span style={{ fontWeight: 500 }}>Balcão em branco</span>
           </Link>
@@ -134,11 +134,7 @@ export function Inicio() {
           {(() => {
             const achados = ordenar(todos.filter((b) => busca(b, t)));
             return achados.length ? (
-              <div className="grade">
-                {achados.map((b) => (
-                  <CartaoBalcao key={b.id} b={b} />
-                ))}
-              </div>
+              <ListaBalcoes balcoes={achados} />
             ) : (
               <p className="texto-suave">Nenhum balcão encontrado.</p>
             );
@@ -168,11 +164,7 @@ export function Inicio() {
                   Ver todos os balcões
                 </Link>
               </div>
-              <div className="grade">
-                {atencao.slice(0, 3).map((b) => (
-                  <CartaoBalcao key={b.id} b={b} />
-                ))}
-              </div>
+              <ListaBalcoes balcoes={atencao.slice(0, 5)} />
             </section>
           )}
 

@@ -1,59 +1,72 @@
 import { Link } from 'react-router-dom';
 import type { BalcaoResumo } from '@trames/shared';
-import { Status } from '../../ui/comuns';
-import { Icone } from '../../ui/Icone';
 import { dataLonga, diasAte, prazoRelativo } from '../../util/formatos';
 
-/** Uma situação só por balcão, a que mais pede atenção. */
+/** Uma situação só por balcão, a que mais pede atenção: ponto colorido + texto. */
 function Situacao({ b }: { b: BalcaoResumo }) {
   const c = b.contagem;
-  if (b.concluidoEm) return <Status status={b.arquivadoEm ? 'pendente' : 'aprovado'} texto={b.arquivadoEm ? 'Arquivado' : 'Concluído'} />;
-  if (c.analise) return <Status status="analise" texto={`${c.analise} para conferir`} />;
-  if (c.recusado) return <Status status="recusado" texto={`${c.recusado} para reenviar`} />;
-  if (c.pendente) return <Status status="pendente" texto="Com o cliente" />;
-  return <Status status="aprovado" texto="Pronto para concluir" />;
+  if (b.concluidoEm) return <span className={`ponto ${b.arquivadoEm ? 'ponto--encerrado' : 'ponto--aprovado'}`}>{b.arquivadoEm ? 'Arquivado' : 'Concluído'}</span>;
+  if (c.analise) return <span className="ponto ponto--analise">{`${c.analise} para conferir`}</span>;
+  if (c.recusado) return <span className="ponto ponto--recusado">{`${c.recusado} para reenviar`}</span>;
+  if (c.pendente) return <span className="ponto ponto--pendente">Com o cliente</span>;
+  return <span className="ponto ponto--aprovado">Pronto para concluir</span>;
 }
 
 function Prazo({ b }: { b: BalcaoResumo }) {
-  if (b.concluidoEm) return <span className="texto-suave">{dataLonga(b.concluidoEm.slice(0, 10))}</span>;
+  if (b.concluidoEm) return <span className="num texto-suave">{dataLonga(b.concluidoEm.slice(0, 10))}</span>;
   const d = diasAte(b.prazo);
-  if (d < 0) return <span style={{ color: 'var(--recusado)' }}>Venceu {prazoRelativo(b.prazo)}</span>;
-  return <span className={d <= 3 ? undefined : 'texto-suave'}>{d <= 6 ? `Vence ${prazoRelativo(b.prazo)}` : dataLonga(b.prazo)}</span>;
+  if (d < 0) return <span className="num" style={{ color: 'var(--recusado)' }}>Venceu {prazoRelativo(b.prazo)}</span>;
+  return <span className={d <= 3 ? 'num' : 'num texto-suave'}>{d <= 6 ? `Vence ${prazoRelativo(b.prazo)}` : dataLonga(b.prazo)}</span>;
 }
 
-/** Lista enxuta de balcões: uma linha por balcão, a linha inteira abre o balcão. */
-export function ListaBalcoes({ balcoes }: { balcoes: BalcaoResumo[] }) {
+/** Cabeçalho das colunas; vai uma vez por lista. */
+export function CabecaLinhas() {
   return (
-    <ul className="lista-balcoes">
-      {balcoes.map((b) => {
-        const c = b.contagem;
-        return (
-          <li key={b.id}>
-            <Link to={`/app/balcao/${b.id}`} className="linha-balcao">
-              <span className="linha-balcao__nome">
-                <strong>{b.clienteNome}</strong>
-                <span className="miudo texto-suave">
-                  <span className="tr-protocolo">{b.protocolo}</span>
-                  {b.tipo && ` · ${b.tipo}`}
+    <div className="linhas__cabeca" aria-hidden="true">
+      <span className="rotulo">Cliente</span>
+      <span className="rotulo">Progresso</span>
+      <span className="rotulo">Situação</span>
+      <span className="rotulo">Prazo</span>
+      <span className="rotulo">Responsável</span>
+    </div>
+  );
+}
+
+/** Lista de balcões em linhas: a linha inteira abre o balcão. */
+export function ListaBalcoes({ balcoes, cabeca = true }: { balcoes: BalcaoResumo[]; cabeca?: boolean }) {
+  return (
+    <div>
+      {cabeca && <CabecaLinhas />}
+      <ul className="linhas">
+        {balcoes.map((b) => {
+          const c = b.contagem;
+          return (
+            <li key={b.id}>
+              <Link to={`/app/balcao/${b.id}`} className="linha-b">
+                <span className="linha-b__nome">
+                  <strong>{b.clienteNome}</strong>
+                  <span>{b.tipo || <span className="tr-protocolo">{b.protocolo}</span>}</span>
                 </span>
-              </span>
-              <span className="linha-balcao__progresso miudo texto-suave" title={`${c.aprovado} de ${c.total} documentos aprovados`}>
-                <span className="tr-progresso__trilho">
-                  <span className="tr-progresso__barra" style={{ '--p': `${c.total ? (c.aprovado / c.total) * 100 : 0}%`, display: 'block' } as React.CSSProperties} />
+                <span className="linha-b__progresso" title={`${c.aprovado} de ${c.total} documentos aprovados`}>
+                  <span className="num" style={{ whiteSpace: 'nowrap' }}>
+                    {c.aprovado} de {c.total}
+                  </span>
+                  <span className="barra">
+                    <span style={{ '--p': `${c.total ? (c.aprovado / c.total) * 100 : 0}%` } as React.CSSProperties} />
+                  </span>
                 </span>
-                {c.aprovado}/{c.total}
-              </span>
-              <span className="linha-balcao__situacao">
-                <Situacao b={b} />
-              </span>
-              <span className="linha-balcao__prazo miudo">
-                <Prazo b={b} />
-              </span>
-              <Icone nome="avancar" tamanho={18} className="tr-icone linha-balcao__seta" />
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
+                <span className="linha-b__situacao">
+                  <Situacao b={b} />
+                </span>
+                <span className="linha-b__prazo">
+                  <Prazo b={b} />
+                </span>
+                <span className="linha-b__quem">{b.responsavel?.nome ?? '—'}</span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
