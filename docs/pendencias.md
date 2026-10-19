@@ -2,17 +2,22 @@
 
 O que falta para colocar a Trames em produção e não deu para fazer no código. Inclui os ajustes de `docs/viabilidade.md`.
 
-## Decisões que tomei e você precisa confirmar
+## Decisões tomadas
 
-1. **O token do link fica selado no banco, além do hash.** A arquitetura pedia só o hash. Mas a sessão de 30 dias e o "cliente vê a lista atualizada sem link novo" exigem que lembretes e avisos levem o mesmo link; com só o hash, cada lembrete teria de gerar um link novo e derrubar a sessão do cliente. O token é selado com o KMS (envelope, com o escritório como contexto), e a busca continua pelo hash. Risco: quem tiver o banco e acesso ao KMS consegue abrir os links ativos. A alternativa seria o lembrete ir sem link ("abra o link que o escritório mandou").
-2. **"Balcão arquivado" não existe.** O documento fala em "concluído nem arquivado", mas hoje só há aberto ou concluído. Um balcão que nunca é concluído não entra na retenção, e os arquivos dele (inclusive os de itens removidos da lista) ficam guardados para sempre. Sugestão: arquivar sozinho N dias depois do prazo, com aviso.
-3. **A retenção é calculada no momento de concluir.** Mudar de plano depois (ou mudar a retenção no Ultra) não muda a data dos balcões já concluídos; vale para os próximos. Reabrir cancela a data, e concluir de novo calcula outra.
-4. **Lembretes.** Saem só enquanto faltar documento obrigatório. Se o worker ficar parado e perder uma etapa, sai só a mais recente. Um balcão criado a menos de 3 dias do prazo recebe o lembrete "antes" no dia seguinte. Mudar o prazo recomeça a cadência.
-5. **Aviso de mudança na lista.** Vai para itens novos ou pedidos de novo que ainda faltam, por e-mail. Se o cliente não tem e-mail (código e lembretes só no WhatsApp), vai pelo template de lembrete e conta na cota.
-6. **No Grátis, o e-mail do cliente é obrigatório**, porque o código e os lembretes só vão por e-mail. No Pro e no Ultra, ele só é opcional quando o código e os lembretes do balcão estão no WhatsApp.
-7. **Cota de WhatsApp sem e-mail do cliente.** Se a cota acaba e o cliente não tem e-mail, a mensagem não sai; o aviso ao admin diz isso. Alternativa: deixar passar da cota nesse caso.
+Resolvidas a pedido, pensando em segurança e escalabilidade:
+
+1. **Links só com hash.** O banco não guarda nenhum token de link, nem cifrado. Cada mensagem (lembrete, aviso de mudança, "Link do cliente") emite um link novo e os anteriores continuam valendo; a sessão de 30 dias vale para o balcão, por qualquer link ativo dele. "Cancelar links e gerar novo" revoga todos e derruba as sessões. Com isso um vazamento do banco não entrega nenhum link. Os links vencidos há mais de 90 dias são apagados pelo worker, para a tabela não crescer sem limite.
+2. **Limite de código por balcão no banco.** Como um balcão tem vários links, o limite de pedidos de código (10 por hora) e de erros (15 a cada 15 minutos) é contado no Postgres por balcão, somando todos os links e todas as instâncias da API. O limite por IP continua na memória de cada instância.
+3. **Arquivamento.** Existe o estado "arquivado": manual (botão Arquivar) ou automático, 30 dias depois do prazo, sempre com aviso ao admin uma semana antes. Arquivado deixa de contar como ativo, o acesso do cliente cai e a retenção começa, como na conclusão. Reabrir desfaz enquanto os arquivos existirem. Mudar o prazo cancela o aviso.
+4. **E-mail do cliente obrigatório em todos os planos.** É o canal que sempre funciona e o destino de qualquer queda: cota de WhatsApp esgotada ou erro no envio pelo WhatsApp (nesse caso a mensagem não conta na cota). Com isso deixa de existir mensagem que não sai.
+5. **Aviso de mudança na lista só por e-mail**, sem custo de WhatsApp.
+6. **Retenção quando o plano ou a escolha diminui.** Os balcões já encerrados passam a seguir o prazo novo, com no mínimo 7 dias a partir da mudança, para o aviso por e-mail ainda sair. Quando aumenta, as datas já marcadas não mudam.
+
+Ficam como estavam (confirme se concordar):
+
+7. **Lembretes.** Saem só enquanto faltar documento obrigatório. Se o worker ficar parado e perder uma etapa, sai só a mais recente. Mudar o prazo recomeça a cadência.
 8. **O mês vira no fuso de Brasília** para a contagem de balcões do Ultra e para as cotas.
-9. **Permissões fora do Ultra:** no Grátis e no Pro todo mundo administra. (Vinha de antes.)
+9. **Permissões fora do Ultra:** no Grátis e no Pro todo mundo administra.
 
 ## Infraestrutura (precisa de conta AWS)
 
@@ -23,7 +28,7 @@ O que falta para colocar a Trames em produção e não deu para fazer no código
 - [ ] **Alertas de custo** (AWS Budgets e CloudWatch) usando como referência os números da seção 8 do `viabilidade.md`: custo por balcão, storage, saída de dados e mensagens de WhatsApp.
 - [ ] Criar o papel `trames_app` no RDS com senha do Secrets Manager. No deploy, como dono: `pnpm db:migrate` e depois `pnpm fila:instalar` (cria as filas novas `exportar` e `avisar-mudanca`).
 - [ ] Domínios e cookies (`SameSite=Strict`, API na mesma origem): por exemplo `app.trames.app/api` e `balcao.trames.app/api`, com `URL_WEB` e `URL_BALCAO`. CORS do bucket `quarentena` para o balcão. CSP também como cabeçalho no CloudFront.
-- [ ] Rate limit compartilhado entre instâncias (hoje fica na memória de cada uma).
+- [ ] Rate limit por IP compartilhado entre instâncias (hoje fica na memória de cada uma; o limite por balcão já é no banco).
 - [ ] Observabilidade: alertas para fila parada, jobs que falharam, documentos presos na quarentena, ZIP que falhou.
 - [ ] Rotação de chaves: KMS automático e um plano para a `CHAVE_HMAC` (exige recalcular os índices).
 
@@ -40,7 +45,7 @@ O que falta para colocar a Trames em produção e não deu para fazer no código
 ## Segurança
 
 - [ ] **Isolar a geração de miniatura de PDF.** O worker abre PDFs enviados por clientes com o pdf.js (versão 4.10, sem `eval`), com limite de 20 segundos. Falta limite de memória, idealmente rodando essa etapa num processo ou container separado, para um PDF malicioso ou pesado não derrubar o worker.
-- [ ] **Pentest externo** antes de lançar, incluindo a sessão de 30 dias do cliente e a geração de miniaturas.
+- [ ] **Pentest externo** antes de lançar, incluindo a sessão de 30 dias do cliente, os vários links por balcão e a geração de miniaturas.
 
 ## Jurídico e LGPD
 
@@ -58,5 +63,4 @@ O que falta para colocar a Trames em produção e não deu para fazer no código
 - [ ] "Sair de todos os aparelhos" e lista de sessões ativas para a equipe do escritório.
 - [ ] CI (GitHub Actions) com Postgres, para rodar os testes e o typecheck a cada PR.
 - [ ] Teste de ponta a ponta no repositório. Rodei com Playwright durante o desenvolvimento, mas não versionei.
-- [ ] Logos oficiais em `apps/*/public/marca/`.
 - [ ] Turu: fora do lançamento. O código continua no repositório, desligado (`TURU=1` e `VITE_TURU=1` ligam em desenvolvimento).

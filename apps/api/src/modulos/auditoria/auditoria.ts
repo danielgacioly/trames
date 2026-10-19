@@ -17,6 +17,7 @@ export type Acao =
   | 'balcao.criado'
   | 'balcao.concluido'
   | 'balcao.reaberto'
+  | 'balcao.arquivado'
   | 'link.criado'
   | 'link.revogado'
   | 'link.enviado'

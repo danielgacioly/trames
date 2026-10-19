@@ -3,25 +3,15 @@ import { Link } from 'react-router-dom';
 import { PLANOS, RECURSO_INFO, type Recurso, type StatusItem as StatusDoc } from '@trames/shared';
 import { Icone, type NomeIcone } from './Icone';
 
+/** Logo oficial (lockup). A altura segue a das versões antigas, que mediam pela letra. */
 export function Logo({ altura = 32, para }: { altura?: number; para?: string }) {
-  const conteudo = (
-    <>
-      <svg viewBox="0 0 40 32" aria-hidden="true">
-        <path d="M4.5 29.5V18a15.5 15.5 0 0 1 31 0v11.5" />
-        <path d="M13.5 29.5V20.5a6.5 6.5 0 0 1 13 0v9" />
-      </svg>
-      <span>trames</span>
-    </>
-  );
-  const estilo = { '--logo-h': `${altura}px` } as React.CSSProperties;
+  const img = <img className="tr-logo-img" src="/marca/trames-lockup.svg" alt="trames" style={{ height: Math.round(altura * 1.2) }} />;
   return para ? (
-    <Link to={para} className="tr-logo" style={estilo} aria-label="trames">
-      {conteudo}
+    <Link to={para} className="tr-logo" aria-label="trames">
+      {img}
     </Link>
   ) : (
-    <span className="tr-logo" style={estilo} role="img" aria-label="trames">
-      {conteudo}
-    </span>
+    <span className="tr-logo">{img}</span>
   );
 }
 

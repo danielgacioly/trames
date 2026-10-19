@@ -45,6 +45,9 @@ import { selarConteudo } from './links';
  */
 
 const VALIDADE_SESSAO_CLIENTE_MS = 30 * 86_400_000;
+/** Limites por balcão, contados no banco (somam todos os links e todas as instâncias). */
+const CODIGOS_POR_HORA = 10;
+const ERROS_POR_15_MIN = 15;
 
 /** Um cookie por balcão: o mesmo aparelho pode ter balcões de escritórios diferentes. */
 const cookieDoBalcao = (balcaoId: string) => `${COOKIE_CLIENTE}_${createHash('sha256').update(balcaoId).digest('hex').slice(0, 16)}`;
@@ -69,7 +72,7 @@ async function linkValido(req: Request) {
   if (!l) throw new ErroHttp(404, 'Link não encontrado.', 'link_invalido');
   if (l.revogado_em || l.expira_em < new Date()) {
     const b = await naOrganizacao(l.organizacao_id, (tx) => tx.balcao.findUnique({ where: { id: l.balcao_id }, select: { concluidoEm: true } }));
-    if (b?.concluidoEm) throw new ErroHttp(410, 'O escritório já concluiu este balcão. Se precisar mandar mais alguma coisa, fale com ele.', 'balcao_concluido');
+    if (b?.concluidoEm) throw new ErroHttp(410, 'O escritório já encerrou este balcão. Se precisar mandar mais alguma coisa, fale com ele.', 'balcao_concluido');
     throw new ErroHttp(410, 'Este link foi substituído por um mais novo ou não vale mais. Use o link da mensagem mais recente do escritório.', 'link_vencido');
   }
   return l;
@@ -107,16 +110,18 @@ rotasAcesso.get(
 rotasAcesso.post(
   '/codigo',
   limites.pedirCodigo,
-  limites.codigoPorBalcao,
   rota(async (req, res) => {
     const l = await linkValido(req);
     validar(PedirCodigoEntrada, req.body ?? {});
     const codigo = novoCodigoSeisDigitos();
     const canal = await naOrganizacao(l.organizacao_id, async (tx) => {
       const b = await tx.balcao.findUniqueOrThrow({ where: { id: l.balcao_id }, include: { cliente: { select: { email: true } } } });
+      // Limite por balcão, no banco: vale para todos os links do balcão e entre instâncias da API.
+      const recentes = await tx.codigoAcesso.count({ where: { link: { balcaoId: l.balcao_id }, criadoEm: { gt: new Date(Date.now() - 3_600_000) } } });
+      if (recentes >= CODIGOS_POR_HORA) throw new ErroHttp(429, 'Muitos códigos pedidos para este balcão. Espere um pouco e tente de novo.', 'limite');
       const c = await canalDoCodigo(tx, l.organizacao_id, b.canalCodigo, !!b.cliente.email);
-      // Um código novo invalida os anteriores deste link.
-      await tx.codigoAcesso.updateMany({ where: { linkId: l.id, usadoEm: null }, data: { expiraEm: new Date() } });
+      // Um código novo invalida os anteriores do balcão, de qualquer link.
+      await tx.codigoAcesso.updateMany({ where: { link: { balcaoId: l.balcao_id }, usadoEm: null }, data: { expiraEm: new Date() } });
       await tx.codigoAcesso.create({
         data: { organizacaoId: l.organizacao_id, linkId: l.id, codigoHash: hashCodigo(l.id, codigo), canal: c, expiraEm: new Date(Date.now() + VALIDADE_CODIGO_MINUTOS * 60_000) },
       });
@@ -130,11 +135,12 @@ rotasAcesso.post(
 rotasAcesso.post(
   '/entrar',
   limites.entrarCliente,
-  limites.entrarPorBalcao,
   rota(async (req, res) => {
     const l = await linkValido(req);
     const { codigo } = validar(EntrarClienteEntrada, req.body);
     const ok = await naOrganizacao(l.organizacao_id, async (tx) => {
+      const erros = await tx.eventoAuditoria.count({ where: { acao: 'cliente.codigo_errado', alvoTipo: 'balcao', alvoId: l.balcao_id, criadoEm: { gt: new Date(Date.now() - 15 * 60_000) } } });
+      if (erros >= ERROS_POR_15_MIN) throw new ErroHttp(429, 'Muitas tentativas neste balcão. Espere 15 minutos e peça um código novo.', 'limite');
       const c = await tx.codigoAcesso.findFirst({ where: { linkId: l.id, usadoEm: null, expiraEm: { gt: new Date() } }, orderBy: { criadoEm: 'desc' } });
       if (!c || c.tentativas >= TENTATIVAS_CODIGO) throw new ErroHttp(400, 'O código venceu. Peça um novo.', 'codigo_vencido');
       if (!iguais(c.codigoHash, hashCodigo(l.id, codigo))) {
@@ -174,7 +180,8 @@ export async function exigirCliente(req: Request, _res: Response, next: NextFunc
     const l = await linkValido(req);
     const token = req.cookies?.[cookieDoBalcao(l.balcao_id)];
     const s = typeof token === 'string' && token ? await sessaoClientePorToken(hashToken(token)) : null;
-    if (!s || s.balcao_id !== l.balcao_id || s.link_id !== l.id) throw new ErroHttp(401, 'Digite o código para abrir o balcão.', 'sem_sessao');
+    // Qualquer link ativo do balcão serve: lembretes trazem links novos e a sessão continua.
+    if (!s || s.balcao_id !== l.balcao_id) throw new ErroHttp(401, 'Digite o código para abrir o balcão.', 'sem_sessao');
     req.cliente = { sessaoId: s.id, organizacaoId: s.organizacao_id, balcaoId: s.balcao_id, linkId: s.link_id };
     next();
   } catch (e) {

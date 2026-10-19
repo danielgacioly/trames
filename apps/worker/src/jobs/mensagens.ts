@@ -1,4 +1,5 @@
-import { abrir, criarKms, decifrarDadosCliente, marcarAviso, naOrganizacao, planoDe, reservarWhatsapp, type Tx } from '@trames/db';
+import { abrir, criarKms, decifrarDadosCliente, marcarAviso, naOrganizacao, planoDe, Prisma, reservarWhatsapp, type Tx } from '@trames/db';
+import { mesDe } from '@trames/shared';
 import { PLANOS, VALIDADE_CODIGO_MINUTOS, type PayloadFila } from '@trames/shared';
 import type { ConteudoSelado } from '@trames/shared/filas';
 import { log } from '../log';
@@ -14,7 +15,7 @@ const dataLonga = (d: Date) => `${d.getUTCDate()} de ${MESES[d.getUTCMonth()]}`;
  * administra recebe um aviso (uma vez por mês). A reserva da cota fica na mesma
  * transação do envio: se o envio falhar, a mensagem não conta.
  */
-async function canalDoCliente(tx: Tx, organizacaoId: string, pedido: 'whatsapp' | 'email', temEmail: boolean) {
+async function canalDoCliente(tx: Tx, organizacaoId: string, pedido: 'whatsapp' | 'email') {
   if (pedido !== 'whatsapp') return 'email' as const;
   const plano = await planoDe(tx, organizacaoId);
   if (!PLANOS[plano].recursos.whatsapp) return 'email' as const;
@@ -24,7 +25,7 @@ async function canalDoCliente(tx: Tx, organizacaoId: string, pedido: 'whatsapp' 
       tx,
       organizacaoId,
       'A cota de WhatsApp do mês acabou',
-      `A conta usou as ${PLANOS[plano].cotaWhatsapp} mensagens de WhatsApp do plano ${PLANOS[plano].nome} neste mês. Até o mês virar, códigos e lembretes vão por e-mail${temEmail ? '' : ' (clientes sem e-mail cadastrado não vão receber)'}.`,
+      `A conta usou as ${PLANOS[plano].cotaWhatsapp} mensagens de WhatsApp do plano ${PLANOS[plano].nome} neste mês. Até o mês virar, códigos e lembretes vão por e-mail.`,
     );
   }
   return 'email' as const;
@@ -66,12 +67,7 @@ export async function enviarMensagem(p: PayloadFila['enviar-mensagem']) {
 
     const b = await tx.balcao.findUnique({ where: { id: p.balcaoId! }, include: { cliente: true, itens: { where: { removidoEm: null }, select: { status: true, obrigatorio: true } } } });
     if (!b) return;
-    const canal = await canalDoCliente(tx, org.id, p.canal, !!b.cliente.email);
-    const destino = canal === 'whatsapp' ? (await decifrarDadosCliente(kms, b.cliente)).telefone : b.cliente.email;
-    if (!destino) {
-      log.warn({ balcaoId: b.id, tipo: p.tipo }, 'cliente sem contato para o canal; mensagem não enviada');
-      return;
-    }
+    const canal = await canalDoCliente(tx, org.id, p.canal);
     const nome = b.cliente.nome.split(' ')[0];
     const faltam = b.itens.filter((i) => i.status === 'pendente' || i.status === 'recusado').length;
     const prazo = dataLonga(b.prazo);
@@ -104,11 +100,19 @@ export async function enviarMensagem(p: PayloadFila['enviar-mensagem']) {
     };
     const m = mensagens[p.tipo as keyof typeof mensagens];
     if (!m) return;
-    if (canal === 'whatsapp' && !m.template) {
-      log.warn({ tipo: p.tipo }, 'mensagem sem template de WhatsApp; vai por e-mail');
-      if (!b.cliente.email) return;
+    const porEmail = () => {
+      if (!b.cliente.email) return log.warn({ balcaoId: b.id, tipo: p.tipo }, 'cliente sem e-mail; mensagem não enviada');
       return enviar(tx, { organizacaoId: org.id, balcaoId: b.id, canal: 'email', destino: b.cliente.email, assunto: m.assunto, texto: m.texto });
+    };
+    if (canal === 'email' || !m.template) return porEmail();
+    try {
+      const { telefone } = await decifrarDadosCliente(kms, b.cliente);
+      await enviar(tx, { organizacaoId: org.id, balcaoId: b.id, canal, destino: telefone, assunto: m.assunto, texto: m.texto, template: m.template });
+    } catch (e) {
+      // WhatsApp fora do ar ou recusou: a mensagem sai por e-mail e não conta na cota.
+      log.warn({ balcaoId: b.id, tipo: p.tipo, erro: (e as Error).message }, 'WhatsApp falhou; vai por e-mail');
+      await tx.$executeRaw(Prisma.sql`UPDATE uso_mensal SET whatsapp_enviados = GREATEST(whatsapp_enviados - 1, 0) WHERE organizacao_id = ${org.id}::uuid AND mes = ${mesDe()}`);
+      await porEmail();
     }
-    await enviar(tx, { organizacaoId: org.id, balcaoId: b.id, canal, destino, assunto: m.assunto, texto: m.texto, template: m.template });
   });
 }

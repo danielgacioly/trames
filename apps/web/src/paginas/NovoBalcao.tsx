@@ -1,7 +1,7 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PRECO_EXCEDENTE_CENTAVOS, type BalcaoDetalhe, type CanalCodigo, type ItemEntrada as ItemModelo, type LinkGerado, type StatusItem } from '@trames/shared';
-import { api, ErroDaApi } from '../dados/api';
+import { api } from '../dados/api';
 import { chaves as chavesConsulta, useAcao, useBalcao, useCobranca, useModelos, useSessao } from '../dados/consultas';
 import { AvisoErro, Bloqueio, Carregando, SeloConta, Status } from '../componentes/comuns';
 import { Icone } from '../componentes/Icone';
@@ -186,7 +186,6 @@ function FormularioBalcao({ modelo, vindoDoTuru }: { modelo?: { nome: string; it
   const excedente = p.balcoesNoMes !== null && (uso?.balcoesNoMes ?? 0) >= p.balcoesNoMes;
   const podeAbrir = !noLimite && !soConfere;
   const comWhatsapp = sessao.tem('whatsapp');
-  const precisaEmail = (comWhatsapp ? canalCodigo : 'email') === 'email' || (lembrete && (comWhatsapp ? canalLembrete : 'email') === 'email');
   const nomeCliente = primeiroNome(cliente.nome) || 'cliente';
   const campo = (k: keyof typeof cliente) => ({ value: cliente[k], onChange: (e: React.ChangeEvent<HTMLInputElement>) => setCliente({ ...cliente, [k]: e.target.value }) });
 
@@ -196,7 +195,7 @@ function FormularioBalcao({ modelo, vindoDoTuru }: { modelo?: { nome: string; it
     setErro('');
     if (!itens.length) return setErro('Inclua pelo menos um documento.');
     if (soDigitos(cliente.whatsapp).length < 10) return setErro('Confira o WhatsApp do cliente, com DDD.');
-    if (precisaEmail && !cliente.email.trim()) return setErro('Informe o e-mail do cliente: o código de acesso e os lembretes vão por e-mail.');
+    if (!cliente.email.trim()) return setErro('Informe o e-mail do cliente: é por ele que vão o código de acesso, os lembretes e os avisos.');
     try {
       const b = await criarBalcao.mutateAsync({
         tipo: tipo.trim(),
@@ -282,9 +281,9 @@ function FormularioBalcao({ modelo, vindoDoTuru }: { modelo?: { nome: string; it
                 <span className="tr-campo__dica">Para você mandar o link pelo seu WhatsApp.</span>
               </label>
               <label className="tr-campo tr-campo--largo">
-                <span className="tr-campo__rotulo">E-mail{precisaEmail ? '' : ' (opcional)'}</span>
-                <input className="tr-campo__entrada" type="email" required={precisaEmail} {...campo('email')} />
-                {precisaEmail && <span className="tr-campo__dica">O código de acesso e os lembretes vão para este e-mail.</span>}
+                <span className="tr-campo__rotulo">E-mail</span>
+                <input className="tr-campo__entrada" type="email" required {...campo('email')} />
+                <span className="tr-campo__dica">Código de acesso, lembretes e avisos. Se o WhatsApp falhar ou a cota acabar, é por aqui que vão.</span>
               </label>
               <label className="tr-campo tr-campo--largo">
                 <span className="tr-campo__rotulo">Tipo de caso</span>
@@ -388,19 +387,13 @@ export function LinkBalcao() {
   const consulta = useBalcao(id);
   const estado = local.state as { link?: LinkGerado; criado?: boolean; excedente?: boolean } | null;
   const [link, setLink] = useState<LinkGerado | null>(estado?.link ?? null);
-  const [semLink, setSemLink] = useState(false);
   const [copiado, setCopiado] = useState(false);
   const [mensagem, setMensagem] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [erro, setErro] = useState<unknown>(null);
-  const gerar = useAcao(() => api<LinkGerado>('POST', `/balcoes/${id}/link`), [chavesConsulta.balcao(id)]);
-  const porEmail = useAcao((m: string) => api('POST', `/balcoes/${id}/enviar-link`, { mensagem: m }), [chavesConsulta.historico(id)]);
-
-  // Sem o link no estado da navegação, busca o ativo (o token fica selado no banco).
-  useEffect(() => {
-    if (link) return;
-    api<LinkGerado>('GET', `/balcoes/${id}/link`).then(setLink, (e) => (e instanceof ErroDaApi && e.codigo === 'sem_link' ? setSemLink(true) : setErro(e)));
-  }, [id, link]);
+  // O banco guarda só o hash: um link antigo não pode ser mostrado de novo, então emite um para enviar.
+  const emitir = useAcao(() => api<LinkGerado>('POST', `/balcoes/${id}/links`), [chavesConsulta.balcao(id), chavesConsulta.historico(id)]);
+  const porEmail = useAcao((m: string) => api('POST', `/balcoes/${id}/enviar-link`, { mensagem: m, url: link!.url }), [chavesConsulta.historico(id)]);
 
   if (consulta.isPending) return <Carregando />;
   if (consulta.error) return <AvisoErro erro={consulta.error} />;
@@ -416,7 +409,7 @@ export function LinkBalcao() {
     setErro(null);
     const janela = window.open('', '_blank');
     try {
-      const { url } = await api<{ url: string }>('POST', `/balcoes/${id}/whatsapp`, { mensagem: texto });
+      const { url } = await api<{ url: string }>('POST', `/balcoes/${id}/whatsapp`, { mensagem: texto, url: link!.url });
       if (janela) janela.location.href = url;
       else window.location.href = url;
     } catch (e) {
@@ -472,16 +465,16 @@ export function LinkBalcao() {
               </button>
             </div>
             <span className="miudo texto-suave">
-              Protocolo <span className="tr-protocolo">{b.protocolo}</span> · vale até {dataLonga(link.expiraEm.slice(0, 10))}. Lembretes e avisos levam este mesmo link.
+              Protocolo <span className="tr-protocolo">{b.protocolo}</span> · vale até {dataLonga(link.expiraEm.slice(0, 10))}. Por segurança, guardamos só uma impressão digital do link: ele aparece só agora.
             </span>
           </div>
-        ) : semLink ? (
+        ) : (
           <div className="aviso">
             <Icone nome="cadeado" />
-            <span>Este balcão está sem link ativo. Gere um novo para mandar ao cliente.</span>
+            <span>
+              Por segurança, a Trames não guarda os links, só uma impressão digital deles: um link já enviado não aparece de novo. Gere um link para mandar agora. Os que você já mandou continuam valendo, e {nome} continua conectado.
+            </span>
           </div>
-        ) : (
-          <Carregando />
         )}
 
         {link && (
@@ -493,7 +486,7 @@ export function LinkBalcao() {
           </label>
         )}
 
-        <AvisoErro erro={erro ?? porEmail.error ?? gerar.error} />
+        <AvisoErro erro={erro ?? porEmail.error ?? emitir.error} />
         {aviso && (
           <div className="aviso" role="status">
             <Icone nome="check" />
@@ -526,11 +519,9 @@ export function LinkBalcao() {
               <span className="miudo texto-suave">"Enviar pelo WhatsApp" abre o seu WhatsApp com a mensagem pronta para {nome}. Quem envia é você; a Trames não manda essa mensagem.</span>
             </>
           ) : (
-            semLink && (
-              <button type="button" className="tr-btn tr-btn--primario" disabled={gerar.isPending || !!b.concluidoEm} onClick={async () => setLink(await gerar.mutateAsync())}>
-                Gerar link novo
-              </button>
-            )
+            <button type="button" className="tr-btn tr-btn--primario" disabled={emitir.isPending || !!b.concluidoEm} onClick={async () => setLink(await emitir.mutateAsync())}>
+              Gerar link para enviar
+            </button>
           )}
         </div>
         <div className="linha linha--entre pequeno" style={{ gap: 12, paddingTop: 16, borderTop: '1px solid var(--linha)' }}>

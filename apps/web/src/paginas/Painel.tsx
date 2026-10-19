@@ -18,7 +18,7 @@ function CartaoBalcao({ b }: { b: BalcaoResumo }) {
   const grupo = grupoDe(b);
   const atrasado = !b.concluidoEm && diasAte(b.prazo) < 0;
   let status = null;
-  if (grupo === 'concluidos') status = <Status status="aprovado" texto={b.arquivosApagadosEm ? 'Concluído · arquivos apagados' : 'Concluído'} />;
+  if (grupo === 'concluidos') status = <Status status={b.arquivadoEm ? 'pendente' : 'aprovado'} texto={`${b.arquivadoEm ? 'Arquivado' : 'Concluído'}${b.arquivosApagadosEm ? ' · arquivos apagados' : ''}`} />;
   else if (c.analise) status = <Status status="analise" texto={`${c.analise} em análise`} />;
   else if (c.recusado) status = <Status status="recusado" texto={`${c.recusado} para reenviar`} />;
 
@@ -131,7 +131,7 @@ export function Painel() {
     conferir: todos.filter((b) => grupoDe(b) === 'conferir'),
     concluidos: todos.filter((b) => grupoDe(b) === 'concluidos'),
   };
-  const rotulos = { abertos: 'Abertos', cliente: 'Esperando o cliente', conferir: 'Para conferir', concluidos: 'Concluídos' };
+  const rotulos = { abertos: 'Abertos', cliente: 'Esperando o cliente', conferir: 'Para conferir', concluidos: 'Concluídos e arquivados' };
   const termo = busca.trim().toLowerCase();
   const visiveis = listas[filtro].filter((b) => !termo || b.clienteNome.toLowerCase().includes(termo) || b.protocolo.toLowerCase().includes(termo));
 

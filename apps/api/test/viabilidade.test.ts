@@ -112,10 +112,15 @@ describe('acesso do cliente', () => {
     // O mesmo aparelho, com o link de outro balcão, não entra.
     await cliente.get('/api/cliente/balcao').set('x-link', token2).expect(401);
 
-    // Lembrete leva o mesmo link: a sessão continua.
+    // Lembrete e "Link do cliente" emitem links novos (só o hash fica no banco) sem derrubar
+    // os anteriores nem a sessão: o mesmo aparelho entra pelo link novo sem código.
     await agente.post(`/api/balcoes/${b1.id}/lembrar`).set('origin', ORIGEM).expect(202);
-    expect((await agente.get(`/api/balcoes/${b1.id}/link`).expect(200)).body.url).toBe(b1.link.url);
+    const outro = (await agente.post(`/api/balcoes/${b1.id}/links`).set('origin', ORIGEM).expect(200)).body.url as string;
+    expect(outro).not.toBe(b1.link.url);
     await cliente.get('/api/cliente/balcao').set('x-link', token1).expect(200);
+    await cliente.get('/api/cliente/balcao').set('x-link', outro.split('#')[1]).expect(200);
+    const colunas = await dono.$queryRaw<{ column_name: string }[]>`SELECT column_name FROM information_schema.columns WHERE table_name = 'links_acesso'`;
+    expect(colunas.map((c) => c.column_name)).not.toContain('token_selado');
 
     await agente.delete(`/api/balcoes/${b1.id}/sessoes`).set('origin', ORIGEM).expect(204);
     await cliente.get('/api/cliente/balcao').set('x-link', token1).expect(401);
@@ -168,6 +173,42 @@ describe('editar a lista', () => {
     await agente.delete(`/api/itens/${restantes[0].id}`).set('origin', ORIGEM).expect(204);
     const ultimo = await agente.delete(`/api/itens/${restantes[1].id}`).set('origin', ORIGEM).expect(400);
     expect(ultimo.body.codigo).toBe('ultimo_item');
+  });
+
+  it('arquivar: deixa de ser ativo, derruba o acesso, agenda a exclusão e dá para reabrir', async () => {
+    const { agente } = await entrar(1);
+    const b = await criar(agente);
+    const ativosAntes = (await agente.get('/api/cobranca').expect(200)).body.balcoesAtivos;
+    await agente.post(`/api/balcoes/${b.id}/arquivar`).set('origin', ORIGEM).expect(204);
+    const det = (await agente.get(`/api/balcoes/${b.id}`).expect(200)).body;
+    expect(det.arquivadoEm).toBeTruthy();
+    expect(Math.round((new Date(det.apagarArquivosEm).getTime() - new Date(det.concluidoEm).getTime()) / 86_400_000)).toBe(90);
+    expect((await agente.get('/api/cobranca').expect(200)).body.balcoesAtivos).toBe(ativosAntes - 1);
+    expect((await request(app).get('/api/acesso').set('x-link', b.link.url.split('#')[1]).expect(410)).body.codigo).toBe('balcao_concluido');
+    await agente.post(`/api/balcoes/${b.id}/itens`).set('origin', ORIGEM).send({ itens: [{ nome: 'Outro', detalhe: '', obrigatorio: true }] }).expect(409);
+    await agente.post(`/api/balcoes/${b.id}/reabrir`).set('origin', ORIGEM).expect(204);
+    const reaberto = (await agente.get(`/api/balcoes/${b.id}`).expect(200)).body;
+    expect(reaberto.arquivadoEm).toBeNull();
+    expect(reaberto.apagarArquivosEm).toBeNull();
+  });
+
+  it('retenção menor (Ultra) encurta a exclusão dos já encerrados, com no mínimo 7 dias', async () => {
+    const { agente, org } = await entrar(2);
+    const recente = await criar(agente);
+    const antigo = await criar(agente);
+    for (const b of [recente, antigo]) await agente.post(`/api/balcoes/${b.id}/arquivar`).set('origin', ORIGEM).expect(204);
+    // O "antigo" foi encerrado há 60 dias, com 90 de retenção: faltam 30.
+    const DIA = 86_400_000;
+    await dono.balcao.update({ where: { id: antigo.id }, data: { concluidoEm: new Date(Date.now() - 60 * DIA), apagarArquivosEm: new Date(Date.now() + 30 * DIA) } });
+    const o = await dono.organizacao.findUniqueOrThrow({ where: { id: org } });
+    const faltam = async (id: string) => ((await dono.balcao.findUniqueOrThrow({ where: { id } })).apagarArquivosEm!.getTime() - Date.now()) / DIA;
+    try {
+      await agente.put('/api/organizacao').set('origin', ORIGEM).send({ nome: o.nome, diasRetencao: 30 }).expect(204);
+      expect(Math.round(await faltam(recente.id))).toBe(30); // encerrado agora: 30 dias
+      expect(Math.round(await faltam(antigo.id))).toBe(7); // já passaria do prazo: 7 dias, para o aviso sair
+    } finally {
+      await dono.organizacao.update({ where: { id: org }, data: { diasRetencao: o.diasRetencao } });
+    }
   });
 
   it('balcão concluído não aceita edição e ganha a data de exclusão do plano', async () => {

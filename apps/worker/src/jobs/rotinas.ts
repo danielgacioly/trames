@@ -1,8 +1,9 @@
-import { criarKms, naOrganizacao, selar, todasAsOrganizacoes } from '@trames/db';
+import { criarKms, naOrganizacao, planoDe, selar, todasAsOrganizacoes } from '@trames/db';
+import { diasRetencao } from '@trames/shared';
 import { apagar, BUCKET_DOCUMENTOS, BUCKET_QUARENTENA } from '@trames/db/armazenamento';
 import { log } from '../log';
 import type { Enfileirar } from '../fila';
-import { urlDoLinkAtivo } from '../links';
+import { emitirLink } from '../links';
 import { avisarAdmins } from '../mensagens';
 
 /*
@@ -32,8 +33,8 @@ function etapaDoDia(prazo: Date, hoje: Date) {
 /**
  * Lembretes automáticos em todos os planos, pelo canal do balcão (e-mail, ou
  * WhatsApp no Pro e no Ultra, dentro da cota). Cada etapa sai uma vez; se o
- * worker ficou parado, sai só a etapa mais recente. O lembrete leva o mesmo
- * link: a sessão de 30 dias do cliente continua valendo.
+ * worker ficou parado, sai só a etapa mais recente. Cada lembrete leva um link
+ * novo; os anteriores e a sessão de 30 dias do cliente continuam valendo.
  */
 export async function lembretes(enfileirar: Enfileirar) {
   const hoje = hojeEmBrasilia();
@@ -47,8 +48,7 @@ export async function lembretes(enfileirar: Enfileirar) {
       for (const b of balcoes) {
         const etapa = etapaDoDia(b.prazo, hoje);
         if (!etapa || b.lembretesEnviados.includes(etapa)) continue;
-        const url = await urlDoLinkAtivo(tx, org, b.id);
-        if (!url) continue; // sem link ativo: o escritório precisa gerar um novo
+        const url = await emitirLink(tx, org, b.id, b.prazo);
         const ate = ETAPAS.slice(0, ETAPAS.indexOf(etapa) + 1);
         await tx.balcao.update({ where: { id: b.id }, data: { lembretesEnviados: [...new Set([...b.lembretesEnviados, ...ate])], ultimoLembreteEm: new Date() } });
         await tx.eventoAuditoria.create({ data: { organizacaoId: org, atorTipo: 'sistema', acao: 'lembrete.enviado', alvoTipo: 'balcao', alvoId: b.id, detalhes: { etapa, canal: b.canalLembrete } } });
@@ -75,11 +75,63 @@ export async function expirar() {
       await tx.sessaoCliente.deleteMany({ where: { expiraEm: { lt: agora } } });
       await tx.sessao.deleteMany({ where: { expiraEm: { lt: agora } } });
       await tx.caixaSaidaDev.deleteMany({ where: { criadaEm: { lt: new Date(agora.getTime() - DIA_MS) } } });
+      // Cada mensagem emite um link: os vencidos há mais de 90 dias saem (com códigos e sessões, em cascata).
+      await tx.linkAcesso.deleteMany({ where: { expiraEm: { lt: new Date(agora.getTime() - 90 * DIA_MS) } } });
       return tx.exportacao.findMany({ where: { expiraEm: { lt: agora }, chave: { not: null } } });
     });
     for (const z of zips) await apagar(BUCKET_DOCUMENTOS, z.chave!);
     if (zips.length) await naOrganizacao(org, (tx) => tx.exportacao.updateMany({ where: { id: { in: zips.map((z) => z.id) } }, data: { chave: null } }));
   }
+}
+
+/** Balcão aberto esquecido é arquivado sozinho 30 dias depois do prazo (quando o link também vence). */
+const DIAS_PARA_ARQUIVAR = 30;
+
+/**
+ * Arquivamento automático. Sem isso, um balcão nunca concluído não entraria na
+ * retenção e os arquivos ficariam guardados para sempre. 7 dias antes, quem
+ * administra recebe um e-mail (dá para mudar o prazo ou concluir). Arquivado,
+ * ele para de contar como ativo, o acesso do cliente cai e a retenção começa.
+ */
+export async function arquivar() {
+  const hoje = hojeEmBrasilia();
+  const limite = new Date(hoje.getTime() - DIAS_PARA_ARQUIVAR * DIA_MS);
+  let total = 0;
+  for (const org of await todasAsOrganizacoes()) {
+    await naOrganizacao(org, async (tx) => {
+      const avisar = await tx.balcao.findMany({
+        where: { concluidoEm: null, avisoArquivoEm: null, prazo: { lt: new Date(limite.getTime() + 7 * DIA_MS) } },
+        include: { cliente: { select: { nome: true } } },
+        orderBy: { prazo: 'asc' },
+      });
+      if (avisar.length) {
+        const linhas = avisar.map((b) => `- ${b.protocolo} (${b.cliente.nome.split(' ')[0]}): prazo era ${b.prazo.toISOString().slice(0, 10)}`);
+        await avisarAdmins(
+          tx,
+          org,
+          `${avisar.length} ${avisar.length === 1 ? 'balcão será arquivado' : 'balcões serão arquivados'} em 7 dias`,
+          `Estes balcões estão abertos e com o prazo vencido há semanas:\n${linhas.join('\n')}\n\nEm 7 dias eles serão arquivados: o link do cliente para de valer e começa a contar o prazo para apagar os arquivos. Para evitar, mude o prazo ou conclua o balcão.`,
+        );
+        await tx.balcao.updateMany({ where: { id: { in: avisar.map((b) => b.id) } }, data: { avisoArquivoEm: new Date() } });
+      }
+
+      // Só arquiva quem já recebeu o aviso há 7 dias: nenhum balcão é arquivado sem aviso.
+      const vencidos = await tx.balcao.findMany({ where: { concluidoEm: null, prazo: { lt: limite }, avisoArquivoEm: { lte: new Date(Date.now() - 7 * DIA_MS) } }, select: { id: true } });
+      if (!vencidos.length) return;
+      const o = await tx.organizacao.findUniqueOrThrow({ where: { id: org } });
+      const dias = diasRetencao(await planoDe(tx, org), o.diasRetencao);
+      const agora = new Date();
+      const ids = vencidos.map((b) => b.id);
+      await tx.balcao.updateMany({ where: { id: { in: ids } }, data: { concluidoEm: agora, arquivadoEm: agora, apagarArquivosEm: new Date(agora.getTime() + dias * DIA_MS), avisoRetencaoEm: null } });
+      await tx.linkAcesso.updateMany({ where: { balcaoId: { in: ids }, revogadoEm: null }, data: { revogadoEm: agora } });
+      await tx.sessaoCliente.deleteMany({ where: { balcaoId: { in: ids } } });
+      for (const id of ids) {
+        await tx.eventoAuditoria.create({ data: { organizacaoId: org, atorTipo: 'sistema', acao: 'balcao.arquivado', alvoTipo: 'balcao', alvoId: id, detalhes: { automatico: true, diasRetencao: dias } } });
+      }
+      total += ids.length;
+    });
+  }
+  log.info({ total }, 'balcões arquivados');
 }
 
 /**
@@ -90,6 +142,7 @@ export async function expirar() {
  * e quando, nunca o arquivo.
  */
 export async function retencao() {
+  await arquivar();
   const agora = new Date();
   let arquivos = 0;
   for (const org of await todasAsOrganizacoes()) {

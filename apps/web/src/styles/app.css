@@ -11,6 +11,7 @@ summary::-webkit-details-marker { display: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* Logo: o Túnel (dois arcos) + o logotipo em Space Grotesk */
+.tr-logo-img { display: block; width: auto; }
 .tr-logo { --logo-h: 32px; display: inline-flex; align-items: center; gap: calc(var(--logo-h) * .28); height: var(--logo-h); color: var(--tinta); text-decoration: none; }
 .tr-logo svg { height: calc(var(--logo-h) * .82); width: auto; fill: none; stroke: var(--mangue); stroke-width: 5; stroke-linecap: round; }
 .tr-logo span { font-family: var(--font-display); font-weight: 600; font-size: calc(var(--logo-h) * .86); line-height: 1; letter-spacing: -.035em; }

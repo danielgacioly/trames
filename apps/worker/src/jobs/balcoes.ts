@@ -6,7 +6,7 @@ import { abrirFluxo, BUCKET_DOCUMENTOS, s3 } from '@trames/db/armazenamento';
 import type { PayloadFila } from '@trames/shared';
 import { log } from '../log';
 import type { Enfileirar } from '../fila';
-import { urlDoLinkAtivo } from '../links';
+import { emitirLink } from '../links';
 
 const kms = criarKms();
 const VALIDADE_ZIP_MS = 24 * 60 * 60 * 1000;
@@ -18,7 +18,7 @@ const VALIDADE_ZIP_MS = 24 * 60 * 60 * 1000;
  */
 export async function avisarMudanca({ organizacaoId, balcaoId }: PayloadFila['avisar-mudanca'], enfileirar: Enfileirar) {
   const r = await naOrganizacao(organizacaoId, async (tx) => {
-    const b = await tx.balcao.findUnique({ where: { id: balcaoId }, include: { cliente: { select: { email: true } } } });
+    const b = await tx.balcao.findUnique({ where: { id: balcaoId } });
     if (!b || b.concluidoEm) return null;
     const desde = b.ultimoAvisoMudancaEm ?? b.criadoEm;
     const eventos = await tx.eventoAuditoria.findMany({
@@ -30,14 +30,12 @@ export async function avisarMudanca({ organizacaoId, balcaoId }: PayloadFila['av
     const itens = await tx.itemBalcao.findMany({ where: { id: { in: ids }, removidoEm: null, status: { in: ['pendente', 'recusado'] } }, orderBy: { ordem: 'asc' } });
     await tx.balcao.update({ where: { id: b.id }, data: { ultimoAvisoMudancaEm: new Date() } });
     if (!itens.length) return null;
-    const url = await urlDoLinkAtivo(tx, organizacaoId, b.id);
-    if (!url) return null;
-    // A mudança vai por e-mail; sem e-mail, vai pelo lembrete do WhatsApp (conta na cota).
-    return { url, nomes: itens.map((i) => i.nome), canal: b.cliente.email ? ('email' as const) : ('whatsapp' as const) };
+    // Link novo para o aviso; os anteriores continuam valendo. O aviso vai por e-mail (sem custo de WhatsApp).
+    return { url: await emitirLink(tx, organizacaoId, b.id, b.prazo), nomes: itens.map((i) => i.nome) };
   });
   if (!r) return;
   const selado = (await selar(kms, JSON.stringify({ url: r.url, itens: r.nomes }), `fila:${organizacaoId}`)).toString('base64');
-  await enfileirar('enviar-mensagem', { organizacaoId, balcaoId, tipo: 'mudanca', canal: r.canal, selado });
+  await enfileirar('enviar-mensagem', { organizacaoId, balcaoId, tipo: 'mudanca', canal: 'email', selado });
 }
 
 const pasta = (s: string) =>

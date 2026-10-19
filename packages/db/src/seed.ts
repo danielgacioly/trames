@@ -7,7 +7,7 @@
 import { randomUUID } from 'node:crypto';
 import argon2 from 'argon2';
 import { BUCKET_DOCUMENTOS, chaveDocumento, enviar } from './armazenamento';
-import { criarKms, novoToken, selar } from './cripto';
+import { criarKms, novoToken } from './cripto';
 import { cifrarDadosCliente } from './dados-cliente';
 import { MODELOS_PADRAO } from './modelos-padrao';
 import { CONTAS_TESTE, SENHA_TESTE } from './contas-teste';
@@ -92,6 +92,7 @@ interface NovoBalcao {
   concluido?: boolean;
   /** Dias atrás em que foi concluído (padrão: 2). */
   concluidoHa?: number;
+  arquivado?: boolean;
   diasRetencao?: number;
 }
 
@@ -110,15 +111,14 @@ async function criarBalcao(b: NovoBalcao) {
       canalLembrete: b.canal ?? 'email',
       criadoEm: momento(-14 - (b.n % 10)),
       concluidoEm: b.concluido ? momento(-(b.concluidoHa ?? 2), 16) : null,
+      arquivadoEm: b.concluido && b.arquivado ? momento(-(b.concluidoHa ?? 2), 16) : null,
       apagarArquivosEm: b.concluido ? momento(-(b.concluidoHa ?? 2) + (b.diasRetencao ?? 90), 16) : null,
     },
   });
   if (!b.concluido) {
-    // Link ativo com o token selado: lembretes e "Link do cliente" funcionam sem gerar outro.
-    const { token, hash } = novoToken();
-    await db.linkAcesso.create({
-      data: { organizacaoId: b.organizacaoId, balcaoId: balcao.id, tokenHash: hash, tokenSelado: await selar(kms, token, `link:${b.organizacaoId}`), expiraEm: new Date(Math.max(dia(b.prazo).getTime(), hoje()) + 30 * DIA) },
-    });
+    // Um link ativo (só o hash). Para mandar ao cliente, o escritório gera um em "Link do cliente".
+    const { hash } = novoToken();
+    await db.linkAcesso.create({ data: { organizacaoId: b.organizacaoId, balcaoId: balcao.id, tokenHash: hash, expiraEm: new Date(Math.max(dia(b.prazo).getTime(), hoje()) + 30 * DIA) } });
   }
   for (const [k, it] of b.itens.entries()) {
     const item = await db.itemBalcao.create({
@@ -254,7 +254,7 @@ async function main() {
     const concluido = k >= 46;
     const qtd = MODELOS_PADRAO.find((m) => m.id === t.modelo)!.itens.length;
     const status = Array.from({ length: qtd }, (_, j): StatusItem => {
-      if (concluido) return A;
+      if (concluido) return k === 48 ? (j % 2 ? A : P) : A;
       const v = (k * 7 + j * 3) % 10;
       if (v < 4) return A;
       if (v < 6) return E;
@@ -262,7 +262,7 @@ async function main() {
       return P;
     });
     const n = 5000 + k * 3;
-    await criarBalcao({ organizacaoId: u.id, n, tipo: t.tipo, cliente: cliFalso(nome, n), prazo: concluido ? -6 : ((k * 11) % 46) - 6, lembrete: k % 3 !== 0, canal: k % 4 === 0 ? 'whatsapp' : 'email', itens: itensDoModelo(t.modelo, status), concluido });
+    await criarBalcao({ organizacaoId: u.id, n, tipo: t.tipo, cliente: cliFalso(nome, n), prazo: concluido ? -6 : ((k * 11) % 46) - 6, lembrete: k % 3 !== 0, canal: k % 4 === 0 ? 'whatsapp' : 'email', itens: itensDoModelo(t.modelo, status), concluido, arquivado: k === 48 });
   }
 
   // Uso do mês, para testar os limites sem criar centenas de balcões:

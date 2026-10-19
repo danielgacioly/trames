@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { naOrganizacao } from '@trames/db';
-import { mesDe, MudarPlanoEntrada, type UsoDto } from '@trames/shared';
+import { diasRetencao, mesDe, MudarPlanoEntrada, type UsoDto } from '@trames/shared';
 import { config } from '../../infra/config';
 import { ErroHttp } from '../../infra/erros';
 import { rota, validar } from '../../infra/http';
 import { auditar } from '../auditoria/auditoria';
 import { exigirAdmin } from '../auth/permissoes';
-import { balcoesAtivos } from '../balcoes/balcoes';
+import { balcoesAtivos, limitarRetencao } from '../balcoes/balcoes';
 
 /*
  * Assinatura e uso do plano. O provedor de pagamento (Pix e cartão) ainda não foi
@@ -47,6 +47,7 @@ rotasCobranca.post(
     await naOrganizacao(org, async (tx) => {
       await tx.assinatura.updateMany({ where: { status: 'ativa' }, data: { status: 'cancelada', fimEm: new Date() } });
       await tx.assinatura.create({ data: { organizacaoId: org, plano, periodicidade } });
+      await limitarRetencao(tx, diasRetencao(plano, req.empresa!.organizacao.diasRetencao));
       await auditar(tx, req, { acao: 'plano.alterado', alvoTipo: 'organizacao', alvoId: org, detalhes: { de: req.empresa!.plano, para: plano, periodicidade } });
     });
     res.status(204).end();

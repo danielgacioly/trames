@@ -186,7 +186,12 @@ model Balcao {
   ultimoAvisoMudancaEm DateTime? @map("ultimo_aviso_mudanca_em")
   criadoPorId          String?   @map("criado_por_id") @db.Uuid
   criadoEm             DateTime  @default(now()) @map("criado_em")
+  /// Encerramento: concluído pelo escritório ou arquivado. Encerrado não conta como ativo.
   concluidoEm          DateTime? @map("concluido_em")
+  /// Preenchido quando o encerramento foi um arquivamento (manual ou automático).
+  arquivadoEm          DateTime? @map("arquivado_em")
+  /// Aviso ao admin de que o balcão será arquivado sozinho (7 dias antes).
+  avisoArquivoEm       DateTime? @map("aviso_arquivo_em")
   /// Exclusão dos arquivos agendada ao concluir, pela retenção do plano.
   apagarArquivosEm     DateTime? @map("apagar_arquivos_em")
   avisoRetencaoEm      DateTime? @map("aviso_retencao_em")
@@ -284,14 +289,14 @@ model ItemModelo {
   @@map("itens_modelo")
 }
 
-/// Link que o cliente recebe. Só o hash do token fica no banco.
+/// Link que o cliente recebe. Só o hash do token fica no banco. Um balcão pode ter
+/// vários links ativos ao mesmo tempo: cada lembrete ou aviso leva um link novo,
+/// sem derrubar os anteriores. "Gerar link novo" revoga todos.
 model LinkAcesso {
   id            String    @id @default(uuid()) @db.Uuid
   organizacaoId String    @map("organizacao_id") @db.Uuid
   balcaoId      String    @map("balcao_id") @db.Uuid
   tokenHash     String    @unique @map("token_hash")
-  /// Token selado com o KMS (AAD = escritório), para lembretes e avisos levarem o mesmo link.
-  tokenSelado   Bytes?    @map("token_selado")
   criadoEm      DateTime  @default(now()) @map("criado_em")
   expiraEm      DateTime  @map("expira_em")
   revogadoEm    DateTime? @map("revogado_em")

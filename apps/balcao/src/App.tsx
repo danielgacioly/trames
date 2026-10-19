@@ -53,15 +53,7 @@ function Status({ status }: { status: StatusItem }) {
 }
 
 function Logo({ altura }: { altura: number }) {
-  return (
-    <span className="tr-logo" style={{ '--logo-h': `${altura}px` } as React.CSSProperties} role="img" aria-label="trames">
-      <svg viewBox="0 0 40 32" aria-hidden="true">
-        <path d="M4.5 29.5V18a15.5 15.5 0 0 1 31 0v11.5" />
-        <path d="M13.5 29.5V20.5a6.5 6.5 0 0 1 13 0v9" />
-      </svg>
-      <span>trames</span>
-    </span>
-  );
+  return <img className="tr-logo-img" src="/marca/trames-lockup.svg" alt="trames" style={{ height: Math.round(altura * 1.2) }} />;
 }
 
 function Marca({ org, grande = false }: { org: MarcaDto; grande?: boolean }) {

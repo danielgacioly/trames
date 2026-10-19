@@ -45,13 +45,17 @@ export const ItemEntrada = z.object({
 });
 export type ItemEntrada = z.infer<typeof ItemEntrada>;
 
+/**
+ * O e-mail do cliente é obrigatório em todos os planos: é o canal que sempre
+ * funciona (código, lembretes, avisos) e o destino quando o WhatsApp falha ou a cota acaba.
+ */
 export const CriarBalcaoEntrada = z
   .object({
     cliente: z.object({
       nome: texto(160).min(2),
       cpf: Cpf.default(''),
       whatsapp: Telefone,
-      email: z.union([Email, z.literal('')]).default(''),
+      email: Email,
     }),
     tipo: texto(80).default(''),
     prazo: DataISO,
@@ -60,10 +64,6 @@ export const CriarBalcaoEntrada = z
     lembrete: z.boolean().default(true),
     canalLembrete: CanalCodigo.default('email'),
     itens: z.array(ItemEntrada).min(1).max(60),
-  })
-  .refine((d) => d.cliente.email || (d.canalCodigo === 'whatsapp' && (!d.lembrete || d.canalLembrete === 'whatsapp')), {
-    message: 'Informe o e-mail do cliente: o código de acesso e os lembretes vão por e-mail.',
-    path: ['cliente', 'email'],
   });
 export type CriarBalcaoEntrada = z.infer<typeof CriarBalcaoEntrada>;
 
@@ -92,7 +92,7 @@ export const ReordenarEntrada = z.object({ ids: z.array(z.string().uuid()).min(1
 export const RecusarEntrada = z.object({ motivo: texto(500).min(3) });
 
 /** Envio do link pela Trames: só por e-mail. Pelo WhatsApp, quem manda é o próprio escritório (wa.me). */
-export const EnviarLinkEntrada = z.object({ mensagem: texto(1000).default('') });
+export const EnviarLinkEntrada = z.object({ mensagem: texto(1000).default(''), url: z.string().url().max(500) });
 
 /** O escritório copiou o link ou abriu o WhatsApp dele para mandar: fica na auditoria. */
 export const RegistrarEnvioEntrada = z.object({ canal: z.enum(['whatsapp', 'copiado']) });
@@ -162,7 +162,10 @@ export interface BalcaoResumo {
   lembrete: boolean;
   canalLembrete: CanalCodigo;
   canalCodigo: CanalCodigo;
+  /** Encerramento (concluído ou arquivado). */
   concluidoEm: string | null;
+  /** Preenchido quando o encerramento foi um arquivamento. */
+  arquivadoEm: string | null;
   apagarArquivosEm: string | null;
   arquivosApagadosEm: string | null;
   contagem: Contagem;

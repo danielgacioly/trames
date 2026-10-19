@@ -11,6 +11,7 @@ const ACOES: Record<string, string> = {
   'balcao.criado': 'criou o balcão',
   'balcao.concluido': 'concluiu o balcão',
   'balcao.reaberto': 'reabriu o balcão',
+  'balcao.arquivado': 'arquivou o balcão',
   'balcao.alterado': 'mudou o prazo ou os lembretes',
   'link.criado': 'gerou um link',
   'link.revogado': 'revogou o link',
@@ -242,6 +243,7 @@ export function Conferir() {
   const lembrar = useAcao(() => api<{ canal: CanalCodigo }>('POST', `/balcoes/${id}/lembrar`), recarregar);
   const novoLink = useAcao(() => api<LinkGerado>('POST', `/balcoes/${id}/link`), recarregar);
   const encerrar = useAcao(() => api('DELETE', `/balcoes/${id}/sessoes`), recarregar);
+  const arquivar = useAcao(() => api('POST', `/balcoes/${id}/arquivar`), recarregar);
   const apagarArquivo = useAcao((docId: string) => api('DELETE', `/documentos/${docId}`), recarregar);
 
   // Aviso vindo de outra tela (por exemplo, "Lista salva").
@@ -263,7 +265,10 @@ export function Conferir() {
   const podeConcluir = b.itens.every((i) => !i.obrigatorio || i.status === 'aprovado');
   const noLimite = s.plano.limiteBalcoes !== null && (uso?.balcoesAtivos ?? 0) >= s.plano.limiteBalcoes;
   const dias = diasRetencao(s.plano.id, s.organizacao.diasRetencao);
-  const erro = aprovar.error ?? recusar.error ?? concluir.error ?? reabrir.error ?? lembrar.error ?? novoLink.error ?? encerrar.error ?? apagarArquivo.error;
+  const erro = aprovar.error ?? recusar.error ?? concluir.error ?? reabrir.error ?? lembrar.error ?? novoLink.error ?? encerrar.error ?? arquivar.error ?? apagarArquivo.error;
+  // Aberto e esquecido: o worker arquiva 30 dias depois do prazo.
+  const arquivaEm = new Date(new Date(`${b.prazo}T00:00:00Z`).getTime() + 30 * 86_400_000).toISOString().slice(0, 10);
+  const prazoPassou = aberto && new Date(`${b.prazo}T00:00:00Z`).getTime() < Date.now();
   const canalLembrete = b.canalLembrete === 'whatsapp' && s.tem('whatsapp') ? 'WhatsApp' : 'e-mail';
 
   return (
@@ -278,7 +283,7 @@ export function Conferir() {
             <div className="linha" style={{ gap: 12 }}>
               <h1 style={{ fontSize: 32, lineHeight: '38px', letterSpacing: '-.02em' }}>{b.cliente.nome}</h1>
               {b.tipo && <span className="tr-etiqueta">{b.tipo}</span>}
-              {!aberto && <Status status="aprovado" texto="Concluído" />}
+              {!aberto && (b.arquivadoEm ? <Status status="pendente" texto="Arquivado" /> : <Status status="aprovado" texto="Concluído" />)}
             </div>
             <span className="tr-protocolo texto-suave">
               {b.protocolo} · WhatsApp final {b.cliente.whatsappFinal} · prazo {dataLonga(b.prazo)}
@@ -300,7 +305,7 @@ export function Conferir() {
                   disabled={lembrar.isPending}
                   onClick={async () => {
                     const r = await lembrar.mutateAsync();
-                    avisar(`Lembrete enviado para ${nome} por ${r.canal === 'whatsapp' ? 'WhatsApp' : 'e-mail'}, com o mesmo link.`);
+                    avisar(`Lembrete enviado para ${nome} por ${r.canal === 'whatsapp' ? 'WhatsApp' : 'e-mail'}. Os links anteriores continuam valendo.`);
                   }}
                 >
                   Lembrar {nome}
@@ -316,6 +321,18 @@ export function Conferir() {
                   }}
                 >
                   Concluir balcão
+                </button>
+                <button
+                  type="button"
+                  className="tr-btn tr-btn--discreto tr-btn--sm"
+                  disabled={arquivar.isPending}
+                  onClick={async () => {
+                    if (!window.confirm(`Arquivar o balcão de ${nome}? Ele deixa de contar como ativo, o acesso de ${nome} é encerrado e os arquivos serão apagados em ${dias} dias. Dá para reabrir antes disso.`)) return;
+                    await arquivar.mutateAsync();
+                    avisar(`Balcão arquivado. Os arquivos serão apagados em ${dias} dias.`);
+                  }}
+                >
+                  Arquivar
                 </button>
               </>
             ) : (
@@ -355,6 +372,12 @@ export function Conferir() {
             </div>
           )
         )}
+        {prazoPassou && (
+          <div className="aviso aviso--plano">
+            <Icone nome="relogio" />
+            <span>O prazo passou. Se o balcão continuar aberto, ele será arquivado sozinho a partir de {dataLonga(arquivaEm, true)} (30 dias depois do prazo), sempre com aviso por e-mail uma semana antes. Para evitar, mude o prazo em "Prazo e lembretes".</span>
+          </div>
+        )}
         {aberto && !soConfere && (
           <div className="aviso" style={{ alignItems: 'center' }}>
             <Icone nome="cadeado" />
@@ -384,11 +407,11 @@ export function Conferir() {
               className="tr-btn tr-btn--discreto tr-btn--sm"
               disabled={novoLink.isPending}
               onClick={async () => {
-                if (!window.confirm('Gerar um link novo? O link atual para de valer e o acesso de todos os aparelhos é encerrado.')) return;
+                if (!window.confirm('Gerar um link novo e cancelar todos os anteriores? Os links já enviados param de valer e o acesso de todos os aparelhos é encerrado. (Para só mandar o link de novo, use "Link do cliente".)')) return;
                 navegar(`/app/balcao/${b.id}/link`, { state: { link: await novoLink.mutateAsync() } });
               }}
             >
-              Gerar link novo
+              Cancelar links e gerar novo
             </button>
           </div>
         )}

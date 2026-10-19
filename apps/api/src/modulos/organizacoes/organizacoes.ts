@@ -8,6 +8,7 @@ import { rota, validar } from '../../infra/http';
 import { selarConteudo } from '../acesso-cliente/links';
 import { auditar } from '../auditoria/auditoria';
 import { exigirAdmin, exigirRecurso, plano } from '../auth/permissoes';
+import { limitarRetencao } from '../balcoes/balcoes';
 
 const VALIDADE_CONVITE_MS = 7 * 86_400_000;
 
@@ -29,6 +30,7 @@ rotasOrganizacao.put(
         where: { id: org },
         data: { nome: d.nome, ...(escolheRetencao ? { diasRetencao: d.diasRetencao } : {}), ...(comMarca && d.sigla ? { sigla: d.sigla } : {}), ...(comMarca && d.cor ? { cor: d.cor } : {}) },
       });
+      if (escolheRetencao) await limitarRetencao(tx, d.diasRetencao);
       await auditar(tx, req, {
         acao: 'organizacao.alterada',
         alvoTipo: 'organizacao',

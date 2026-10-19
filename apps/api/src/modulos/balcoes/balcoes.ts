@@ -24,7 +24,7 @@ import {
 import { ErroHttp, naoEncontrado } from '../../infra/erros';
 import { enfileirar } from '../../infra/fila';
 import { rota, validar } from '../../infra/http';
-import { criarLink, linkAtivo, selarConteudo } from '../acesso-cliente/links';
+import { criarLink, emitirLink, linkDaUrl, selarConteudo } from '../acesso-cliente/links';
 import { auditar } from '../auditoria/auditoria';
 import { exigirMontar, exigirRecurso, plano } from '../auth/permissoes';
 import { cifrarDadosCliente, decifrarDadosCliente, hmac } from '../clientes/cifra';
@@ -62,6 +62,7 @@ export function resumo(b: BalcaoComItens): BalcaoResumo {
     canalLembrete: b.canalLembrete as 'email' | 'whatsapp',
     canalCodigo: b.canalCodigo as 'email' | 'whatsapp',
     concluidoEm: b.concluidoEm?.toISOString() ?? null,
+    arquivadoEm: b.arquivadoEm?.toISOString() ?? null,
     apagarArquivosEm: b.apagarArquivosEm?.toISOString() ?? null,
     arquivosApagadosEm: b.arquivosApagadosEm?.toISOString() ?? null,
     contagem: contar(b.itens),
@@ -115,7 +116,7 @@ async function detalhe(tx: Tx, id: string): Promise<BalcaoDetalhe> {
     include: { documentos: { where: { status: { not: 'apagado' }, OR: [{ motivo: null }, { motivo: { not: 'substituido' } }] }, orderBy: { enviadoEm: 'desc' } } },
   });
   const link = await tx.linkAcesso.findFirst({ where: { balcaoId: id, revogadoEm: null, expiraEm: { gt: agora } }, orderBy: { criadoEm: 'desc' } });
-  const sessoesCliente = link ? await tx.sessaoCliente.count({ where: { balcaoId: id, linkId: link.id, expiraEm: { gt: agora } } }) : 0;
+  const sessoesCliente = link ? await tx.sessaoCliente.count({ where: { balcaoId: id, expiraEm: { gt: agora } } }) : 0;
   const exp = await tx.exportacao.findFirst({ where: { balcaoId: id, OR: [{ expiraEm: null }, { expiraEm: { gt: agora } }] }, orderBy: { criadaEm: 'desc' } });
   return {
     ...resumo(b),
@@ -154,6 +155,31 @@ async function balcaoAberto(tx: Tx, id: string) {
   if (!b) throw naoEncontrado('Balcão não encontrado.');
   if (b.concluidoEm) throw new ErroHttp(409, 'Este balcão está concluído. Reabra para mexer nele.', 'balcao_concluido');
   return b;
+}
+
+/** Conclui ou arquiva: revoga os links, derruba as sessões do cliente e agenda a exclusão dos arquivos. */
+export async function encerrar(tx: Tx, balcaoId: string, diasRet: number, arquivar: boolean) {
+  const agora = new Date();
+  await tx.balcao.update({
+    where: { id: balcaoId },
+    data: { concluidoEm: agora, arquivadoEm: arquivar ? agora : null, apagarArquivosEm: new Date(agora.getTime() + diasRet * 86_400_000), avisoRetencaoEm: null },
+  });
+  await tx.linkAcesso.updateMany({ where: { balcaoId, revogadoEm: null }, data: { revogadoEm: agora } });
+  await tx.sessaoCliente.deleteMany({ where: { balcaoId } });
+}
+
+/**
+ * Quando a retenção diminui (plano mais barato ou escolha menor no Ultra), os
+ * balcões já encerrados passam a seguir o prazo novo, nunca menos de 7 dias a
+ * partir de agora, para o aviso por e-mail ainda sair. Quando aumenta, nada muda.
+ */
+export async function limitarRetencao(tx: Tx, diasRet: number) {
+  return tx.$executeRaw`
+    UPDATE balcoes SET
+      apagar_arquivos_em = GREATEST(concluido_em + make_interval(days => ${diasRet}::int), now() + interval '7 days'),
+      aviso_retencao_em = NULL
+    WHERE concluido_em IS NOT NULL AND arquivos_apagados_em IS NULL
+      AND apagar_arquivos_em > GREATEST(concluido_em + make_interval(days => ${diasRet}::int), now() + interval '7 days')`;
 }
 
 const reais = (centavos: number) => (centavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -257,7 +283,7 @@ rotasBalcoes.patch(
       const mudouPrazo = prazo && prazo.getTime() !== b.prazo.getTime();
       await tx.balcao.update({
         where: { id: b.id },
-        data: { prazo, lembrete: d.lembrete, canalLembrete: d.canalLembrete, canalCodigo: d.canalCodigo, ...(mudouPrazo ? { lembretesEnviados: [] } : {}) },
+        data: { prazo, lembrete: d.lembrete, canalLembrete: d.canalLembrete, canalCodigo: d.canalCodigo, ...(mudouPrazo ? { lembretesEnviados: [], avisoArquivoEm: null } : {}) },
       });
       const antes = { prazo: dataISO(b.prazo), lembrete: b.lembrete, canalLembrete: b.canalLembrete, canalCodigo: b.canalCodigo };
       await auditar(tx, req, { acao: 'balcao.alterado', alvoTipo: 'balcao', alvoId: b.id, detalhes: { antes, depois: { ...antes, ...d } } });
@@ -266,25 +292,25 @@ rotasBalcoes.patch(
   }),
 );
 
-/** O link ativo, para mostrar de novo ao escritório. */
-rotasBalcoes.get(
-  '/:id/link',
+/**
+ * Emite um link para o escritório mandar (o banco só guarda o hash, então não dá
+ * para mostrar um link antigo de novo). Os links anteriores continuam valendo.
+ */
+rotasBalcoes.post(
+  '/:id/links',
   rota(async (req, res) => {
-    const org = req.empresa!.organizacao.id;
-    const r = await naOrganizacao(org, async (tx) => {
-      const b = await tx.balcao.findUnique({ where: { id: req.params.id } });
-      if (!b || b.concluidoEm) throw naoEncontrado('Balcão não encontrado ou já concluído.');
-      const ativo = await tx.linkAcesso.findFirst({ where: { balcaoId: b.id, revogadoEm: null, expiraEm: { gt: new Date() } } });
-      if (!ativo?.tokenSelado) throw new ErroHttp(404, 'Este balcão está sem link ativo. Gere um novo.', 'sem_link');
-      const l = await linkAtivo(tx, org, b.id, b.prazo);
-      await auditar(tx, req, { acao: 'link.visto', alvoTipo: 'link', alvoId: l.linkId, detalhes: { balcaoId: b.id } });
+    exigirMontar(req);
+    const r = await naOrganizacao(req.empresa!.organizacao.id, async (tx) => {
+      const b = await balcaoAberto(tx, req.params.id);
+      const l = await emitirLink(tx, b.organizacaoId, b.id, b.prazo);
+      await auditar(tx, req, { acao: 'link.criado', alvoTipo: 'link', alvoId: l.linkId, detalhes: { balcaoId: b.id } });
       return { url: l.url, expiraEm: l.expiraEm } satisfies LinkGerado;
     });
     res.json(r);
   }),
 );
 
-/** Gera um link novo e revoga o anterior (e com ele as sessões abertas do cliente). */
+/** Gera um link novo e revoga todos os anteriores (e com eles as sessões abertas do cliente). */
 rotasBalcoes.post(
   '/:id/link',
   rota(async (req, res) => {
@@ -347,15 +373,16 @@ rotasBalcoes.post(
   '/:id/whatsapp',
   rota(async (req, res) => {
     exigirMontar(req);
-    const { mensagem } = validar(EnviarLinkEntrada, req.body);
+    const { mensagem, url } = validar(EnviarLinkEntrada, req.body);
     const org = req.empresa!.organizacao.id;
     const r = await naOrganizacao(org, async (tx) => {
       const b = await balcaoAberto(tx, req.params.id);
-      const l = await linkAtivo(tx, org, b.id, b.prazo);
+      const l = await linkDaUrl(tx, b.id, url);
+      if (!l) throw new ErroHttp(400, 'Este link não vale mais. Gere um novo.');
       const { telefone } = await decifrarDadosCliente(b.cliente);
       const numero = telefone.length <= 11 ? `55${telefone}` : telefone;
-      await auditar(tx, req, { acao: 'link.aberto_whatsapp', alvoTipo: 'balcao', alvoId: b.id, detalhes: { canal: 'whatsapp', linkNovo: l.novo } });
-      return { url: `https://wa.me/${numero}?text=${encodeURIComponent(`${mensagem.trim()} ${l.url}`.trim())}` };
+      await auditar(tx, req, { acao: 'link.aberto_whatsapp', alvoTipo: 'link', alvoId: l.id, detalhes: { balcaoId: b.id, canal: 'whatsapp' } });
+      return { url: `https://wa.me/${numero}?text=${encodeURIComponent(`${mensagem.trim()} ${url}`.trim())}` };
     });
     res.json(r);
   }),
@@ -368,19 +395,19 @@ rotasBalcoes.post(
     exigirMontar(req);
     const d = validar(EnviarLinkEntrada, req.body);
     const org = req.empresa!.organizacao.id;
-    const url = await naOrganizacao(org, async (tx) => {
+    await naOrganizacao(org, async (tx) => {
       const b = await balcaoAberto(tx, req.params.id);
       if (!b.cliente.email) throw new ErroHttp(400, 'Este cliente não tem e-mail cadastrado.');
-      const l = await linkAtivo(tx, org, b.id, b.prazo);
-      await auditar(tx, req, { acao: 'link.enviado', alvoTipo: 'balcao', alvoId: b.id, detalhes: { canal: 'email' } });
-      return l.url;
+      const l = await linkDaUrl(tx, b.id, d.url);
+      if (!l) throw new ErroHttp(400, 'Este link não vale mais. Gere um novo.');
+      await auditar(tx, req, { acao: 'link.enviado', alvoTipo: 'link', alvoId: l.id, detalhes: { balcaoId: b.id, canal: 'email' } });
     });
-    await enfileirar('enviar-mensagem', { organizacaoId: org, balcaoId: req.params.id, tipo: 'link', canal: 'email', selado: await selarConteudo(org, { url, texto: d.mensagem }) });
+    await enfileirar('enviar-mensagem', { organizacaoId: org, balcaoId: req.params.id, tipo: 'link', canal: 'email', selado: await selarConteudo(org, { url: d.url, texto: d.mensagem }) });
     res.status(202).json({ ok: true });
   }),
 );
 
-/** Lembrete manual, pelo canal escolhido no balcão. Leva o mesmo link: a sessão do cliente continua. */
+/** Lembrete manual, pelo canal escolhido no balcão. Leva um link novo; os anteriores e a sessão do cliente continuam. */
 rotasBalcoes.post(
   '/:id/lembrar',
   rota(async (req, res) => {
@@ -388,7 +415,7 @@ rotasBalcoes.post(
     const org = req.empresa!.organizacao.id;
     const r = await naOrganizacao(org, async (tx) => {
       const b = await balcaoAberto(tx, req.params.id);
-      const l = await linkAtivo(tx, org, b.id, b.prazo);
+      const l = await emitirLink(tx, org, b.id, b.prazo);
       await tx.balcao.update({ where: { id: b.id }, data: { ultimoLembreteEm: new Date() } });
       await auditar(tx, req, { acao: 'lembrete.enviado', alvoTipo: 'balcao', alvoId: b.id, detalhes: { manual: true, canal: b.canalLembrete } });
       return { url: l.url, canal: b.canalLembrete === 'whatsapp' && plano(req).recursos.whatsapp ? ('whatsapp' as const) : ('email' as const) };
@@ -408,11 +435,27 @@ rotasBalcoes.post(
       const b = await balcaoAberto(tx, req.params.id);
       const itens = await tx.itemBalcao.findMany({ where: { balcaoId: b.id, ...ATIVOS } });
       if (itens.some((i) => i.obrigatorio && i.status !== 'aprovado')) throw new ErroHttp(400, 'Aprove todos os documentos obrigatórios antes de concluir.');
-      const agora = new Date();
-      await tx.balcao.update({ where: { id: b.id }, data: { concluidoEm: agora, apagarArquivosEm: new Date(agora.getTime() + dias * 86_400_000), avisoRetencaoEm: null } });
-      await tx.linkAcesso.updateMany({ where: { balcaoId: b.id, revogadoEm: null }, data: { revogadoEm: agora } });
-      await tx.sessaoCliente.deleteMany({ where: { balcaoId: b.id } });
+      await encerrar(tx, b.id, dias, false);
       await auditar(tx, req, { acao: 'balcao.concluido', alvoTipo: 'balcao', alvoId: b.id, detalhes: { diasRetencao: dias } });
+    });
+    res.status(204).end();
+  }),
+);
+
+/**
+ * Arquiva um balcão que não vai ser concluído (o cliente desistiu, o caso parou).
+ * Para de contar como ativo, o acesso do cliente cai e a retenção começa a contar,
+ * como na conclusão. O worker também arquiva sozinho 30 dias depois do prazo.
+ */
+rotasBalcoes.post(
+  '/:id/arquivar',
+  rota(async (req, res) => {
+    exigirMontar(req);
+    const dias = diasRetencao(req.empresa!.plano, req.empresa!.organizacao.diasRetencao);
+    await naOrganizacao(req.empresa!.organizacao.id, async (tx) => {
+      const b = await balcaoAberto(tx, req.params.id);
+      await encerrar(tx, b.id, dias, true);
+      await auditar(tx, req, { acao: 'balcao.arquivado', alvoTipo: 'balcao', alvoId: b.id, detalhes: { diasRetencao: dias, automatico: false } });
     });
     res.status(204).end();
   }),
@@ -427,7 +470,7 @@ rotasBalcoes.post(
       if (!b) throw naoEncontrado('Balcão não encontrado.');
       if (b.arquivosApagadosEm) throw new ErroHttp(400, 'Os arquivos deste balcão já foram apagados pela política de retenção.');
       await exigirLimite(tx, plano(req).limiteBalcoes);
-      await tx.balcao.update({ where: { id: b.id }, data: { concluidoEm: null, apagarArquivosEm: null, avisoRetencaoEm: null } });
+      await tx.balcao.update({ where: { id: b.id }, data: { concluidoEm: null, arquivadoEm: null, apagarArquivosEm: null, avisoRetencaoEm: null, avisoArquivoEm: null } });
       await auditar(tx, req, { acao: 'balcao.reaberto', alvoTipo: 'balcao', alvoId: b.id });
     });
     res.status(204).end();

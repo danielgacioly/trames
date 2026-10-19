@@ -50,6 +50,8 @@ O ClamAV baixa as assinaturas na primeira vez que sobe; leva alguns minutos. Enq
 | Pessoas | 1 | até 3 | ilimitadas |
 | Retenção depois de concluir | 30 dias | 90 dias | 90 dias (30, 90, 180 ou 365) |
 | Código e lembretes | e-mail | e-mail ou WhatsApp (300 msgs/mês) | e-mail ou WhatsApp (1.500 msgs/mês) |
+
+O e-mail do cliente é obrigatório em todos os planos: é o canal que sempre funciona e o destino quando a cota de WhatsApp acaba ou o envio pelo WhatsApp falha (aí a mensagem não conta na cota).
 | Modelos próprios e marca | não | sim | sim |
 | Permissões e relatório | não | não | sim |
 
@@ -61,7 +63,7 @@ Senha das três: `trames-teste-123`. Depois da senha, a Trames pede um código d
 
 | Plano | E-mail | O que testar |
 | --- | --- | --- |
-| Grátis | `gratis@trames.app` | Clínica Boa Vista (saúde), 2 de 3 balcões. E-mail do cliente obrigatório, WhatsApp bloqueado, retenção de 30 dias. |
+| Grátis | `gratis@trames.app` | Clínica Boa Vista (saúde), 2 de 3 balcões. WhatsApp bloqueado, retenção de 30 dias. |
 | Pro | `pro@trames.app` | Albuquerque & Lima (advocacia), o caso do Júlio (canal WhatsApp), miniaturas, editar lista, ZIP, link pelo wa.me. A cota de WhatsApp começa em 298 de 300. |
 | Ultra | `ultra@trames.app` | Lins & Moura (contabilidade), 198 de 200 balcões novos no mês (o 3º que você criar é excedente), retenção configurável, 6 pessoas com permissões. |
 
@@ -76,8 +78,8 @@ Fora do lançamento (`docs/viabilidade.md`): não aparece no painel, nos planos 
 - **Multi-tenant:** `organizacao_id` em todas as tabelas de escritório e Row-Level Security no Postgres. A aplicação conecta como `trames_app`, que não é dono das tabelas, e cada transação define o escritório com `set_config` (`naOrganizacao` e `prismaDaOrganizacao` em `packages/db`). Buscas antes de saber o escritório (login, cookie, link do cliente) passam por funções `SECURITY DEFINER` que devolvem só o mínimo.
 - **Arquivos:** o celular envia direto para o bucket `quarentena` por POST assinado (5 min, limite de tamanho e tipo). O worker confere o tipo real pelos bytes, passa o ClamAV, move para `documentos` e gera a miniatura (WebP de ~1200 px; do PDF, a primeira página) no prefixo `miniaturas/`. Conferir usa a miniatura; o original só sai em "Baixar original", por URL assinada de 60 s, registrada na auditoria. O cliente vê só a miniatura do que enviou.
 - **Dados pessoais:** CPF e telefone com criptografia por envelope (KMS; em dev, chave local) e HMAC ao lado para busca. Logs sem dado pessoal: só método, padrão da rota, status e tempo. Respostas da API com `Cache-Control: no-store`.
-- **Acesso do cliente:** token do link de 256 bits no fragmento `#` da URL (não vai para servidor, CDN nem log). A busca é pelo hash; o token também fica selado com o KMS para lembretes e avisos levarem o mesmo link. Código de 6 dígitos (e-mail por padrão; WhatsApp no Pro e no Ultra) com validade de 10 minutos, 5 tentativas e limite por IP e por balcão. Depois do código, sessão de 30 dias naquele aparelho, só para aquele balcão (cookie httpOnly, Secure, SameSite=Strict; o banco guarda só o hash). Ela cai ao concluir o balcão, gerar link novo ou encerrar o acesso.
+- **Acesso do cliente:** token do link de 256 bits no fragmento `#` da URL (não vai para servidor, CDN nem log); o banco guarda só o hash. Cada mensagem (lembrete, aviso, "Link do cliente") emite um link novo sem derrubar os anteriores, e "Cancelar links e gerar novo" revoga todos. Código de 6 dígitos (e-mail por padrão; WhatsApp no Pro e no Ultra) com validade de 10 minutos, 5 tentativas, limite por IP e limite por balcão contado no banco (soma todos os links e todas as instâncias da API). Depois do código, sessão de 30 dias naquele aparelho, só para aquele balcão (cookie httpOnly, Secure, SameSite=Strict; o banco guarda só o hash). Ela cai ao concluir ou arquivar o balcão, cancelar os links ou encerrar o acesso.
 - **Login da empresa:** argon2id, sessão em cookie httpOnly SameSite=Strict, segundo fator obrigatório para todos com código de 6 dígitos por e-mail (10 minutos, 5 tentativas, guardado na sessão só como HMAC), checagem de origem contra CSRF.
 - **Auditoria:** `eventos_auditoria` só aceita inclusão (trigger e permissões). Registra quem viu, baixou, aprovou, recusou ou apagou cada documento, quando e de qual IP. Aba "Histórico" em cada balcão.
-- **Retenção e titular:** ao concluir, a exclusão dos arquivos fica agendada pela regra do plano; quem administra recebe um e-mail 7 dias antes e pode baixar o ZIP. A exclusão apaga originais e miniaturas e deixa na auditoria só qual documento, de qual balcão e quando. O ciclo de vida dos buckets é a rede de segurança. Exportação e exclusão dos dados de um cliente na tela Clientes.
+- **Retenção e titular:** ao concluir ou arquivar, a exclusão dos arquivos fica agendada pela regra do plano. Balcão aberto esquecido é arquivado sozinho 30 dias depois do prazo, sempre com aviso ao admin uma semana antes. Se a retenção diminui (plano mais barato ou escolha menor no Ultra), os já encerrados passam a seguir o prazo novo, com no mínimo 7 dias; quem administra recebe um e-mail 7 dias antes e pode baixar o ZIP. A exclusão apaga originais e miniaturas e deixa na auditoria só qual documento, de qual balcão e quando. O ciclo de vida dos buckets é a rede de segurança. Exportação e exclusão dos dados de um cliente na tela Clientes.
 - **API:** Zod em toda entrada, Helmet com CSP, rate limit geral e por rota sensível, limite de corpo de 64 KB.

@@ -130,7 +130,7 @@ Para trocar de conta, saia pelo menu e entre com outro e-mail. Ou use uma janela
 ### Grátis (`gratis@trames.app`)
 
 - [ ] O painel e o menu lateral mostram 2 de 3 balcões ativos.
-- [ ] Abra um balcão novo: o e-mail do cliente é obrigatório, porque o código de acesso e os lembretes vão por e-mail. O canal "WhatsApp" aparece bloqueado, com convite para o Pro.
+- [ ] Abra um balcão novo: o e-mail do cliente é obrigatório (em todos os planos). O canal "WhatsApp" aparece bloqueado, com convite para o Pro.
 - [ ] Com 3 de 3, tente abrir mais um: a Trames avisa que o limite acabou.
 - [ ] Modelos próprios, marca, permissões e relatório aparecem bloqueados.
 - [ ] Em **Conta e marca**, a retenção é fixa: 30 dias depois de concluir.
@@ -140,7 +140,9 @@ Para trocar de conta, saia pelo menu e entre com outro e-mail. Ou use uma janela
 
 - [ ] O painel mostra 6 de 40 balcões.
 - [ ] Abra o balcão do Júlio. A tela de conferir mostra a **miniatura** do documento; o original só sai em **Baixar original** (e fica no Histórico).
-- [ ] **Link do cliente**: o link aparece de novo (não precisa gerar outro). "Enviar pelo WhatsApp" abre o seu WhatsApp (wa.me) com a mensagem pronta; "Enviar por e-mail" manda pela Trames; "Copiar link" fica no Histórico.
+- [ ] **Link do cliente**: a Trames não guarda links (só uma impressão digital), então clique em **Gerar link para enviar**. Os links já mandados continuam valendo e o cliente continua conectado. "Enviar pelo WhatsApp" abre o seu WhatsApp (wa.me) com a mensagem pronta; "Enviar por e-mail" manda pela Trames; "Copiar link" fica no Histórico.
+- [ ] **Arquivar**: num balcão aberto, clique em **Arquivar**. Ele sai dos ativos, o link do cliente para de valer e a tela mostra quando os arquivos serão apagados. **Reabrir balcão** desfaz.
+- [ ] O balcão da Marta (prazo vencido) mostra quando será arquivado sozinho, se ninguém mexer.
 - [ ] **Editar lista**: inclua um documento, puxe itens de um modelo, mude a ordem (arrastando ou pelas setas), marque "Pedir de novo" num item aprovado e tire um item que já tem arquivo (pede confirmação). Salve e confira o Histórico, com o antes e o depois.
 - [ ] Tente tirar todos os itens: o último não sai.
 - [ ] **Prazo e lembretes**: desligue os lembretes do balcão, troque o canal para WhatsApp, mude o prazo.
@@ -172,9 +174,9 @@ O Turu está fora do lançamento e não aparece. Para ligar em desenvolvimento, 
 2. Na tela **"Balcão criado"**, clique em **Ver como o cliente** (ou copie o link e abra numa janela anônima, no modo celular do navegador).
 3. Clique em **Receber o código**: ele vai pelo canal que o escritório escolheu (e-mail, por padrão). Como nada sai em desenvolvimento, use **"preencher o código da caixa de saída"**.
 4. Envie uma foto e um PDF. O arquivo aparece como **"Recebido. Estamos verificando o arquivo."** enquanto o worker confere o tipo, passa o antivírus e gera a miniatura. Depois fica **em análise**, e o cliente pode tocar em **Ver o que enviei** (a miniatura, nunca o original).
-5. Feche a aba e abra o link de novo: entra direto na lista, sem código. A sessão vale 30 dias naquele aparelho e só para aquele balcão.
+5. Feche a aba e abra o link de novo: entra direto na lista, sem código. A sessão vale 30 dias naquele aparelho e só para aquele balcão, por qualquer link dele (o do lembrete também).
 6. No painel, aprove ou recuse cada documento. Recarregue a tela do cliente: o recusado aparece com o motivo.
-7. No painel, clique em **Encerrar acesso**: no celular, o código é pedido de novo. Concluir o balcão ou gerar um link novo também encerra o acesso.
+7. No painel, clique em **Encerrar acesso**: no celular, o código é pedido de novo. Concluir, arquivar ou **Cancelar links e gerar novo** também encerra o acesso.
 8. Edite a lista e inclua um documento: 10 minutos depois o worker manda ao cliente um e-mail com o que mudou (todas as mudanças desses 10 minutos vão juntas).
 
 O ClamAV baixa as assinaturas de vírus na primeira vez que sobe e leva alguns minutos. Até lá, os arquivos ficam na verificação e o worker tenta de novo sozinho.
@@ -191,14 +193,14 @@ Para ver mais, ponha o número no fim: `pnpm caixa 30`. As mensagens de WhatsApp
 
 ### Rotinas do worker
 
-Lembretes (às 10h), retenção (às 3h30) e limpeza (de hora em hora) rodam sozinhos no horário de Brasília. Os lembretes saem 3 dias antes do prazo, no dia e 2 dias depois, só se ainda faltar documento obrigatório, e levam sempre o mesmo link.
+Lembretes (às 10h), arquivamento e retenção (às 3h30) e limpeza (de hora em hora) rodam sozinhos no horário de Brasília. Os lembretes saem 3 dias antes do prazo, no dia e 2 dias depois, só se ainda faltar documento obrigatório; cada um leva um link novo, sem derrubar os anteriores. Balcão aberto com o prazo vencido há 3 semanas gera um aviso ao admin; 7 dias depois do aviso, é arquivado.
 
 ### Testes de segurança que dá para fazer na mão
 
 - [ ] Abra o link do cliente sem o código: não mostra nada do balcão.
 - [ ] Erre o código 5 vezes: o acesso trava e é preciso pedir um código novo.
 - [ ] Conectado num balcão, abra no mesmo navegador o link de outro balcão: o código é pedido de novo.
-- [ ] Gere um link novo: o antigo deixa de valer e mostra "use o link da mensagem mais recente".
+- [ ] **Cancelar links e gerar novo**: os links antigos deixam de valer e mostram "use o link da mensagem mais recente".
 - [ ] Entre como Grátis e, numa janela anônima, como Pro: um escritório nunca vê balcões, clientes ou arquivos do outro.
 - [ ] Erre o código de login 5 vezes: o código deixa de valer e é preciso pedir um novo.
 
@@ -210,7 +212,7 @@ Com o Docker no ar e o seed rodado:
 pnpm test
 ```
 
-Rodam 13 testes de integração da API: isolamento entre escritórios, código de login, limites e canais por plano, excedente do Ultra, sessão de 30 dias do cliente, edição da lista, retenção por plano, checagem de origem e auditoria. Os testes apagam o que criam.
+Rodam 15 testes de integração da API: isolamento entre escritórios, código de login, limites e canais por plano, excedente do Ultra, sessão de 30 dias do cliente, links só com hash, edição da lista, arquivamento, retenção por plano (e quando ela diminui), checagem de origem e auditoria. Os testes apagam o que criam.
 
 ```
 pnpm typecheck

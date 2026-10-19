@@ -1,16 +1,15 @@
-import { abrir, criarKms, type Tx } from '@trames/db';
+import { novoToken, type Tx } from '@trames/db';
 
-const kms = criarKms();
+const DIAS_DEPOIS_DO_PRAZO = 30;
 
 /**
- * URL do link ativo do balcão, aberta do selo do KMS. Lembretes e avisos levam
- * sempre o mesmo link. Sem link ativo (ou de antes do selo), devolve null: o
- * worker não gera link novo, para não derrubar a sessão do cliente nem o link
- * que o escritório mandou.
+ * Emite um link novo para a mensagem (lembrete ou aviso). O banco guarda só o
+ * hash; o token existe apenas na mensagem. Os links anteriores continuam
+ * valendo e a sessão de 30 dias do cliente não cai.
  */
-export async function urlDoLinkAtivo(tx: Tx, organizacaoId: string, balcaoId: string) {
-  const l = await tx.linkAcesso.findFirst({ where: { balcaoId, revogadoEm: null, expiraEm: { gt: new Date() } }, orderBy: { criadoEm: 'desc' } });
-  if (!l?.tokenSelado) return null;
-  const token = await abrir(kms, Buffer.from(l.tokenSelado), `link:${organizacaoId}`);
+export async function emitirLink(tx: Tx, organizacaoId: string, balcaoId: string, prazo: Date) {
+  const { token, hash } = novoToken();
+  const fim = Math.max(prazo.getTime(), Date.now()) + DIAS_DEPOIS_DO_PRAZO * 86_400_000;
+  await tx.linkAcesso.create({ data: { organizacaoId, balcaoId, tokenHash: hash, expiraEm: new Date(fim) } });
   return `${process.env.URL_BALCAO}/#${token}`;
 }
