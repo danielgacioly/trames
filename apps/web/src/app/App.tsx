@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
-import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { Balcao } from '../funcionalidades/balcoes/balcao/Balcao';
+import { Link, Route, Routes, useLocation } from 'react-router-dom';
+import { Conferir } from '../funcionalidades/balcoes/Conferir';
 import { EditarLista } from '../funcionalidades/balcoes/EditarLista';
-import { EnviarLink } from '../funcionalidades/balcoes/EnviarLink';
-import { ListaBalcoes } from '../funcionalidades/balcoes/ListaBalcoes';
+import { LinkBalcao } from '../funcionalidades/balcoes/LinkBalcao';
 import { NovoBalcao } from '../funcionalidades/balcoes/NovoBalcao';
+import { Painel } from '../funcionalidades/balcoes/Painel';
 import { Clientes } from '../funcionalidades/clientes/Clientes';
-import { Conta, ContaEquipe, ContaEscritorio, ContaPlano } from '../funcionalidades/conta/Conta';
+import { Conta } from '../funcionalidades/conta/Conta';
+import { Equipe } from '../funcionalidades/conta/Equipe';
 import { EditorModelo } from '../funcionalidades/modelos/EditorModelo';
 import { Modelos } from '../funcionalidades/modelos/Modelos';
 import { Convite, CriarConta, Entrar, EscolherArea, SegundoFator } from '../funcionalidades/publico/entrada';
@@ -18,12 +19,10 @@ import { LayoutApp } from './LayoutApp';
 
 function NaoEncontrada() {
   return (
-    <div className="ui entrada-tela">
-      <div className="entrada-tela__caixa">
-        <div className="entrada-tela__titulo">
-          <h1>Página não encontrada</h1>
-          <Link to="/">Voltar para o início</Link>
-        </div>
+    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24, textAlign: 'center' }}>
+      <div className="coluna" style={{ alignItems: 'center', gap: 12 }}>
+        <h1 className="titulo-1">Página não encontrada</h1>
+        <Link to="/">Voltar para o início</Link>
       </div>
     </div>
   );
@@ -53,25 +52,19 @@ export function App() {
         <Route path="/criar-conta/area" element={<EscolherArea />} />
 
         <Route path="/app" element={<LayoutApp />}>
-          <Route index element={<ListaBalcoes />} />
+          <Route index element={<Painel />} />
           <Route path="novo" element={<NovoBalcao />} />
-          <Route path="balcao/:id" element={<Balcao />} />
-          <Route path="balcao/:id/link" element={<EnviarLink />} />
+          <Route path="balcao/:id" element={<Conferir />} />
+          <Route path="balcao/:id/link" element={<LinkBalcao />} />
           <Route path="balcao/:id/lista" element={<EditarLista />} />
-          <Route path="clientes" element={<Clientes />} />
           <Route path="modelos" element={<Modelos />} />
           <Route path="modelos/novo" element={<EditorModelo />} />
           <Route path="modelos/:id" element={<EditorModelo />} />
-          <Route path="relatorio" element={<Relatorio />} />
+          <Route path="clientes" element={<Clientes />} />
           {import.meta.env.VITE_TURU === '1' && <Route path="turu" element={<Turu />} />}
-          <Route path="conta" element={<Conta />}>
-            <Route index element={<Navigate to="plano" replace />} />
-            <Route path="plano" element={<ContaPlano />} />
-            <Route path="escritorio" element={<ContaEscritorio />} />
-            <Route path="equipe" element={<ContaEquipe />} />
-          </Route>
-          {/* Endereço antigo da Equipe, agora dentro de Minha conta. */}
-          <Route path="equipe" element={<Navigate to="/app/conta/equipe" replace />} />
+          <Route path="relatorio" element={<Relatorio />} />
+          <Route path="equipe" element={<Equipe />} />
+          <Route path="conta" element={<Conta />} />
         </Route>
 
         <Route path="*" element={<NaoEncontrada />} />

@@ -1,87 +1,99 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import type { ClienteDto } from '@trames/shared';
-import { api, mensagemDe } from '../../dados/api';
+import { Link } from 'react-router-dom';
+import { api } from '../../dados/api';
 import { chaves, useAcao, useClientes, useSessao } from '../../dados/consultas';
-import { AvisoErro, Avatar, Busca, Carregando, Menu, Pagina, useDialogos, useNotificar } from '../../ui';
+import { AvisoErro, Carregando, useToast } from '../../ui/comuns';
 import { plural } from '../../util/formatos';
-
-/** Baixa o JSON com tudo o que a conta guarda sobre o cliente (pedido de acesso da LGPD). */
-async function exportar(c: ClienteDto) {
-  const r = await fetch(`/api/clientes/${c.id}/exportar`, { credentials: 'same-origin' });
-  if (!r.ok) throw new Error('Não deu para exportar os dados.');
-  const url = URL.createObjectURL(await r.blob());
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `dados-${c.nome.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-')}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 export function Clientes() {
   const s = useSessao();
   const consulta = useClientes();
-  const navegar = useNavigate();
-  const { confirmar } = useDialogos();
-  const notificar = useNotificar();
   const [busca, setBusca] = useState('');
-  const apagar = useAcao((id: string) => api('DELETE', `/clientes/${id}`), [chaves.clientes, chaves.balcoes, chaves.cobranca]);
+  const [toast, avisar] = useToast();
+  const excluir = useAcao((id: string) => api('DELETE', `/clientes/${id}`), [chaves.clientes, chaves.balcoes, chaves.cobranca]);
   const admin = s.usuario.permissao === 'admin';
 
-  async function excluir(c: ClienteDto) {
-    const ok = await confirmar({
-      titulo: `Apagar ${c.nome}?`,
-      texto: `Apaga o cadastro, ${c.balcoesTotal === 1 ? 'o balcão' : `os ${c.balcoesTotal} balcões`} e todos os arquivos. Use quando o próprio cliente pedir (LGPD). Não dá para desfazer.`,
-      confirmar: 'Apagar tudo',
-      perigo: true,
-    });
-    if (!ok) return;
-    try {
-      await apagar.mutateAsync(c.id);
-      notificar({ titulo: 'Dados do cliente apagados', texto: 'Os arquivos saem do storage em instantes.' });
-    } catch (e) {
-      notificar({ tom: 'erro', titulo: 'Não deu para apagar', texto: mensagemDe(e) });
-    }
+  async function exportar(id: string, nome: string) {
+    const r = await fetch(`/api/clientes/${id}/exportar`, { credentials: 'same-origin' });
+    if (!r.ok) return avisar('Não deu para exportar.');
+    const url = URL.createObjectURL(await r.blob());
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dados-${nome.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   if (consulta.isPending) return <Carregando />;
   const termo = busca.trim().toLowerCase();
-  const linhas = (consulta.data ?? []).filter((c) => !termo || c.nome.toLowerCase().includes(termo) || c.email.toLowerCase().includes(termo));
+  const linhas = (consulta.data ?? []).filter((c) => c.nome.toLowerCase().includes(termo));
 
   return (
-    <Pagina titulo="Clientes" subtitulo="Todo mundo para quem a conta já abriu um balcão." ferramentas={<Busca valor={busca} mudar={setBusca} rotulo="Buscar nome ou e-mail" />}>
-      <AvisoErro erro={consulta.error} />
-      {linhas.length ? (
-        <div className="grupo">
-          {linhas.map((c) => (
-            <div key={c.id} className="linha">
-              <Avatar nome={c.nome} />
-              <span className="linha__corpo">
-                <span className="linha__titulo corta">{c.nome}</span>
-                <span className="linha__sub corta">
-                  {c.email} · WhatsApp final {c.whatsappFinal}
-                </span>
-              </span>
-              <span className="pequeno secundario numero" style={{ whiteSpace: 'nowrap' }}>
-                {c.balcoesAbertos ? plural(c.balcoesAbertos, 'aberto', 'abertos') : 'Nenhum aberto'}
-                {c.balcoesTotal > c.balcoesAbertos && <span className="terciario"> · {c.balcoesTotal - c.balcoesAbertos} encerrado</span>}
-              </span>
-              <Menu
-                rotulo={`Ações de ${c.nome}`}
-                itens={[
-                  !!c.ultimoBalcaoId && { rotulo: 'Abrir último balcão', icone: 'balcoes', acao: () => navegar(`/app/balcao/${c.ultimoBalcaoId}`) },
-                  admin && { rotulo: 'Exportar dados (LGPD)', icone: 'baixar', acao: () => exportar(c).catch((e) => notificar({ tom: 'erro', titulo: mensagemDe(e) })) },
-                  admin && 'separador',
-                  admin && { rotulo: 'Apagar cliente e arquivos…', icone: 'lixo', perigo: true, acao: () => excluir(c) },
-                ]}
-              />
-            </div>
-          ))}
+    <>
+      <div className="cabecalho-pagina">
+        <div>
+          <h1 className="titulo-1">Clientes</h1>
+          <p className="subtitulo">Todo mundo para quem você já abriu um balcão. A pedido do cliente, dá para exportar ou apagar os dados dele (LGPD).</p>
         </div>
-      ) : (
-        <div className="grupo grupo--vazio">{termo ? 'Nenhum cliente encontrado.' : 'Os clientes aparecem aqui quando você abre o primeiro balcão.'}</div>
-      )}
-      {admin && <p className="secao__nota">A pedido do cliente, você pode exportar ou apagar os dados dele pelo menu “…”.</p>}
-    </Pagina>
+        <label className="tr-campo" style={{ width: 320 }}>
+          <span className="sr-only">Buscar cliente</span>
+          <input className="tr-campo__entrada" placeholder="Buscar cliente" value={busca} onChange={(e) => setBusca(e.target.value)} />
+        </label>
+      </div>
+      <AvisoErro erro={excluir.error} />
+      <div className="tabela-caixa">
+        <table className="tabela">
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>WhatsApp</th>
+              <th>E-mail</th>
+              <th>Balcões</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {linhas.map((c) => (
+              <tr key={c.id}>
+                <td style={{ fontWeight: 500 }}>{c.nome}</td>
+                <td className="tr-protocolo">final {c.whatsappFinal}</td>
+                <td className="texto-suave">{c.email || '—'}</td>
+                <td>
+                  {plural(c.balcoesAbertos, 'aberto', 'abertos')}
+                  {c.balcoesTotal > c.balcoesAbertos && <span className="texto-suave"> · {c.balcoesTotal - c.balcoesAbertos} concluído</span>}
+                </td>
+                <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  {c.ultimoBalcaoId && (
+                    <Link to={`/app/balcao/${c.ultimoBalcaoId}`} className="tr-btn tr-btn--secundario tr-btn--sm">
+                      Abrir
+                    </Link>
+                  )}
+                  {admin && (
+                    <>
+                      <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" onClick={() => exportar(c.id, c.nome)}>
+                        Exportar dados
+                      </button>
+                      <button
+                        type="button"
+                        className="tr-btn tr-btn--discreto tr-btn--sm"
+                        style={{ color: 'var(--recusado)' }}
+                        onClick={async () => {
+                          if (!window.confirm(`Apagar ${c.nome}, todos os balcões e todos os arquivos? Não dá para desfazer.`)) return;
+                          await excluir.mutateAsync(c.id);
+                          avisar('Dados do cliente apagados. Os arquivos saem do storage em instantes.');
+                        }}
+                      >
+                        Apagar
+                      </button>
+                    </>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {toast}
+    </>
   );
 }

@@ -71,9 +71,3 @@ export function tamanhoLegivel(bytes: number) {
 }
 
 export const moeda = (centavos: number) => (centavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-/** Data e hora curtas: "12 de março, 14:05". */
-export function dataHora(valor: string) {
-  const d = new Date(valor);
-  return `${dataLonga(valor)}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}

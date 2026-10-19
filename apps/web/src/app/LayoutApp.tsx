@@ -1,32 +1,25 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { PLANOS } from '@trames/shared';
+import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { PLANOS, type Recurso } from '@trames/shared';
 import { api, ErroDaApi } from '../dados/api';
-import { useBalcoes, useEu } from '../dados/consultas';
-import { Avatar, Botao, Carregando, Icone, Logo, type NomeIcone } from '../ui';
+import { useEu } from '../dados/consultas';
+import { iniciais } from '../util/formatos';
+import { Carregando, Logo } from '../ui/comuns';
+import { Icone, type NomeIcone } from '../ui/Icone';
 import { AvisosDeUso } from './AvisosDeUso';
 import { LimiteErro } from './LimiteErro';
 
-function Item({ para, icone, rotulo, contagem, fim }: { para: string; icone: NomeIcone; rotulo: string; contagem?: number; fim?: boolean }) {
-  return (
-    <NavLink to={para} end={fim} className="lateral__item">
-      <Icone nome={icone} />
-      {rotulo}
-      {!!contagem && (
-        <span className="lateral__contagem" aria-label={`${contagem} para conferir`}>
-          {contagem}
-        </span>
-      )}
-    </NavLink>
-  );
-}
-
-/** Quantos balcões abertos têm documento esperando conferência (o número ao lado de "Balcões"). */
-function useParaConferir(ativo: boolean) {
-  const balcoes = useBalcoes(ativo).data;
-  return balcoes?.filter((b) => !b.concluidoEm && b.contagem.analise > 0).length ?? 0;
-}
+const NAV: { para: string; rotulo: string; icone: NomeIcone; recurso?: Recurso; fim?: boolean }[] = [
+  { para: '/app', rotulo: 'Balcões', icone: 'balcoes', fim: true },
+  { para: '/app/modelos', rotulo: 'Modelos', icone: 'modelos' },
+  { para: '/app/clientes', rotulo: 'Clientes', icone: 'clientes' },
+  // Turu fica fora do lançamento (docs/viabilidade.md); VITE_TURU=1 liga em desenvolvimento.
+  ...(import.meta.env.VITE_TURU === '1' ? [{ para: '/app/turu', rotulo: 'Turu', icone: 'turu' as const }] : []),
+  { para: '/app/relatorio', rotulo: 'Relatório', icone: 'relatorio', recurso: 'relatorio' },
+  { para: '/app/equipe', rotulo: 'Equipe', icone: 'equipe' },
+  { para: '/app/conta', rotulo: 'Minha conta', icone: 'ajustes' },
+];
 
 export function LayoutApp() {
   const eu = useEu();
@@ -34,18 +27,17 @@ export function LayoutApp() {
   const navegar = useNavigate();
   const local = useLocation();
   const [menu, setMenu] = useState(false);
-  const pronto = eu.data?.etapa === 'completa';
-  const paraConferir = useParaConferir(pronto);
   useEffect(() => {
     setMenu(false);
   }, [local.pathname]);
 
   if (eu.isPending) return <Carregando />;
   if (eu.error) {
-    if (eu.error instanceof ErroDaApi && eu.error.status === 401) return <Navigate to="/entrar" replace state={{ de: local.pathname }} />;
-    return <Carregando texto={eu.error.message} />;
+    const e = eu.error;
+    if (e instanceof ErroDaApi && e.status === 401) return <Navigate to="/entrar" replace state={{ de: local.pathname }} />;
+    return <Carregando erro={e.message} />;
   }
-  if (!pronto) return <Navigate to="/entrar/2fa" replace />;
+  if (eu.data.etapa !== 'completa') return <Navigate to="/entrar/2fa" replace />;
 
   const { usuario, organizacao } = eu.data;
   const plano = PLANOS[eu.data.plano];
@@ -57,47 +49,51 @@ export function LayoutApp() {
   }
 
   return (
-    <div className={`ui app${menu ? ' app--menu' : ''}`}>
-      <header className="topo-movel">
-        <Logo altura={22} para="/app" />
-        <Botao variante="icone" aria-label="Abrir menu" onClick={() => setMenu(true)}>
+    <div className={`app${menu ? ' app--menu-aberto' : ''}`}>
+      <div className="topo-movel">
+        <Logo altura={26} para="/app" />
+        <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" aria-label="Abrir menu" onClick={() => setMenu(true)}>
           <Icone nome="menu" />
-        </Botao>
-      </header>
-      {menu && <div className="veu-menu" onClick={() => setMenu(false)} />}
-
-      <aside className="lateral" aria-label="Navegação">
-        <div className="lateral__marca">
-          <Logo altura={22} para="/app" />
-        </div>
-        <nav className="lateral__grupo" aria-label="Principal">
-          <Item para="/app" icone="balcoes" rotulo="Balcões" contagem={paraConferir} fim />
-          <Item para="/app/clientes" icone="clientes" rotulo="Clientes" />
-          <Item para="/app/modelos" icone="modelos" rotulo="Modelos" />
-          {plano.recursos.relatorio && <Item para="/app/relatorio" icone="relatorio" rotulo="Relatório" />}
-          {/* Turu fica fora do lançamento (docs/viabilidade.md); VITE_TURU=1 liga em desenvolvimento. */}
-          {import.meta.env.VITE_TURU === '1' && <Item para="/app/turu" icone="turu" rotulo="Turu" />}
+        </button>
+      </div>
+      <div className="veu" onClick={() => setMenu(false)} />
+      <aside className="lateral">
+        <Logo altura={28} para="/app" />
+        <Link to="/app/novo" className="tr-btn tr-btn--primario tr-btn--bloco">
+          <Icone nome="mais" />
+          Novo balcão
+        </Link>
+        <nav className="lateral__nav" aria-label="Principal">
+          {NAV.map((n) => (
+            <NavLink key={n.para} to={n.para} end={n.fim}>
+              <Icone nome={n.icone} />
+              {n.rotulo}
+              {n.recurso && !plano.recursos[n.recurso] && (
+                <svg className="tr-icone cadeado" viewBox="0 0 24 24" aria-label={`Não incluso no plano ${plano.nome}`}>
+                  <path d="M7 11h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2zM8 11V8a4 4 0 0 1 8 0v3" />
+                </svg>
+              )}
+            </NavLink>
+          ))}
         </nav>
         <div className="lateral__rodape">
-          <NavLink to="/app/conta" className="lateral__pessoa">
-            <Avatar nome={usuario.nome} tamanho={26} />
-            <span className="cresce" style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-              <span className="corta" style={{ fontSize: 13, fontWeight: 500 }}>
+          <div className="pessoa">
+            <span className="avatar">{iniciais(usuario.nome)}</span>
+            <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+              <span className="pequeno" style={{ fontWeight: 500 }}>
                 {usuario.nome}
               </span>
-              <span className="corta terciario pequeno">
+              <span className="texto-suave" style={{ fontSize: 12, lineHeight: '16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {organizacao.nome} · {plano.nome}
               </span>
             </span>
-          </NavLink>
-          <button type="button" className="lateral__item" onClick={sair}>
-            <Icone nome="sair" />
-            Sair
-          </button>
+            <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" style={{ padding: '0 8px' }} aria-label="Sair" title="Sair" onClick={sair}>
+              <Icone nome="sair" />
+            </button>
+          </div>
         </div>
       </aside>
-
-      <main className="conteudo">
+      <main className="principal">
         <LimiteErro chave={local.pathname}>
           <Outlet />
         </LimiteErro>

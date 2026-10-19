@@ -1,335 +1,136 @@
-import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
-import { diasRetencao, PLANOS, type Permissao } from '@trames/shared';
-import { api, mensagemDe } from '../../dados/api';
-import { chaves, useAcao, useCobranca, useEquipe, useSessao } from '../../dados/consultas';
-import { Avatar, Barra, Bloqueado, Botao, BotaoLink, Carregando, Entrada, LinhaCampo, Menu, Nota, Pagina, Secao, SegmentadoRotas, Selecao, SeloConta, useDialogos, useNotificar } from '../../ui';
-import { moeda, plural } from '../../util/formatos';
-
-/** Minha conta: plano e uso, escritório e equipe, cada um numa seção. */
-export function Conta() {
-  return (
-    <Pagina titulo="Minha conta" estreita>
-      <SegmentadoRotas
-        rotulo="Seções de Minha conta"
-        opcoes={[
-          { para: '/app/conta/plano', rotulo: 'Plano e uso' },
-          { para: '/app/conta/escritorio', rotulo: 'Escritório' },
-          { para: '/app/conta/equipe', rotulo: 'Equipe' },
-        ]}
-      />
-      <Outlet />
-    </Pagina>
-  );
-}
-
-const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-const nomeDoMes = (mes: string) => MESES[Number(mes.slice(5, 7)) - 1];
-const textoDias = (d: number) => (d < 365 ? `${d} dias` : '12 meses');
-
-/** Uma linha de uso: rótulo, "x de y" e a barra, que fica laranja perto do fim e vermelha no fim. */
-function Medidor({ rotulo, usado, limite, sub }: { rotulo: string; usado: number; limite: number | null; sub?: string }) {
-  const tom = limite === null ? undefined : usado >= limite ? 'cheia' : usado >= limite * 0.9 ? 'alerta' : undefined;
-  return (
-    <div className="linha">
-      <div className="medidor">
-        <div className="medidor__topo">
-          <span>{rotulo}</span>
-          <span className="secundario numero">{limite === null ? `${usado.toLocaleString('pt-BR')} · sem limite` : `${usado.toLocaleString('pt-BR')} de ${limite.toLocaleString('pt-BR')}`}</span>
-        </div>
-        {limite !== null && <Barra parte={usado} total={limite} tom={tom} />}
-        {sub && <span className="linha__sub">{sub}</span>}
-      </div>
-    </div>
-  );
-}
-
-export function ContaPlano() {
-  const s = useSessao();
-  const consulta = useCobranca();
-  const notificar = useNotificar();
-  const { confirmar } = useDialogos();
-  const { plano: p, organizacao: o } = s;
-  const admin = s.usuario.permissao === 'admin';
-  const retencao = diasRetencao(p.id, o.diasRetencao);
-  const salvar = useAcao((dias: number) => api('PUT', '/organizacao', { nome: o.nome, diasRetencao: dias }), [chaves.eu, chaves.balcoes]);
-  const uso = consulta.data;
-  if (!uso) return <Carregando />;
-
-  const preco = !p.preco ? 'Grátis' : s.periodicidade === 'anual' && p.precoAnual ? `R$ ${p.precoAnual.toLocaleString('pt-BR')} por ano` : `R$ ${p.preco} por mês`;
-  const proximo = p.id === 'gratis' ? PLANOS.pro : p.id === 'pro' ? PLANOS.ultra : null;
-
-  async function mudarRetencao(dias: number) {
-    if (dias < retencao) {
-      const ok = await confirmar({
-        titulo: `Guardar os arquivos por ${textoDias(dias)}?`,
-        texto: 'Vale também para os balcões já encerrados: as datas de exclusão ficam mais perto, nunca a menos de 7 dias de hoje. Quem administra a conta recebe o aviso por e-mail antes.',
-        confirmar: 'Mudar retenção',
-      });
-      if (!ok) return;
-    }
-    try {
-      await salvar.mutateAsync(dias);
-      notificar({ titulo: 'Retenção atualizada', texto: `Arquivos guardados por ${textoDias(dias)} depois de encerrar o balcão.` });
-    } catch (e) {
-      notificar({ tom: 'erro', titulo: 'Não deu para salvar', texto: mensagemDe(e) });
-    }
-  }
-
-  return (
-    <>
-      <Secao titulo="Plano">
-        <div className="linha">
-          <span className="linha__corpo">
-            <span className="linha__titulo">Trames {p.nome}</span>
-            <span className="linha__sub">
-              {preco}
-              {p.preco > 0 && ` · ${s.periodicidade === 'anual' ? 'anual' : 'mensal'}`}
-            </span>
-          </span>
-          {admin && <BotaoLink to="/planos">{proximo ? `Conhecer o ${proximo.nome}` : 'Ver planos'}</BotaoLink>}
-        </div>
-      </Secao>
-
-      <Secao titulo={`Uso em ${nomeDoMes(uso.mes)}`} nota="As contagens do mês recomeçam no dia 1º, no horário de Brasília.">
-        {p.balcoesNoMes !== null ? (
-          <Medidor
-            rotulo="Balcões novos no mês"
-            usado={uso.balcoesNoMes}
-            limite={p.balcoesNoMes}
-            sub={uso.excedentes ? `${plural(uso.excedentes, 'excedente', 'excedentes')} · ${moeda(uso.valorExcedentesCentavos)} na próxima fatura${s.periodicidade === 'anual' ? ', à parte do plano anual' : ''}` : 'Depois do limite, cada balcão novo custa R$ 1,00, sem bloqueio.'}
-          />
-        ) : (
-          <Medidor rotulo="Balcões ativos" usado={uso.balcoesAtivos} limite={p.limiteBalcoes} sub="Balcões concluídos ou arquivados não contam." />
-        )}
-        {p.cotaWhatsapp > 0 ? (
-          <Medidor rotulo="Mensagens de WhatsApp" usado={uso.whatsappEnviados} limite={p.cotaWhatsapp} sub="Código de acesso e lembretes. Quando a cota acaba, vão por e-mail." />
-        ) : (
-          <div className="linha">
-            <span className="linha__corpo">Mensagens de WhatsApp</span>
-            <span className="secundario">Não incluso</span>
-          </div>
-        )}
-        <Medidor rotulo="Pessoas na conta" usado={uso.pessoas} limite={p.limitePessoas} />
-      </Secao>
-
-      <Secao
-        titulo="Arquivos"
-        nota={p.retencao.opcoes.length > 1 ? 'Os arquivos saem do storage na data marcada; fica só o registro de que existiram.' : `No plano ${p.nome}, a retenção é fixa. No Ultra dá para escolher de 30 dias a 12 meses.`}
-      >
-        <LinhaCampo rotulo="Guardar depois de encerrar" id="retencao">
-          {p.retencao.opcoes.length > 1 && admin ? (
-            <Selecao id="retencao" value={retencao} disabled={salvar.isPending} onChange={(e) => mudarRetencao(Number(e.target.value))} style={{ width: 160 }}>
-              {p.retencao.opcoes.map((d) => (
-                <option key={d} value={d}>
-                  {textoDias(d)}
-                </option>
-              ))}
-            </Selecao>
-          ) : (
-            textoDias(retencao)
-          )}
-        </LinhaCampo>
-      </Secao>
-    </>
-  );
-}
+import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
+import { diasRetencao, PLANOS } from '@trames/shared';
+import { api } from '../../dados/api';
+import { chaves, useAcao, useCobranca, useSessao } from '../../dados/consultas';
+import { AvisoErro, Bloqueio, SeloConta, useToast } from '../../ui/comuns';
+import { plural } from '../../util/formatos';
 
 const CORES = ['#13594b', '#8a5330', '#1c5d84', '#a9361b', '#865600', '#2e241b'];
-const PERMISSOES: Record<Permissao, { nome: string; texto: string }> = {
-  admin: { nome: 'Administra', texto: 'tudo, inclusive plano e equipe' },
-  monta: { nome: 'Monta balcões', texto: 'cria balcões e confere documentos' },
-  confere: { nome: 'Só confere', texto: 'aprova ou recusa documentos' },
-};
 
-export function ContaEscritorio() {
+export function Conta() {
   const s = useSessao();
-  const notificar = useNotificar();
+  const cobranca = useCobranca().data;
   const { organizacao: o, plano } = s;
-  const admin = s.usuario.permissao === 'admin';
+  const [f, setF] = useState({ nome: o.nome, sigla: o.sigla, cor: o.cor, diasRetencao: o.diasRetencao });
+  const [toast, avisar] = useToast();
+  const salvar = useAcao((corpo: typeof f) => api('PUT', '/organizacao', corpo), [chaves.eu]);
   const marca = s.tem('marca');
-  const inicial = { nome: o.nome, sigla: o.sigla, cor: o.cor };
-  const [f, setF] = useState(inicial);
-  const mudou = f.nome !== inicial.nome || f.sigla !== inicial.sigla || f.cor !== inicial.cor;
-  const salvar = useAcao(() => api('PUT', '/organizacao', { ...f, nome: f.nome.trim(), sigla: f.sigla.toUpperCase().slice(0, 2), diasRetencao: diasRetencao(plano.id, o.diasRetencao) }), [chaves.eu]);
-
-  async function enviar() {
-    try {
-      await salvar.mutateAsync();
-      notificar({ titulo: 'Alterações salvas' });
-    } catch (e) {
-      notificar({ tom: 'erro', titulo: 'Não deu para salvar', texto: mensagemDe(e) });
-    }
-  }
-
-  return (
-    <>
-      <Secao titulo="Você">
-        <LinhaCampo rotulo="Nome">{s.usuario.nome}</LinhaCampo>
-        <LinhaCampo rotulo="E-mail">{s.usuario.email}</LinhaCampo>
-        <LinhaCampo rotulo="Permissão">{s.tem('permissoes') ? PERMISSOES[s.usuario.permissao].nome : 'Acesso completo'}</LinhaCampo>
-      </Secao>
-
-      <Secao
-        titulo="Escritório"
-        acao={
-          admin &&
-          mudou && (
-            <span className="fila">
-              <Botao variante="simples" onClick={() => setF(inicial)}>
-                Desfazer
-              </Botao>
-              <Botao variante="primario" disabled={salvar.isPending || f.nome.trim().length < 2} onClick={enviar}>
-                Salvar
-              </Botao>
-            </span>
-          )
-        }
-        nota={marca ? 'A sigla e a cor aparecem no topo do balcão que o cliente abre.' : <Bloqueado recurso="marca" />}
-      >
-        <LinhaCampo rotulo="Nome do escritório" id="org-nome">
-          {admin ? <Entrada id="org-nome" value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} /> : o.nome}
-        </LinhaCampo>
-        {marca && (
-          <>
-            <LinhaCampo rotulo="Sigla" id="org-sigla">
-              {admin ? <Entrada id="org-sigla" maxLength={2} value={f.sigla} onChange={(e) => setF({ ...f, sigla: e.target.value.toUpperCase() })} style={{ width: 70, textAlign: 'center' }} /> : o.sigla}
-            </LinhaCampo>
-            <LinhaCampo rotulo="Cor">
-              <span className="fila" role="radiogroup" aria-label="Cor">
-                {CORES.map((cor) => (
-                  <button key={cor} type="button" role="radio" aria-checked={f.cor === cor} aria-label={`Cor ${cor}`} disabled={!admin} className="amostra-cor" style={{ background: cor }} onClick={() => setF({ ...f, cor })} />
-                ))}
-              </span>
-            </LinhaCampo>
-            <LinhaCampo rotulo="Prévia">
-              <span className="fila">
-                <SeloConta conta={f} tamanho={24} />
-                <span className="secundario">{f.nome}</span>
-              </span>
-            </LinhaCampo>
-          </>
-        )}
-      </Secao>
-    </>
-  );
-}
-
-export function ContaEquipe() {
-  const s = useSessao();
-  const consulta = useEquipe();
-  const notificar = useNotificar();
-  const { confirmar } = useDialogos();
-  const limite = s.plano.limitePessoas;
-  const comPermissoes = s.tem('permissoes');
   const admin = s.usuario.permissao === 'admin';
-  const vazio = { nome: '', email: '', permissao: 'monta' as Permissao };
-  const [convite, setConvite] = useState(vazio);
-  const convidar = useAcao((c: typeof convite) => api('POST', '/organizacao/equipe', c), [chaves.equipe, chaves.cobranca]);
-  const mudar = useAcao((x: { id: string; permissao: Permissao }) => api('PATCH', `/organizacao/equipe/${x.id}`, { permissao: x.permissao }), [chaves.equipe]);
-  const remover = useAcao((id: string) => api('DELETE', `/organizacao/equipe/${id}`), [chaves.equipe, chaves.cobranca]);
 
-  if (consulta.isPending) return <Carregando />;
-  const pessoas = consulta.data ?? [];
-  const cheio = limite !== null && pessoas.length >= limite;
-
-  async function rodar(fazer: () => Promise<unknown>, titulo: string) {
-    try {
-      await fazer();
-      notificar({ titulo });
-    } catch (e) {
-      notificar({ tom: 'erro', titulo: 'Não deu certo', texto: mensagemDe(e) });
-    }
-  }
-
-  async function tirar(id: string, nome: string) {
-    if (await confirmar({ titulo: `Tirar ${nome} da conta?`, texto: 'A pessoa perde o acesso na hora. Os balcões e o histórico continuam.', confirmar: 'Tirar da conta', perigo: true })) await rodar(() => remover.mutateAsync(id), `${nome} saiu da conta`);
+  async function enviar(e: FormEvent) {
+    e.preventDefault();
+    await salvar.mutateAsync({ ...f, sigla: f.sigla.toUpperCase().slice(0, 2), diasRetencao: diasRetencao(plano.id, f.diasRetencao) });
+    avisar('Alterações salvas.');
   }
 
   return (
     <>
-      <Secao
-        titulo="Pessoas"
-        acao={<span className="pequeno terciario">{limite === null ? plural(pessoas.length, 'pessoa', 'pessoas') : `${pessoas.length} de ${limite}`}</span>}
-        nota={
-          comPermissoes ? (
-            (Object.keys(PERMISSOES) as Permissao[]).map((k) => `${PERMISSOES[k].nome}: ${PERMISSOES[k].texto}.`).join(' ')
-          ) : (
-            <Bloqueado recurso="permissoes" />
-          )
-        }
-      >
-        {pessoas.map((p) => {
-          const eu = p.id === s.usuario.id;
-          return (
-            <div key={p.id} className="linha">
-              <Avatar nome={p.nome} />
-              <span className="linha__corpo">
-                <span className="linha__titulo corta">
-                  {p.nome}
-                  {eu && <span className="terciario" style={{ fontWeight: 400 }}> (você)</span>}
-                </span>
-                <span className="linha__sub corta">
-                  {p.email}
-                  {p.convitePendente && ' · convite pendente'}
-                </span>
-              </span>
-              {comPermissoes && admin && !eu ? (
-                <Selecao aria-label={`Permissão de ${p.nome}`} value={p.permissao} style={{ width: 150 }} onChange={(e) => rodar(() => mudar.mutateAsync({ id: p.id, permissao: e.target.value as Permissao }), 'Permissão atualizada')}>
-                  {(Object.keys(PERMISSOES) as Permissao[]).map((k) => (
-                    <option key={k} value={k}>
-                      {PERMISSOES[k].nome}
+      <div className="cabecalho-pagina">
+        <div>
+          <h1 className="titulo-1">Minha conta</h1>
+          <p className="subtitulo">Seu plano e o uso do mês, a marca que o cliente vê no balcão e por quanto tempo os arquivos ficam guardados.</p>
+        </div>
+      </div>
+      <AvisoErro erro={salvar.error} />
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start' }}>
+        <form className="cartao" style={{ flex: '2 1 420px', gap: 20 }} onSubmit={enviar}>
+          <h2 className="titulo-2">Escritório</h2>
+          <fieldset disabled={!admin} style={{ border: 0, padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <label className="tr-campo tr-campo--largo">
+              <span className="tr-campo__rotulo">Nome do escritório ou da clínica</span>
+              <input className="tr-campo__entrada" required minLength={2} value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} />
+            </label>
+            {marca ? (
+              <>
+                <label className="tr-campo" style={{ maxWidth: 140 }}>
+                  <span className="tr-campo__rotulo">Sigla</span>
+                  <input className="tr-campo__entrada" maxLength={2} value={f.sigla} onChange={(e) => setF({ ...f, sigla: e.target.value.toUpperCase() })} />
+                </label>
+                <fieldset style={{ border: 0, padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <legend className="tr-campo__rotulo" style={{ marginBottom: 8 }}>
+                    Cor
+                  </legend>
+                  <div className="linha">
+                    {CORES.map((cor) => (
+                      <button key={cor} type="button" aria-label={`Cor ${cor}`} aria-pressed={f.cor === cor} onClick={() => setF({ ...f, cor })} style={{ width: 36, height: 36, borderRadius: 10, background: cor, cursor: 'pointer', border: f.cor === cor ? '3px solid var(--areia)' : '0', boxShadow: f.cor === cor ? '0 0 0 2px var(--tinta)' : 'none' }} />
+                    ))}
+                  </div>
+                </fieldset>
+                <div className="aviso" style={{ alignItems: 'center' }}>
+                  <SeloConta conta={f} />
+                  <span>Assim aparece no topo do balcão do cliente.</span>
+                </div>
+              </>
+            ) : (
+              <Bloqueio recurso="marca" compacto />
+            )}
+            {plano.retencao.opcoes.length > 1 ? (
+              <label className="tr-campo" style={{ maxWidth: 300 }}>
+                <span className="tr-campo__rotulo">Apagar os arquivos depois de concluído o balcão</span>
+                <select className="tr-campo__entrada" value={diasRetencao(plano.id, f.diasRetencao)} onChange={(e) => setF({ ...f, diasRetencao: Number(e.target.value) })}>
+                  {plano.retencao.opcoes.map((d) => (
+                    <option key={d} value={d}>
+                      {d < 365 ? `${d} dias` : '12 meses'}
                     </option>
                   ))}
-                </Selecao>
-              ) : (
-                <span className="pequeno secundario">{comPermissoes ? PERMISSOES[p.permissao].nome : 'Acesso completo'}</span>
-              )}
-              {admin && !eu ? <Menu rotulo={`Ações de ${p.nome}`} itens={[{ rotulo: 'Tirar da conta…', icone: 'lixo', perigo: true, acao: () => tirar(p.id, p.nome) }]} /> : <span style={{ width: 30 }} />}
-            </div>
-          );
-        })}
-      </Secao>
-
-      {admin &&
-        (cheio ? (
-          <Nota>
-            {limite === 1 ? 'O plano Grátis é para 1 pessoa.' : `O plano ${s.plano.nome} permite até ${limite} pessoas.`} Para chamar mais gente, mude de plano em Plano e uso.
-          </Nota>
-        ) : (
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              await rodar(() => convidar.mutateAsync(convite), `Convite enviado para ${convite.email}`);
-              setConvite(vazio);
-            }}
-          >
-            <Secao titulo="Convidar pessoa" nota="A pessoa recebe um e-mail para criar a senha; o convite vale 7 dias. Para entrar, ela confirma um código enviado ao e-mail dela.">
-              <LinhaCampo rotulo="Nome" id="convite-nome">
-                <Entrada id="convite-nome" required minLength={2} value={convite.nome} onChange={(e) => setConvite({ ...convite, nome: e.target.value })} />
-              </LinhaCampo>
-              <LinhaCampo rotulo="E-mail" id="convite-email">
-                <Entrada id="convite-email" type="email" required value={convite.email} onChange={(e) => setConvite({ ...convite, email: e.target.value })} />
-              </LinhaCampo>
-              {comPermissoes && (
-                <LinhaCampo rotulo="Permissão" id="convite-permissao">
-                  <Selecao id="convite-permissao" value={convite.permissao} onChange={(e) => setConvite({ ...convite, permissao: e.target.value as Permissao })} style={{ width: 160 }}>
-                    {(Object.keys(PERMISSOES) as Permissao[]).map((k) => (
-                      <option key={k} value={k}>
-                        {PERMISSOES[k].nome}
-                      </option>
-                    ))}
-                  </Selecao>
-                </LinhaCampo>
-              )}
-              <div className="linha" style={{ justifyContent: 'flex-end' }}>
-                <Botao type="submit" variante="primario" disabled={convidar.isPending}>
-                  Enviar convite
-                </Botao>
+                </select>
+                <span className="tr-campo__dica">Vale para os balcões concluídos daqui em diante. Os arquivos saem do storage; fica só o registro de que existiram. Uma semana antes, você recebe um e-mail.</span>
+              </label>
+            ) : (
+              <div className="coluna" style={{ gap: 4 }}>
+                <span className="tr-campo__rotulo">Retenção dos arquivos</span>
+                <span className="pequeno texto-suave">
+                  No plano {plano.nome}, os arquivos são apagados {plano.retencao.padrao} dias depois de concluído o balcão (com aviso por e-mail uma semana antes). No Ultra dá para escolher de 30 dias a 12 meses.
+                </span>
               </div>
-            </Secao>
-          </form>
-        ))}
+            )}
+          </fieldset>
+          {admin && (
+            <button type="submit" className="tr-btn tr-btn--primario" style={{ alignSelf: 'flex-start' }} disabled={salvar.isPending}>
+              Salvar
+            </button>
+          )}
+        </form>
+
+        <section className="cartao" style={{ flex: '1 1 300px', gap: 14 }}>
+          <span className="miudo texto-suave" style={{ fontWeight: 500 }}>
+            Seu plano e o uso do mês
+          </span>
+          <div className="linha linha--entre">
+            <h2 style={{ fontSize: 28, lineHeight: '32px' }}>{plano.nome}</h2>
+            <span className="pequeno texto-suave">{!plano.preco ? 'R$ 0' : s.periodicidade === 'anual' ? `R$ ${plano.precoAnual?.toLocaleString('pt-BR')} por ano` : `R$ ${plano.preco} por mês`}</span>
+          </div>
+          {cobranca && (
+            <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 15 }}>
+              {plano.balcoesNoMes !== null ? (
+                <>
+                  <li>
+                    {cobranca.balcoesNoMes} de {plano.balcoesNoMes} balcões novos neste mês
+                  </li>
+                  <li>
+                    {cobranca.excedentes
+                      ? `${plural(cobranca.excedentes, 'excedente', 'excedentes')} (${(cobranca.valorExcedentesCentavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}) na próxima fatura${s.periodicidade === 'anual' ? ', à parte do plano anual' : ''}`
+                      : 'Nenhum excedente neste mês'}
+                  </li>
+                </>
+              ) : (
+                <li>{plano.limiteBalcoes === null ? `${cobranca.balcoesAtivos} balcões ativos (sem limite)` : `${cobranca.balcoesAtivos} de ${plano.limiteBalcoes} balcões ativos`}</li>
+              )}
+              {plano.cotaWhatsapp > 0 && (
+                <li>
+                  {cobranca.whatsappEnviados.toLocaleString('pt-BR')} de {plano.cotaWhatsapp.toLocaleString('pt-BR')} mensagens de WhatsApp neste mês
+                </li>
+              )}
+              <li>{plano.limitePessoas === null ? `${cobranca.pessoas} pessoas (sem limite)` : `${cobranca.pessoas} de ${plano.limitePessoas} ${plano.limitePessoas === 1 ? 'pessoa' : 'pessoas'}`}</li>
+            </ul>
+          )}
+          <Link to="/planos" className="tr-btn tr-btn--secundario tr-btn--bloco">
+            {plano.id === 'ultra' ? 'Ver planos' : `Conhecer o ${PLANOS[plano.id === 'gratis' ? 'pro' : 'ultra'].nome}`}
+          </Link>
+        </section>
+      </div>
+      {toast}
     </>
   );
 }

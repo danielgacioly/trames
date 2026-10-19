@@ -1,91 +1,93 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import type { ModeloDto } from '@trames/shared';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import type { ModeloDto as Modelo } from '@trames/shared';
 import { api } from '../../dados/api';
 import { chaves, useAcao, useModelos, useSessao } from '../../dados/consultas';
-import { AvisoErro, Bloqueado, Botao, BotaoLink, Carregando, Entrada, Linha, LinhaCampo, Pagina, Secao, useDialogos, useNotificar } from '../../ui';
-import { plural } from '../../util/formatos';
-import { comChave, ListaDocumentos, type Item } from '../balcoes/ListaDocumentos';
+import { AvisoErro, Bloqueio, Carregando } from '../../ui/comuns';
+import { Icone } from '../../ui/Icone';
+import { comChave, ListaDocumentos, novoItem, type Item } from '../balcoes/ListaDocumentos';
 
 export function EditorModelo() {
   const { id } = useParams();
   const [params] = useSearchParams();
-  const s = useSessao();
+  const sessao = useSessao();
   const consulta = useModelos();
-  if (!s.tem('modelosProprios'))
-    return (
-      <Pagina estreita voltar={{ para: '/app/modelos', rotulo: 'Modelos' }} titulo="Novo modelo">
-        <Bloqueado recurso="modelosProprios" />
-      </Pagina>
-    );
+  if (!sessao.tem('modelosProprios')) return <Bloqueio recurso="modelosProprios" />;
   if (consulta.isPending) return <Carregando />;
   const existente = consulta.data?.find((m) => m.id === id && m.proprio);
   const base = existente ?? consulta.data?.find((m) => m.id === params.get('base'));
-  return <Formulario key={id ?? params.get('base') ?? 'novo'} existente={existente} base={base} />;
+  return <FormularioModelo key={id ?? 'novo'} existente={existente} base={base} />;
 }
 
-function Formulario({ existente, base }: { existente?: ModeloDto; base?: ModeloDto }) {
+function FormularioModelo({ existente, base }: { existente?: Modelo; base?: Modelo }) {
   const navegar = useNavigate();
-  const { confirmar } = useDialogos();
-  const notificar = useNotificar();
   const [nome, setNome] = useState(existente?.nome ?? (base ? `${base.nome} (cópia)` : ''));
   const [quando, setQuando] = useState(base?.quando ?? '');
   const [itens, setItens] = useState<Item[]>(() => comChave(base?.itens ?? []));
-  const salvar = useAcao((corpo: unknown) => (existente ? api('PUT', `/modelos/${existente.id}`, corpo) : api('POST', '/modelos', corpo)), [chaves.modelos]);
+  const salvar = useAcao(
+    (corpo: unknown) => (existente ? api('PUT', `/modelos/${existente.id}`, corpo) : api('POST', '/modelos', corpo)),
+    [chaves.modelos],
+  );
   const excluir = useAcao(() => api('DELETE', `/modelos/${existente!.id}`), [chaves.modelos]);
-  const lista = itens.filter((i) => i.nome.trim());
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
-    await salvar.mutateAsync({ nome: nome.trim(), quando: quando.trim(), itens: lista.map(({ nome, detalhe, obrigatorio }) => ({ nome: nome.trim(), detalhe: detalhe.trim(), obrigatorio })) });
-    notificar({ titulo: existente ? 'Modelo salvo' : 'Modelo criado' });
-    navegar('/app/modelos');
-  }
-
-  async function apagar() {
-    if (!(await confirmar({ titulo: `Apagar o modelo “${existente!.nome}”?`, texto: 'Os balcões já abertos com ele não mudam.', confirmar: 'Apagar', perigo: true }))) return;
-    await excluir.mutateAsync();
-    notificar({ titulo: 'Modelo apagado' });
+    await salvar.mutateAsync({ nome: nome.trim(), quando: quando.trim(), itens: itens.map(({ chave: _, ...it }) => it) });
     navegar('/app/modelos');
   }
 
   return (
-    <form onSubmit={enviar}>
-      <Pagina
-        estreita
-        voltar={{ para: '/app/modelos', rotulo: 'Modelos' }}
-        titulo={existente ? 'Editar modelo' : 'Novo modelo'}
-        ferramentas={
-          <>
-            <BotaoLink to="/app/modelos">Cancelar</BotaoLink>
-            <Botao type="submit" variante="primario" disabled={!lista.length || salvar.isPending}>
-              Salvar
-            </Botao>
-          </>
-        }
-      >
-        <AvisoErro erro={salvar.error ?? excluir.error} />
-        <Secao>
-          <LinhaCampo rotulo="Nome" id="nome">
-            <Entrada id="nome" required minLength={2} value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Inventário com imóvel rural" />
-          </LinhaCampo>
-          <LinhaCampo rotulo="Quando usar" id="quando">
-            <Entrada id="quando" value={quando} onChange={(e) => setQuando(e.target.value)} placeholder="Uma frase para lembrar a equipe" />
-          </LinhaCampo>
-        </Secao>
-        <section className="secao">
-          <div className="secao__cabeca">
-            <h2 className="titulo-secao">Documentos</h2>
-            <span className="pequeno terciario">{plural(itens.length, 'item', 'itens')}</span>
-          </div>
-          <ListaDocumentos itens={itens} mudar={setItens} />
-        </section>
-        {existente && (
-          <Secao>
-            <Linha tom="perigo" titulo="Apagar modelo…" onClick={apagar} />
-          </Secao>
+    <form onSubmit={enviar} style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 860 }}>
+      <Link to="/app/modelos" className="tr-btn tr-btn--discreto tr-btn--sm" style={{ alignSelf: 'flex-start' }}>
+        <Icone nome="voltar" />
+        Modelos
+      </Link>
+      <h1 className="titulo-1">{existente ? 'Editar modelo' : 'Novo modelo'}</h1>
+      <AvisoErro erro={salvar.error ?? excluir.error} />
+      <section className="cartao" style={{ gap: 20 }}>
+        <label className="tr-campo tr-campo--largo">
+          <span className="tr-campo__rotulo">Nome do modelo</span>
+          <input className="tr-campo__entrada" required minLength={2} value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Inventário com imóvel rural" />
+        </label>
+        <label className="tr-campo tr-campo--largo">
+          <span className="tr-campo__rotulo">Quando usar</span>
+          <input className="tr-campo__entrada" value={quando} onChange={(e) => setQuando(e.target.value)} placeholder="Uma frase para lembrar a equipe" />
+        </label>
+      </section>
+      <section className="cartao">
+        <div className="linha linha--entre">
+          <h2 className="titulo-2">Documentos</h2>
+          <span className="pequeno texto-suave">{itens.length} documentos</span>
+        </div>
+        <ListaDocumentos itens={itens} mudar={setItens} />
+        <button type="button" className="tr-btn tr-btn--secundario" style={{ alignSelf: 'flex-start' }} onClick={() => setItens([...itens, novoItem()])}>
+          <Icone nome="mais" />
+          Adicionar documento
+        </button>
+      </section>
+      <div className="linha linha--entre">
+        {existente ? (
+          <button
+            type="button"
+            className="tr-btn tr-btn--discreto"
+            style={{ color: 'var(--recusado)' }}
+            onClick={async () => {
+              if (window.confirm(`Excluir o modelo ${existente.nome}?`)) {
+                await excluir.mutateAsync();
+                navegar('/app/modelos');
+              }
+            }}
+          >
+            <Icone nome="lixo" />
+            Excluir modelo
+          </button>
+        ) : (
+          <span />
         )}
-      </Pagina>
+        <button type="submit" className="tr-btn tr-btn--primario" disabled={!itens.length || salvar.isPending}>
+          Salvar modelo
+        </button>
+      </div>
     </form>
   );
 }

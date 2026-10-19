@@ -121,53 +121,47 @@ Senha das três: `trames-teste-123`
 
 1. Abra http://localhost:5173 e clique em **Entrar**.
 2. Digite o e-mail e a senha.
-3. A Trames pede um código de 6 dígitos enviado por e-mail. Em desenvolvimento nenhum e-mail sai: ele fica guardado no banco. Clique em **"Desenvolvimento: preencher o código"** e depois em **Continuar**. (Na tela de entrar, as **Contas de teste** já preenchem e-mail e senha.)
+3. A Trames pede um código de 6 dígitos enviado por e-mail. Em desenvolvimento nenhum e-mail sai: ele fica guardado no banco. Clique em **"Desenvolvimento: preencher o código da caixa de saída"** e depois em **Entrar**.
 
-Para trocar de conta, clique em **Sair**, no pé da barra lateral, e entre com outro e-mail. Ou use uma janela anônima para ter duas contas abertas ao mesmo tempo.
+Para trocar de conta, saia pelo menu e entre com outro e-mail. Ou use uma janela anônima para ter duas contas abertas ao mesmo tempo.
 
 ## 5. Roteiro por plano
 
-### Como o painel está organizado
-
-- Barra lateral: **Balcões** (o número ao lado conta os que têm documento para conferir), **Clientes**, **Modelos** e, no Ultra, **Relatório**. No pé, o seu nome abre **Minha conta**.
-- **Minha conta** tem três seções: **Plano e uso** (plano, uso do mês, retenção), **Escritório** (você, nome, sigla e cor) e **Equipe**.
-- Avisos de uso (limite de balcões, excedente, cota de WhatsApp) aparecem só como notificação no canto da tela, uma vez por sessão, para quem administra. O botão **Ver uso** leva a Minha conta › Plano e uso.
-- No balcão, as ações ficam no topo: **Enviar link**, **Concluir** e o menu **…** (Lembrar agora, Editar lista, Baixar tudo em ZIP, Arquivar). Abaixo, três abas: **Documentos**, **Detalhes** (cliente, prazo e lembretes, acesso do cliente, arquivos, arquivamento) e **Histórico**.
-- Confirmações (concluir, arquivar, apagar) abrem um diálogo; o resultado aparece como notificação.
+Avisos de uso (limite de balcões, excedente, cota de WhatsApp) aparecem só no canto da tela, uma vez por sessão, para quem administra. O uso do mês fica sempre em **Minha conta** (antes chamada Conta e marca).
 
 ### Grátis (`gratis@trames.app`)
 
-- [ ] Ao entrar, aparece a notificação "1 balcão disponível" (2 de 3 ativos). Minha conta › Plano e uso mostra 2 de 3.
+- [ ] Ao entrar, um aviso no canto da tela mostra que resta 1 balcão. **Minha conta** mostra 2 de 3 balcões ativos.
 - [ ] Abra um balcão novo: o e-mail do cliente é obrigatório (em todos os planos). O canal "WhatsApp" aparece bloqueado, com convite para o Pro.
-- [ ] Com 3 de 3, tente abrir mais um: o botão **Criar balcão** fica desligado, com uma nota explicando.
+- [ ] Com 3 de 3, tente abrir mais um: o botão de criar fica desligado e um aviso no canto explica que o limite acabou.
 - [ ] Modelos próprios, marca, permissões e relatório aparecem bloqueados.
-- [ ] Em **Minha conta › Plano e uso**, a retenção é fixa: 30 dias depois de encerrar.
-- [ ] O balcão concluído da Helena mostra, em **Detalhes › Arquivos**, a data em que os arquivos serão apagados.
+- [ ] Em **Minha conta**, a retenção é fixa: 30 dias depois de concluir.
+- [ ] O balcão concluído da Helena mostra a data em que os arquivos serão apagados.
 
 ### Pro (`pro@trames.app`)
 
-- [ ] Ao entrar, aparece a notificação "A cota de WhatsApp está no fim". Minha conta › Plano e uso mostra 6 de 40 balcões e 298 de 300 mensagens.
-- [ ] Abra o balcão do Júlio. A aba **Documentos** mostra a **miniatura** do documento; o original só sai em **Baixar original** (e fica no Histórico). Aprove ou recuse (o motivo é pedido num diálogo): a tela passa sozinha para o próximo documento a conferir.
-- [ ] **Enviar link**: a Trames não guarda links (só uma impressão digital), então clique em **Gerar link para enviar**. Os links já mandados continuam valendo e o cliente continua conectado. "Abrir no WhatsApp" abre o seu WhatsApp (wa.me) com a mensagem pronta; "Enviar por e-mail" manda pela Trames; "Copiar" fica no Histórico.
-- [ ] **Arquivar**: num balcão aberto, abra o menu **…** e escolha **Arquivar…**. Ele sai dos ativos, o link do cliente para de valer e **Detalhes › Arquivos** mostra quando os arquivos serão apagados. **Reabrir** desfaz.
-- [ ] O balcão da Marta (prazo vencido) avisa, numa linha acima dos documentos, que o prazo venceu; **Detalhes › Arquivamento** mostra a data em que será arquivado sozinho.
-- [ ] **Editar lista** (menu **…**): inclua um documento, puxe itens de um modelo, mude a ordem (arrastando ou pelas setas), marque "Pedir de novo" num item aprovado e tire um item que já tem arquivo (pede confirmação). Salve e confira o Histórico, com o antes e o depois.
+- [ ] Ao entrar, aparece o aviso "A cota de WhatsApp está no fim". **Minha conta** mostra 6 de 40 balcões e 298 de 300 mensagens.
+- [ ] Abra o balcão do Júlio. A tela de conferir mostra a **miniatura** do documento; o original só sai em **Baixar original** (e fica no Histórico).
+- [ ] **Link do cliente**: a Trames não guarda links (só uma impressão digital), então clique em **Gerar link para enviar**. Os links já mandados continuam valendo e o cliente continua conectado. "Enviar pelo WhatsApp" abre o seu WhatsApp (wa.me) com a mensagem pronta; "Enviar por e-mail" manda pela Trames; "Copiar link" fica no Histórico.
+- [ ] **Arquivar**: num balcão aberto, clique em **Arquivar**. Ele sai dos ativos, o link do cliente para de valer e a tela mostra quando os arquivos serão apagados. **Reabrir balcão** desfaz.
+- [ ] O balcão da Marta (prazo vencido) mostra quando será arquivado sozinho, se ninguém mexer.
+- [ ] **Editar lista**: inclua um documento, puxe itens de um modelo, mude a ordem (arrastando ou pelas setas), marque "Pedir de novo" num item aprovado e tire um item que já tem arquivo (pede confirmação). Salve e confira o Histórico, com o antes e o depois.
 - [ ] Tente tirar todos os itens: o último não sai.
-- [ ] **Detalhes › Prazo e lembretes**: desligue os lembretes, troque o canal para WhatsApp, mude o prazo e clique em **Salvar** (aparece só quando algo mudou).
-- [ ] **Cota de WhatsApp**: o seed deixa o Pro com 298 das 300 mensagens do mês. No menu **…**, clique em **Lembrar Júlio agora** três vezes (o balcão dele está no WhatsApp): as duas primeiras vão pelo WhatsApp, a terceira cai para e-mail e quem administra recebe o aviso "A cota de WhatsApp do mês acabou". Tudo aparece na caixa de saída (seção 6).
-- [ ] **Baixar tudo (ZIP)** (menu **…** ou Detalhes): o worker monta o ZIP em segundos, a notificação "O ZIP está pronto" aparece e o menu passa a mostrar "Baixar ZIP" (vale 24 horas).
+- [ ] **Prazo e lembretes**: desligue os lembretes do balcão, troque o canal para WhatsApp, mude o prazo.
+- [ ] **Cota de WhatsApp**: o seed deixa o Pro com 298 das 300 mensagens do mês. Clique em **Lembrar Júlio** três vezes (o balcão dele está no WhatsApp): as duas primeiras vão pelo WhatsApp, a terceira cai para e-mail e quem administra recebe o aviso "A cota de WhatsApp do mês acabou". Tudo aparece na caixa de saída (seção 6).
+- [ ] **Baixar tudo (ZIP)**: o worker monta o ZIP em segundos; depois aparece "Baixar ZIP" (vale 24 horas).
 - [ ] O balcão concluído da Fernanda vai ter os arquivos apagados em poucos dias: é o caso do aviso de 7 dias (seção 6).
 - [ ] Crie um modelo próprio e use-o num balcão novo.
 - [ ] Na tela do cliente, a sigla e a cor do escritório aparecem.
-- [ ] Minha conta › Equipe: convide pessoas até o limite de 3.
+- [ ] Equipe: convide pessoas até o limite de 3.
 
 ### Ultra (`ultra@trames.app`)
 
-- [ ] Minha conta › Plano e uso mostra os balcões **novos do mês**, não os ativos. O seed deixa o Ultra com 198 de 200, e ao entrar aparece a notificação "198 de 200 balcões do mês".
-- [ ] Crie 2 balcões. No 3º, com 200 de 200, **Criar balcão** pede confirmação ("Criar balcão excedente?", R$ 1,00). Ele é criado normalmente (sem bloqueio) e a notificação "Balcão criado" avisa que foi excedente. Em **Minha conta › Plano e uso**, aparece "1 excedente · R$ 1,00 na próxima fatura".
+- [ ] **Minha conta** mostra os balcões **novos do mês**, não os ativos. O seed deixa o Ultra com 198 de 200, e ao entrar aparece o aviso "198 de 200 balcões do mês".
+- [ ] Crie 2 balcões: com 200 de 200, ao abrir a tela de criar, aparece o aviso "Este balcão vai ser cobrado como excedente" (R$ 1,00). O 3º é criado normalmente (sem bloqueio) e outro aviso confirma que foi cobrado como excedente. Em **Minha conta**, aparece "1 excedente (R$ 1,00) na próxima fatura".
 - [ ] Ao passar de 200, quem administra recebe o e-mail "Você passou dos 200 balcões do mês" (o de 180 o seed já marcou como enviado).
-- [ ] Em **Minha conta › Plano e uso**, a retenção pode ser 30, 90, 180 dias ou 12 meses. Diminuir pede confirmação, porque vale também para os balcões já encerrados.
-- [ ] **Relatório** de prazos e pendências; **Minha conta › Equipe** com 6 pessoas e permissões por pessoa.
+- [ ] Em **Minha conta**, a retenção pode ser 30, 90, 180 dias ou 12 meses.
+- [ ] Relatório de prazos e pendências; equipe com 6 pessoas e permissões por pessoa.
 
 ### Troca de plano
 
@@ -178,13 +172,13 @@ O Turu está fora do lançamento e não aparece. Para ligar em desenvolvimento, 
 ## 6. Roteiro do cliente
 
 1. Entre com uma conta (Pro é a mais completa) e crie um balcão.
-2. Na tela **Enviar link**, que abre depois de criar, clique em **Ver como o cliente** (ou copie o link e abra numa janela anônima, no modo celular do navegador).
+2. Na tela **"Balcão criado"**, clique em **Ver como o cliente** (ou copie o link e abra numa janela anônima, no modo celular do navegador).
 3. Clique em **Receber o código**: ele vai pelo canal que o escritório escolheu (e-mail, por padrão). Como nada sai em desenvolvimento, use **"preencher o código da caixa de saída"**.
 4. Envie uma foto e um PDF. O arquivo aparece como **"Recebido. Estamos verificando o arquivo."** enquanto o worker confere o tipo, passa o antivírus e gera a miniatura. Depois fica **em análise**, e o cliente pode tocar em **Ver o que enviei** (a miniatura, nunca o original).
 5. Feche a aba e abra o link de novo: entra direto na lista, sem código. A sessão vale 30 dias naquele aparelho e só para aquele balcão, por qualquer link dele (o do lembrete também).
-6. No painel, na aba **Documentos**, aprove ou recuse cada documento. Recarregue a tela do cliente: o recusado aparece com o motivo.
-7. No painel, em **Detalhes › Acesso do cliente**, clique em **Encerrar acesso em todos os aparelhos**: no celular, o código é pedido de novo. Concluir, arquivar ou **Cancelar links e gerar novo** também encerra o acesso.
-8. Edite a lista (menu **…**) e inclua um documento: 10 minutos depois o worker manda ao cliente um e-mail com o que mudou (todas as mudanças desses 10 minutos vão juntas).
+6. No painel, aprove ou recuse cada documento. Recarregue a tela do cliente: o recusado aparece com o motivo.
+7. No painel, clique em **Encerrar acesso**: no celular, o código é pedido de novo. Concluir, arquivar ou **Cancelar links e gerar novo** também encerra o acesso.
+8. Edite a lista e inclua um documento: 10 minutos depois o worker manda ao cliente um e-mail com o que mudou (todas as mudanças desses 10 minutos vão juntas).
 
 O ClamAV baixa as assinaturas de vírus na primeira vez que sobe e leva alguns minutos. Até lá, os arquivos ficam na verificação e o worker tenta de novo sozinho.
 
@@ -207,7 +201,7 @@ Lembretes (às 10h), arquivamento e retenção (às 3h30) e limpeza (de hora em 
 - [ ] Abra o link do cliente sem o código: não mostra nada do balcão.
 - [ ] Erre o código 5 vezes: o acesso trava e é preciso pedir um código novo.
 - [ ] Conectado num balcão, abra no mesmo navegador o link de outro balcão: o código é pedido de novo.
-- [ ] **Cancelar links e gerar novo** (Detalhes › Acesso do cliente): os links antigos deixam de valer e mostram "use o link da mensagem mais recente".
+- [ ] **Cancelar links e gerar novo**: os links antigos deixam de valer e mostram "use o link da mensagem mais recente".
 - [ ] Entre como Grátis e, numa janela anônima, como Pro: um escritório nunca vê balcões, clientes ou arquivos do outro.
 - [ ] Erre o código de login 5 vezes: o código deixa de valer e é preciso pedir um novo.
 

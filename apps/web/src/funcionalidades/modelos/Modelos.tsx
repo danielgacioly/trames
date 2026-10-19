@@ -1,94 +1,110 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { NOMES_AREA, type ModeloDto } from '@trames/shared';
+import { Link } from 'react-router-dom';
+import { NOMES_AREA, type ModeloDto as Modelo } from '@trames/shared';
 import { useModelos, useSessao } from '../../dados/consultas';
-import { Bloqueado, BotaoLink, Busca, Carregando, Menu, Pagina, Segmentado } from '../../ui';
-import { plural } from '../../util/formatos';
+import { Bloqueio, Carregando } from '../../ui/comuns';
+import { Icone } from '../../ui/Icone';
 
 type Aba = 'area' | 'meus' | 'outras';
 
-function LinhaModelo({ m, podeEditar }: { m: ModeloDto; podeEditar: boolean }) {
-  const navegar = useNavigate();
+function CartaoModelo({ m, podeEditar }: { m: Modelo; podeEditar: boolean }) {
   return (
-    <div className="linha">
-      <span className="linha__corpo">
-        <span className="linha__titulo">{m.nome}</span>
-        <span className="linha__sub corta">
-          {plural(m.itens.length, 'documento', 'documentos')}
-          {m.quando && ` · ${m.quando}`}
+    <article className="cartao" style={{ padding: 18, gap: 12 }}>
+      <div className="linha linha--entre" style={{ alignItems: 'flex-start', flexWrap: 'nowrap', gap: 12 }}>
+        <h2 className="titulo-cartao">{m.nome}</h2>
+        <span className="miudo texto-suave" style={{ flex: 'none', paddingTop: 4 }}>
+          {m.itens.length} documentos
         </span>
-      </span>
-      <BotaoLink to={`/app/novo?modelo=${m.id}`}>Usar</BotaoLink>
-      {podeEditar && (
-        <Menu
-          rotulo={`Ações do modelo ${m.nome}`}
-          itens={[
-            m.proprio && { rotulo: 'Editar', icone: 'modelos', acao: () => navegar(`/app/modelos/${m.id}`) },
-            { rotulo: 'Duplicar e editar', icone: 'copiar', acao: () => navegar(`/app/modelos/novo?base=${m.id}`) },
-          ]}
-        />
-      )}
-    </div>
+      </div>
+      <p className="texto-suave" style={{ fontSize: 15, lineHeight: '22px' }}>
+        {m.quando}
+      </p>
+      <div className="linha" style={{ gap: 6 }}>
+        {m.itens.slice(0, 3).map((d) => (
+          <span key={d.nome} className="pilula">
+            {d.nome}
+          </span>
+        ))}
+      </div>
+      <div className="linha" style={{ marginTop: 'auto', paddingTop: 6 }}>
+        <Link to={`/app/novo?modelo=${m.id}`} className="tr-btn tr-btn--primario tr-btn--sm">
+          Usar modelo
+        </Link>
+        {podeEditar && (
+          <Link to={m.proprio ? `/app/modelos/${m.id}` : `/app/modelos/novo?base=${m.id}`} className="tr-btn tr-btn--discreto tr-btn--sm">
+            {m.proprio ? 'Editar' : 'Duplicar e editar'}
+          </Link>
+        )}
+      </div>
+    </article>
   );
 }
 
 export function Modelos() {
-  const s = useSessao();
+  const sessao = useSessao();
   const consulta = useModelos();
   const [aba, setAba] = useState<Aba>('area');
-  const [busca, setBusca] = useState('');
-  const proprios = s.tem('modelosProprios');
-  const podeMontar = !(s.tem('permissoes') && s.usuario.permissao === 'confere');
-  const area = s.organizacao.area;
+  const proprios = sessao.tem('modelosProprios');
+  const area = sessao.organizacao.area;
   if (consulta.isPending) return <Carregando />;
   const todos = consulta.data ?? [];
 
-  const listas: Record<Aba, ModeloDto[]> = {
+  const listas: Record<Aba, Modelo[]> = {
     area: todos.filter((m) => !m.proprio && m.area === area),
     meus: todos.filter((m) => m.proprio),
     outras: todos.filter((m) => !m.proprio && m.area !== area),
   };
-  const termo = busca.trim().toLowerCase();
-  const lista = listas[aba].filter((m) => !termo || m.nome.toLowerCase().includes(termo) || m.itens.some((i) => i.nome.toLowerCase().includes(termo)));
+  const abas: { id: Aba; rotulo: string }[] = [
+    { id: 'area', rotulo: NOMES_AREA[area] },
+    { id: 'meus', rotulo: 'Meus modelos' },
+    { id: 'outras', rotulo: 'Outras áreas' },
+  ];
 
   return (
-    <Pagina
-      titulo="Modelos"
-      subtitulo="Listas de documentos prontas para abrir um balcão. Dá para ajustar cada item depois."
-      ferramentas={
-        <>
-          <Busca valor={busca} mudar={setBusca} rotulo="Buscar modelo ou documento" />
-          {proprios && podeMontar && (
-            <BotaoLink to="/app/modelos/novo" variante="primario" icone="mais">
-              Novo modelo
-            </BotaoLink>
-          )}
-        </>
-      }
-    >
-      <div className="barra-filtros">
-        <Segmentado
-          rotulo="Grupos de modelos"
-          valor={aba}
-          mudar={setAba}
-          opcoes={[
-            { id: 'area', rotulo: NOMES_AREA[area], contagem: listas.area.length },
-            { id: 'meus', rotulo: 'Meus modelos', contagem: proprios ? listas.meus.length : undefined },
-            { id: 'outras', rotulo: 'Outras áreas', contagem: listas.outras.length },
-          ]}
-        />
+    <>
+      <div className="cabecalho-pagina">
+        <div>
+          <h1 className="titulo-1">Modelos</h1>
+          <p className="subtitulo">Um modelo é a lista de documentos que você costuma pedir num tipo de caso. Ao abrir um balcão a partir dele, você ainda pode tirar ou acrescentar itens.</p>
+        </div>
+        {proprios && (
+          <div className="linha">
+            <Link to="/app/turu" className="tr-btn tr-btn--secundario">
+              Montar com o Turu
+            </Link>
+            <Link to="/app/modelos/novo" className="tr-btn tr-btn--primario">
+              <Icone nome="mais" />
+              Criar modelo
+            </Link>
+          </div>
+        )}
       </div>
+
+      <div role="tablist" aria-label="Grupos de modelos" className="abas">
+        {abas.map((a) => (
+          <button key={a.id} type="button" role="tab" aria-selected={aba === a.id} className="aba" onClick={() => setAba(a.id)}>
+            {a.rotulo}
+            {a.id === 'meus' && !proprios && <Icone nome="cadeado" tamanho={14} />}
+          </button>
+        ))}
+      </div>
+
       {aba === 'meus' && !proprios ? (
-        <Bloqueado recurso="modelosProprios" />
-      ) : lista.length ? (
-        <div className="grupo">
-          {lista.map((m) => (
-            <LinhaModelo key={m.id} m={m} podeEditar={proprios && podeMontar} />
+        <Bloqueio recurso="modelosProprios" />
+      ) : listas[aba].length ? (
+        <div className="grade">
+          {listas[aba].map((m) => (
+            <CartaoModelo key={m.id} m={m} podeEditar={proprios} />
           ))}
         </div>
       ) : (
-        <div className="grupo grupo--vazio">{termo ? 'Nenhum modelo encontrado.' : aba === 'meus' ? 'Você ainda não criou nenhum modelo. Duplique um pronto ou comece do zero.' : 'Nenhum modelo aqui.'}</div>
+        <div className="cartao cartao--fundo" style={{ alignItems: 'flex-start' }}>
+          <p className="texto-suave">Você ainda não criou nenhum modelo.</p>
+          <Link to="/app/modelos/novo" className="tr-btn tr-btn--primario tr-btn--sm">
+            Criar modelo
+          </Link>
+        </div>
       )}
-    </Pagina>
+    </>
   );
 }

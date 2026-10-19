@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { ItemEntrada, TuruResposta } from '@trames/shared';
+import type { ItemEntrada as ItemModelo, TuruResposta } from '@trames/shared';
 import { api } from '../../dados/api';
 import { chaves, useAcao, useSessao } from '../../dados/consultas';
-import { AvisoErro, Botao, Icone, Pagina, Secao, useNotificar } from '../../ui';
-import { plural, primeiroNome } from '../../util/formatos';
+import { AvisoErro, useToast } from '../../ui/comuns';
+import { Icone } from '../../ui/Icone';
+import { primeiroNome } from '../../util/formatos';
 
 /**
  * O Turu roda na API (Claude). Ele recebe só o texto da conversa e a lista atual,
@@ -16,16 +17,17 @@ interface Mensagem {
 }
 
 export function Turu() {
-  const s = useSessao();
+  const sessao = useSessao();
   const navegar = useNavigate();
-  const notificar = useNotificar();
-  const [mensagens, setMensagens] = useState<Mensagem[]>([{ de: 'turu', texto: `Oi, ${primeiroNome(s.usuario.nome)}. Me conte o caso como contaria a um colega e eu monto a lista de documentos. Depois você revisa tudo.` }]);
+  const nome = primeiroNome(sessao.usuario.nome);
+  const [mensagens, setMensagens] = useState<Mensagem[]>([{ de: 'turu', texto: `Oi, ${nome}. Me conte o caso como contaria a um colega e eu monto a lista de documentos. Depois você revisa tudo.` }]);
   const [texto, setTexto] = useState('');
-  const [lista, setLista] = useState<ItemEntrada[] | null>(null);
+  const [lista, setLista] = useState<ItemModelo[] | null>(null);
   const [tipo, setTipo] = useState<string | null>(null);
   const perguntar = useAcao((corpo: unknown) => api<TuruResposta>('POST', '/turu', corpo));
-  const salvarModelo = useAcao((corpo: unknown) => api('POST', '/modelos', corpo), [chaves.modelos]);
   const pensando = perguntar.isPending;
+  const salvarModelo = useAcao((corpo: unknown) => api('POST', '/modelos', corpo), [chaves.modelos]);
+  const [toast, avisar] = useToast();
   const fim = useRef<HTMLDivElement>(null);
   useEffect(() => {
     fim.current?.scrollIntoView({ block: 'nearest' });
@@ -50,63 +52,94 @@ export function Turu() {
   }
 
   return (
-    <Pagina titulo="Turu" subtitulo="Conte o caso e o Turu monta a lista de documentos. Não precisa de nome, CPF nem outros dados do cliente.">
-      <div className="conferir" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(260px, 320px)' }}>
-        <section className="visualizacao" aria-label="Conversa com o Turu">
-          <div className="conversa">
-            {mensagens.map((m, k) => (
-              <p key={k} className={`balao balao--${m.de}`}>
-                {m.texto}
-              </p>
-            ))}
-            {pensando && <p className="pequeno terciario">O Turu está montando a lista…</p>}
-            <AvisoErro erro={perguntar.error} />
-            <div ref={fim} />
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-start' }}>
+      <section className="cartao" style={{ flex: '999 1 460px', minWidth: 0, padding: 0, gap: 0, borderRadius: 12 }} aria-label="Conversa com o Turu">
+        <div className="linha" style={{ gap: 12, padding: '18px 22px', borderBottom: '1px solid var(--linha)' }}>
+          <img src="/marca/turu.svg" alt="" style={{ width: 36, height: 36, borderRadius: 10 }} />
+          <div className="coluna" style={{ gap: 0 }}>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: 18, lineHeight: '22px', fontWeight: 600 }}>Turu</span>
+            <span className="miudo texto-suave">Monta listas de documentos a partir do seu caso</span>
           </div>
-          <form onSubmit={enviar} className="visualizacao__rodape" style={{ flexWrap: 'nowrap' }}>
-            <input
-              className="entrada"
-              aria-label="Mensagem para o Turu"
-              value={texto}
-              onChange={(e) => setTexto(e.target.value)}
-              placeholder={lista ? 'Peça um ajuste: “deixa a certidão de casamento como se tiver”' : 'Ex.: inventário, viúva, três filhos, um mora em Portugal'}
-            />
-            <Botao type="submit" variante="primario" aria-label="Enviar" disabled={pensando || !texto.trim()}>
+        </div>
+        <div style={{ padding: '24px 22px', display: 'flex', flexDirection: 'column', gap: 16, minHeight: 360, maxHeight: '60vh', overflowY: 'auto' }}>
+          {mensagens.map((m, k) => (
+            <div
+              key={k}
+              style={{
+                maxWidth: '82%',
+                alignSelf: m.de === 'eu' ? 'flex-end' : 'flex-start',
+                background: m.de === 'eu' ? 'var(--mangue-suave)' : 'var(--areia-funda)',
+                borderRadius: m.de === 'eu' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                padding: '12px 16px',
+                fontSize: 15,
+                lineHeight: '23px',
+              }}
+            >
+              {m.texto}
+            </div>
+          ))}
+          {pensando && <div className="texto-suave pequeno">O Turu está montando a lista…</div>}
+          <AvisoErro erro={perguntar.error} />
+          <div ref={fim} />
+        </div>
+        <form onSubmit={enviar} style={{ padding: '16px 22px 22px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="linha" style={{ flexWrap: 'nowrap', border: '1px solid var(--linha-forte)', borderRadius: 14, padding: '6px 6px 6px 16px' }}>
+            <label style={{ flex: 1, minWidth: 0 }}>
+              <span className="sr-only">Mensagem para o Turu</span>
+              <input
+                value={texto}
+                onChange={(e) => setTexto(e.target.value)}
+                placeholder={lista ? 'Peça um ajuste: "deixa a certidão de casamento como se tiver"' : 'Ex.: inventário de uma senhora viúva, três filhos, um mora em Portugal. Deixou um apartamento e um carro.'}
+                style={{ width: '100%', border: 0, outline: 'none', background: 'transparent', font: 'inherit', fontSize: 15, color: 'var(--tinta)' }}
+              />
+            </label>
+            <button type="submit" className="tr-btn tr-btn--primario tr-btn--sm" aria-label="Enviar mensagem" disabled={pensando || !texto.trim()}>
               <Icone nome="seta" />
-            </Botao>
-          </form>
-        </section>
+            </button>
+          </div>
+          <span className="texto-suave" style={{ fontSize: 12, lineHeight: '16px' }}>
+            O Turu sugere, você decide. Não precisa escrever nome, CPF nem outros dados do cliente: conte só o caso.
+          </span>
+        </form>
+      </section>
 
-        <Secao titulo="Lista sugerida" acao={lista && <span className="pequeno terciario">{plural(lista.length, 'item', 'itens')}</span>}>
-          {lista ? (
-            <>
+      <section className="cartao" style={{ flex: '1 1 340px', minWidth: 0, borderRadius: 12, padding: 20, gap: 14 }} aria-label="Lista sugerida">
+        <div className="linha linha--entre" style={{ alignItems: 'baseline' }}>
+          <h2 className="titulo-cartao">Lista sugerida</h2>
+          {lista && <span className="miudo texto-suave">{lista.length} documentos</span>}
+        </div>
+        {lista ? (
+          <>
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
               {lista.map((it) => (
-                <div key={it.nome} className="linha">
-                  <span className="linha__corpo">{it.nome}</span>
-                  {!it.obrigatorio && <span className="pequeno terciario">se tiver</span>}
-                </div>
+                <li key={it.nome} style={{ fontSize: 15, display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                  {it.nome}
+                  {!it.obrigatorio && <span className="texto-suave" style={{ fontSize: 12 }}>se tiver</span>}
+                </li>
               ))}
-              <div className="linha pilha" style={{ alignItems: 'stretch' }}>
-                <Botao variante="primario" bloco onClick={() => navegar('/app/novo', { state: { itens: lista, tipo } })}>
-                  Abrir balcão com esta lista
-                </Botao>
-                <Botao
-                  bloco
-                  disabled={salvarModelo.isPending}
-                  onClick={async () => {
-                    await salvarModelo.mutateAsync({ nome: tipo ? `${tipo} (Turu)` : 'Modelo do Turu', quando: 'Montado com o Turu.', itens: lista });
-                    notificar({ titulo: 'Modelo salvo', texto: 'Está em Modelos › Meus modelos.' });
-                  }}
-                >
-                  Salvar como modelo
-                </Botao>
-              </div>
-            </>
-          ) : (
-            <p className="grupo--vazio pequeno">A lista aparece aqui assim que você contar o caso.</p>
-          )}
-        </Secao>
-      </div>
-    </Pagina>
+            </ul>
+            <div className="coluna" style={{ paddingTop: 12, borderTop: '1px solid var(--linha)' }}>
+              <button type="button" className="tr-btn tr-btn--primario tr-btn--bloco" onClick={() => navegar('/app/novo', { state: { itens: lista, tipo } })}>
+                Abrir balcão com esta lista
+              </button>
+              <button
+                type="button"
+                className="tr-btn tr-btn--secundario tr-btn--bloco"
+                disabled={salvarModelo.isPending}
+                onClick={async () => {
+                  await salvarModelo.mutateAsync({ nome: tipo ? `${tipo} (Turu)` : 'Modelo do Turu', quando: 'Montado com o Turu.', itens: lista });
+                  avisar('Modelo salvo em Meus modelos.');
+                }}
+              >
+                Salvar como modelo
+              </button>
+            </div>
+          </>
+        ) : (
+          <p className="pequeno texto-suave">A lista aparece aqui assim que você contar o caso.</p>
+        )}
+      </section>
+      {toast}
+    </div>
   );
 }

@@ -1,0 +1,125 @@
+/* Peças do app que se repetem entre telas. Os componentes do design system estão em componentes.css. */
+
+html { background: var(--areia); }
+a { color: var(--mangue); }
+a:hover { color: var(--mangue-escuro); }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; margin: 0; }
+p { margin: 0; }
+button { font: inherit; }
+summary { cursor: pointer; list-style: none; }
+summary::-webkit-details-marker { display: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Logo: o Túnel (dois arcos) + o logotipo em Space Grotesk */
+.tr-logo-img { display: block; width: auto; }
+.tr-logo { --logo-h: 32px; display: inline-flex; align-items: center; gap: calc(var(--logo-h) * .28); height: var(--logo-h); color: var(--tinta); text-decoration: none; }
+.tr-logo svg { height: calc(var(--logo-h) * .82); width: auto; fill: none; stroke: var(--mangue); stroke-width: 5; stroke-linecap: round; }
+.tr-logo span { font-family: var(--font-display); font-weight: 600; font-size: calc(var(--logo-h) * .86); line-height: 1; letter-spacing: -.035em; }
+
+.texto-suave { color: var(--tinta-suave); }
+.titulo-1 { font-size: 36px; line-height: 40px; letter-spacing: -.02em; }
+.titulo-2 { font-size: 22px; line-height: 28px; }
+.titulo-cartao { font-size: 20px; line-height: 26px; }
+.subtitulo { font-size: 17px; line-height: 26px; color: var(--tinta-suave); }
+.miudo { font-size: 13px; line-height: 18px; }
+.pequeno { font-size: 14px; line-height: 20px; }
+
+.cartao { background: var(--areia-elevada); border: 1px solid var(--linha); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.cartao--fundo { background: var(--areia-funda); border-color: transparent; }
+.grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 12px; }
+/* Cartão de balcão no painel: mais compacto que o do design system */
+.app .tr-balcao { border-radius: 12px; padding: 16px; gap: 12px; }
+.app .tr-balcao__rodape { padding-top: 12px; }
+.linha { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.linha--entre { justify-content: space-between; }
+.coluna { display: flex; flex-direction: column; gap: 8px; }
+.cabecalho-pagina { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 24px; }
+.cabecalho-pagina > div { display: flex; flex-direction: column; gap: 8px; max-width: 640px; }
+
+/* ---------- Layout do app (barra lateral + conteúdo) ---------- */
+.app { min-height: 100vh; display: flex; background: var(--areia); }
+.lateral { flex: 0 0 256px; background: var(--areia-elevada); border-right: 1px solid var(--linha); padding: 24px 16px; display: flex; flex-direction: column; gap: 24px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.lateral .tr-logo { margin-left: 8px; }
+.lateral__nav { display: flex; flex-direction: column; gap: 2px; font-size: 15px; }
+.lateral__nav a { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; text-decoration: none; color: var(--tinta); }
+.lateral__nav a:hover { background: var(--areia-funda); }
+.lateral__nav a.active { background: var(--mangue-suave); color: var(--mangue); font-weight: 500; }
+.lateral__nav .cadeado { margin-left: auto; width: 16px; height: 16px; color: var(--tinta-suave); }
+.lateral__rodape { margin-top: auto; display: flex; flex-direction: column; gap: 16px; }
+.medidor { background: var(--areia-funda); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.medidor .tr-progresso__trilho { height: 6px; background: var(--linha); }
+.medidor--cheio .tr-progresso__barra { background: var(--recusado); }
+.pessoa { display: flex; align-items: center; gap: 10px; padding: 0 4px; }
+.avatar { width: 36px; height: 36px; border-radius: 9999px; background: var(--raiz-suave); color: var(--raiz); display: grid; place-items: center; font-size: 13px; font-weight: 600; flex: none; }
+.selo { width: 32px; height: 32px; border-radius: 8px; color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 600; flex: none; }
+.principal { flex: 1; min-width: 0; padding: 36px 40px 56px; display: flex; flex-direction: column; gap: 24px; }
+.topo-movel { display: none; }
+
+@media (max-width: 860px) {
+  .app { flex-direction: column; }
+  .lateral { position: fixed; inset: 0 auto 0 0; z-index: 20; width: 280px; transform: translateX(-100%); transition: transform 160ms ease; box-shadow: var(--shadow-lg); }
+  .app--menu-aberto .lateral { transform: none; }
+  .topo-movel { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--areia-elevada); border-bottom: 1px solid var(--linha); position: sticky; top: 0; z-index: 10; }
+  .principal { padding: 24px 16px 48px; }
+  .titulo-1 { font-size: 30px; line-height: 36px; }
+}
+.veu { display: none; }
+@media (max-width: 860px) { .app--menu-aberto .veu { display: block; position: fixed; inset: 0; background: #2e241b55; z-index: 15; } }
+
+/* Botões-pílula de filtro e abas */
+.filtro { font-size: 14px; line-height: 20px; height: 36px; padding: 0 16px; border-radius: 9999px; border: 1px solid var(--linha-forte); background: var(--areia-elevada); color: var(--tinta); cursor: pointer; }
+.filtro[aria-pressed='true'] { border-color: var(--tinta); background: var(--tinta); color: var(--areia); }
+.abas { display: flex; gap: 4px; border-bottom: 1px solid var(--linha); overflow-x: auto; }
+.aba { font-size: 15px; padding: 12px 16px; margin-bottom: -1px; background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--tinta-suave); cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.aba[aria-selected='true'] { border-bottom-color: var(--mangue); color: var(--tinta); font-weight: 500; }
+
+.pilula { padding: 4px 10px; border-radius: 9999px; background: var(--areia-funda); font-size: 13px; line-height: 18px; }
+.aviso { display: flex; gap: 12px; padding: 12px 14px; border-radius: 10px; background: var(--areia-funda); font-size: 14px; line-height: 20px; align-items: flex-start; }
+.aviso .tr-icone { margin-top: 1px; color: var(--raiz); }
+.aviso--erro { background: var(--recusado-suave); color: var(--recusado); }
+.aviso--erro .tr-icone { color: var(--recusado); }
+.aviso--plano { background: var(--pendente-suave); }
+.aviso--plano .tr-icone { color: var(--pendente); }
+
+/* Aviso de recurso bloqueado pelo plano */
+.bloqueio { border: 1.5px dashed var(--linha-forte); border-radius: 12px; padding: 24px; display: flex; flex-direction: column; align-items: flex-start; gap: 14px; background: var(--areia); }
+.bloqueio__icone { width: 44px; height: 44px; border-radius: 12px; background: var(--pendente-suave); color: var(--pendente); display: grid; place-items: center; }
+
+.tabela-caixa { overflow-x: auto; background: var(--areia-elevada); border: 1px solid var(--linha); border-radius: 12px; }
+.tabela { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 15px; line-height: 22px; }
+.tabela th { text-align: left; padding: 14px 20px; font-weight: 500; color: var(--tinta-suave); font-size: 13px; border-bottom: 1px solid var(--linha); white-space: nowrap; }
+.tabela td { padding: 14px 20px; border-bottom: 1px solid var(--linha); }
+.tabela tr:last-child td { border-bottom: 0; }
+
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--lama); color: var(--areia); padding: 12px 18px; border-radius: 12px; font-size: 14px; box-shadow: var(--shadow-lg); z-index: 50; display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px); }
+
+.entrada-texto { font: inherit; font-size: 15px; line-height: 22px; color: var(--tinta); background: var(--areia-elevada); border: 1px solid var(--linha-forte); border-radius: 10px; padding: 10px 12px; resize: vertical; }
+.entrada-texto:focus, select.tr-campo__entrada:focus { outline: none; border-color: var(--mangue); box-shadow: var(--focus-ring); }
+.tr-campo--largo { max-width: none; }
+
+/* Telas do cliente: coluna de celular centralizada */
+.cliente { min-height: 100vh; background: var(--areia); display: flex; justify-content: center; }
+.cliente__tela { width: 100%; max-width: 430px; padding: 48px 16px 24px; display: flex; flex-direction: column; gap: 20px; }
+.cliente__marca { display: flex; align-items: center; gap: 10px; padding: 0 4px; font-size: 14px; line-height: 20px; font-weight: 500; }
+.cliente__rodape { margin-top: auto; padding-top: 24px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; line-height: 16px; color: var(--tinta-suave); }
+.item-cliente { text-decoration: none; color: var(--tinta); display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; background: var(--areia-elevada); border: 1px solid var(--linha); }
+.item-cliente--feito { background: var(--areia-funda); border-color: transparent; }
+
+/* Telas de entrada (login / criar conta) */
+.dividida { min-height: 100vh; display: flex; flex-wrap: wrap; background: var(--areia); }
+.dividida__form { flex: 1 1 520px; min-width: 0; display: flex; flex-direction: column; padding: 32px 24px; }
+.dividida__arte { flex: 1 1 480px; min-width: 0; min-height: 360px; position: relative; overflow: hidden; }
+.formulario { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 20px; margin: auto; padding: 48px 0; }
+a:has(> .tr-logo) { text-decoration: none; }
+
+/* Avisos de uso: aparecem no canto e somem sozinhos */
+.notificacoes { position: fixed; top: 16px; right: 16px; z-index: 60; display: flex; flex-direction: column; gap: 8px; width: 360px; max-width: calc(100vw - 32px); pointer-events: none; }
+.notificacao { pointer-events: auto; display: flex; gap: 12px; align-items: flex-start; padding: 14px 14px 14px 16px; border-radius: 12px; background: var(--areia-elevada); border: 1px solid var(--linha); border-left: 4px solid var(--pendente); box-shadow: var(--shadow-lg); font-size: 14px; line-height: 20px; animation: notificacao-entra 180ms ease; }
+.notificacao > .tr-icone { color: var(--pendente); margin-top: 1px; flex: none; }
+.notificacao__corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.notificacao__corpo strong { font-weight: 600; }
+.notificacao__corpo span { color: var(--tinta-suave); }
+.notificacao__corpo a { margin-top: 4px; font-weight: 500; align-self: flex-start; }
+.notificacao__fechar { border: 0; background: transparent; color: var(--tinta-suave); cursor: pointer; padding: 2px; border-radius: 6px; display: grid; place-items: center; }
+.notificacao__fechar:hover { background: var(--areia-funda); color: var(--tinta); }
+@keyframes notificacao-entra { from { opacity: 0; transform: translateY(-6px); } }

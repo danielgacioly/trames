@@ -30,7 +30,7 @@ export function useSessao() {
   return { ...eu, plano, tem: (r: keyof typeof plano.recursos) => plano.recursos[r] };
 }
 
-export const useBalcoes = (ativo = true) => useQuery({ queryKey: chaves.balcoes, queryFn: () => api<BalcaoResumo[]>('GET', '/balcoes'), enabled: ativo });
+export const useBalcoes = () => useQuery({ queryKey: chaves.balcoes, queryFn: () => api<BalcaoResumo[]>('GET', '/balcoes') });
 export const useBalcao = (id: string) =>
   useQuery({
     queryKey: chaves.balcao(id),
