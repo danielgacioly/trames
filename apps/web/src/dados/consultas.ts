@@ -30,7 +30,7 @@ export function useSessao() {
   return { ...eu, plano, tem: (r: keyof typeof plano.recursos) => plano.recursos[r] };
 }
 
-export const useBalcoes = () => useQuery({ queryKey: chaves.balcoes, queryFn: () => api<BalcaoResumo[]>('GET', '/balcoes') });
+export const useBalcoes = (ativo = true) => useQuery({ queryKey: chaves.balcoes, queryFn: () => api<BalcaoResumo[]>('GET', '/balcoes'), enabled: ativo });
 export const useBalcao = (id: string) =>
   useQuery({
     queryKey: chaves.balcao(id),
@@ -44,7 +44,7 @@ export const useModelos = () => useQuery({ queryKey: chaves.modelos, queryFn: ()
 export const useEquipe = () => useQuery({ queryKey: chaves.equipe, queryFn: () => api<PessoaDto[]>('GET', '/organizacao/equipe') });
 export const useClientes = () => useQuery({ queryKey: chaves.clientes, queryFn: () => api<ClienteDto[]>('GET', '/clientes') });
 export const useRelatorio = (ativo: boolean) => useQuery({ queryKey: chaves.relatorio, queryFn: () => api<BalcaoResumo[]>('GET', '/relatorio'), enabled: ativo });
-export const useCobranca = () => useQuery({ queryKey: chaves.cobranca, queryFn: () => api<UsoDto>('GET', '/cobranca') });
+export const useCobranca = (ativo = true) => useQuery({ queryKey: chaves.cobranca, queryFn: () => api<UsoDto>('GET', '/cobranca'), enabled: ativo });
 
 /** Mutação que, ao terminar, recarrega as consultas indicadas. */
 export function useAcao<E = void, S = unknown>(fn: (entrada: E) => Promise<S>, invalidar: QueryKey[] = []) {

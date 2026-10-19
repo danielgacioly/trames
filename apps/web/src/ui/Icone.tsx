@@ -27,11 +27,17 @@ const CAMINHOS = {
   alca: 'M9 6v.1M15 6v.1M9 12v.1M15 12v.1M9 18v.1M15 18v.1',
   baixar: 'M12 4v11M7.5 10.5L12 15l4.5-4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3',
   menu: 'M4 7h16M4 12h16M4 17h16',
+  avancar: 'M9 6l6 6-6 6',
+  pontos: 'M6 12h.01M12 12h.01M18 12h.01',
+  menos: 'M6 12h12',
+  link: 'M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1',
+  conta: 'M12 4a4 4 0 1 1 0 8a4 4 0 0 1 0-8zM4.5 20a7.5 7.5 0 0 1 15 0',
+  aviso: 'M12 4l9 16H3zM12 10v4M12 17v.1',
 } as const;
 
 export type NomeIcone = keyof typeof CAMINHOS;
 
-export function Icone({ nome, tamanho, className = 'tr-icone' }: { nome: NomeIcone; tamanho?: number; className?: string }) {
+export function Icone({ nome, tamanho, className = 'icone' }: { nome: NomeIcone; tamanho?: number; className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden="true" style={tamanho ? { width: tamanho, height: tamanho } : undefined}>
       <path d={CAMINHOS[nome]} />

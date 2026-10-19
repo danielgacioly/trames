@@ -18,6 +18,8 @@ packages/
 infra/dev   docker compose com Postgres, S3 local (moto) e ClamAV
 ```
 
+Painel (`apps/web/src`): `app/` (rotas, barra lateral, avisos de uso), `ui/` (componentes: botões, listas agrupadas, controle segmentado, menu "…", diálogos, notificações), `estilos/` (base visual no estilo das apps da Apple, valendo só dentro de `.ui`), `dados/` (API e consultas), `util/` e `funcionalidades/` (`balcoes`, `clientes`, `modelos`, `relatorio`, `conta`, `publico`, `turu`). A landing continua com o estilo próprio dela.
+
 Módulos da API (`apps/api/src/modulos`): `auth`, `organizacoes`, `balcoes`, `documentos`, `modelos`, `acesso-cliente`, `clientes`, `cobranca`, `auditoria` e `turu` (fora do lançamento: só com `TURU=1`).
 
 ## Rodar localmente
@@ -71,7 +73,7 @@ O roteiro completo está em `docs/testes.md`. Em desenvolvimento dá para trocar
 
 ## Turu
 
-Fora do lançamento (`docs/viabilidade.md`): não aparece no painel, nos planos nem no site. O código continua em `apps/api/src/modulos/turu` e `apps/web/src/paginas/Turu.tsx`; para ligar em desenvolvimento, `TURU=1` e `VITE_TURU=1` no `.env`. Com `ANTHROPIC_API_KEY`, usa o Claude (saída estruturada validada com Zod); sem a chave, uma montagem simples por palavras-chave. Ele recebe só o texto da conversa e a lista atual, nunca documentos ou dados do cliente.
+Fora do lançamento (`docs/viabilidade.md`): não aparece no painel, nos planos nem no site. O código continua em `apps/api/src/modulos/turu` e `apps/web/src/funcionalidades/turu/Turu.tsx`; para ligar em desenvolvimento, `TURU=1` e `VITE_TURU=1` no `.env`. Com `ANTHROPIC_API_KEY`, usa o Claude (saída estruturada validada com Zod); sem a chave, uma montagem simples por palavras-chave. Ele recebe só o texto da conversa e a lista atual, nunca documentos ou dados do cliente.
 
 ## Segurança, em resumo
 
