@@ -498,8 +498,6 @@ details.grupo-linhas[open] > summary::after { content: '–'; }
 .ordenar select { font: inherit; font-size: 13px; font-weight: 500; color: var(--tinta); height: 40px; padding: 0 28px 0 10px; border: 1px solid var(--linha-forte); border-radius: 6px; background: var(--areia-elevada); cursor: pointer; }
 .ordenar select:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 @media (max-width: 760px) { .filtro-e-ordem { flex-direction: column; align-items: stretch; gap: 4px; } .ordenar { padding: 6px 0 10px; } }
-.outras-areas { margin-top: 36px; display: flex; flex-direction: column; gap: 4px; }
-.outras-areas > .miudo { margin-bottom: 12px; }
 
 /* ---------- Modelo de iPhone: prévia do que o cliente vê (painel e landing) ----------
  * A tela é sempre clara, como a página do cliente, mesmo no tema escuro do painel. */
@@ -597,17 +595,11 @@ details.grupo-linhas[open] > summary::after { content: '–'; }
 .app .aba.aba--ativa { border-bottom-color: var(--mangue); color: var(--tinta); font-weight: 500; }
 .app .config__conteudo { display: flex; flex-direction: column; gap: 20px; }
 
-/* Modelos: a área do escritório em destaque; as outras áreas em cinza, mais compactas */
+/* Modelos: a área do escritório em destaque */
 .modelos-da-area { display: flex; flex-direction: column; gap: 10px; }
 .modelos-da-area__cabeca { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; padding: 0 12px; }
 .modelos-da-area .linha-m { min-height: 64px; }
-.linha-m--secundaria { min-height: 44px; padding-top: 4px; padding-bottom: 4px; color: var(--tinta-suave); }
 .linha-m__nome { font-weight: 500; }
-.linha-m--secundaria .linha-m__nome { font-weight: 400; }
-.linha-m--secundaria .tr-btn--discreto { color: var(--tinta-suave); }
-.linha-m--secundaria:hover .tr-btn--discreto, .linha-m--secundaria:hover { color: var(--tinta); }
-.outras-areas { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--linha); }
-.outras-areas .grupo-linhas__titulo { font-weight: 500; }
 
 /* ---------- Novo balcão: uma coluna, etapas em faixas horizontais ---------- */
 .pedido { display: flex; flex-direction: column; gap: 0; }
@@ -654,3 +646,23 @@ details.grupo-linhas[open] > summary::after { content: '–'; }
 .pedido-previa .iphone { width: 250px; }
 .pedido-previa .computador { width: 640px; }
 .modelos-da-area + .grupo-linhas { margin-top: 32px; }
+
+/* Marca esticada: os dois arcos da logo, com as pernas descendo até o fim da seção.
+ * Ocupa o espaço vazio ao lado da lista de documentos quando ela cresce. */
+.pedido-bloco--docs { align-items: stretch; }
+.pedido-bloco--docs .pedido-bloco__esquerda { display: flex; flex-direction: column; gap: 24px; }
+.marca-esticada { --traco: 8px; --vao: 5px; position: relative; flex: 1; width: 56px; min-height: 72px; margin: 4px 0 6px 0; opacity: .9; }
+.marca-esticada span { position: absolute; top: 0; bottom: 0; border: var(--traco) solid var(--mangue); border-bottom: 0; border-radius: 999px 999px 0 0; box-sizing: border-box; }
+.marca-esticada__fora { left: 0; right: 0; }
+.marca-esticada__dentro { left: calc(var(--traco) + var(--vao)); right: calc(var(--traco) + var(--vao)); top: calc(var(--traco) + var(--vao)) !important; }
+/* Pontas arredondadas no fim de cada perna */
+.marca-esticada span::before, .marca-esticada span::after { content: ''; position: absolute; bottom: calc(var(--traco) / -2); width: var(--traco); height: var(--traco); border-radius: 9999px; background: var(--mangue); }
+.marca-esticada span::before { left: calc(var(--traco) * -1); }
+.marca-esticada span::after { right: calc(var(--traco) * -1); }
+@media (max-width: 860px) { .marca-esticada { display: none; } }
+.linha-m__editado { margin-left: 8px; font-size: 13px; font-weight: 500; color: var(--raiz); }
+.comparacao { overflow-x: auto; border-top: 1px solid var(--linha); }
+.comparacao .tabela { min-width: 640px; }
+.comparacao .tabela th { color: var(--tinta); }
+.comparacao .comparacao__atual { background: var(--mangue-suave); }
+.comparacao th.comparacao__atual { color: var(--mangue); }

@@ -50,7 +50,7 @@ export function LinkBalcao() {
   }
 
   const lembretes = b.lembrete
-    ? [-3, 0, 2].map((n) => somarDias(b.prazo, n)).filter((d) => diasAte(d) >= 0)
+    ? [-3, 0].map((n) => somarDias(b.prazo, n)).filter((d) => diasAte(d) >= 0)
     : [];
   const pasta = pastas.find((p) => p.id === b.pastaId);
   const obrigatorios = b.itens.filter((i) => i.obrigatorio).length;

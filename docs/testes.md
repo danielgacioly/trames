@@ -147,6 +147,11 @@ Avisos de uso (limite de balcões, excedente, cota de WhatsApp) aparecem só no 
 - [ ] **Novo balcão** é uma folha só: no topo, a frase "Documentos de [tipo] para [cliente], até [data]"; abaixo, as etapas 1 (contato), 2 (documentos) e 3 (acesso e lembretes), que ficam verdes quando prontas. Na lista, escreva um documento e tecle Enter para acrescentar; o número arrasta para mudar a ordem. À direita, a prévia do celular e o que ainda falta.
 - [ ] Depois de criar um balcão, a tela mostra, à esquerda, o envio do link e, à direita, o resumo (com as datas dos lembretes) e os documentos pedidos.
 
+### Modelos (Pro e Ultra)
+
+- [ ] **Modelos** mostra só os modelos da área do escritório e os criados por ele. Os de outras áreas não aparecem.
+- [ ] **Editar** um modelo pronto: ao salvar, ele continua no mesmo lugar, com "Editado pelo escritório". Ao abrir de novo, **Voltar ao original** desfaz.
+
 ### Configurações (qualquer conta)
 
 - [ ] **Configurações › Meu perfil**: mude o nome e o cargo e salve. O nome muda no rodapé do menu.
@@ -224,7 +229,7 @@ Para ver mais, ponha o número no fim: `pnpm caixa 30`. As mensagens de WhatsApp
 
 ### Rotinas do worker
 
-Lembretes (às 10h), arquivamento e retenção (às 3h30) e limpeza (de hora em hora) rodam sozinhos no horário de Brasília. Os lembretes saem 3 dias antes do prazo, no dia e 2 dias depois, só se ainda faltar documento obrigatório; cada um leva um link novo, sem derrubar os anteriores. Balcão aberto com o prazo vencido há 3 semanas gera um aviso ao admin; 7 dias depois do aviso, é arquivado.
+Lembretes (às 10h), arquivamento e retenção (às 3h30) e limpeza (de hora em hora) rodam sozinhos no horário de Brasília. Os lembretes saem 3 dias antes do prazo e no dia, só se ainda faltar documento obrigatório; cada um leva um link novo, sem derrubar os anteriores. Balcão aberto com o prazo vencido há 3 semanas gera um aviso ao admin; 7 dias depois do aviso, é arquivado.
 
 ### Testes de segurança que dá para fazer na mão
 

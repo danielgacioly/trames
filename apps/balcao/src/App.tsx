@@ -72,11 +72,16 @@ function Marca({ org, grande = false }: { org: MarcaDto; grande?: boolean }) {
   );
 }
 
-function Tela({ children }: { children: ReactNode }) {
+/**
+ * Moldura das telas do cliente. No celular, uma coluna só. No computador, com
+ * `lateral`, vira duas colunas: à esquerda quem pede e o andamento, à direita o que fazer.
+ */
+function Tela({ lateral, children }: { lateral?: ReactNode; children: ReactNode }) {
   return (
     <div className="cliente">
-      <div className="cliente__tela">
-        {children}
+      <div className={`cliente__tela${lateral ? ' cliente__tela--dupla' : ''}`}>
+        {lateral && <div className="cliente__lateral">{lateral}</div>}
+        <div className="cliente__principal">{children}</div>
         <div className="cliente__rodape">
           Enviado com <Logo altura={16} />
         </div>
@@ -160,18 +165,23 @@ function Acesso({ entrou }: { entrou: () => void }) {
   if (!info) return <Tela>{erro ? <Erro texto={erro} /> : <p className="texto-suave">Abrindo…</p>}</Tela>;
 
   return (
-    <Tela>
-      <Marca org={info.organizacao} grande />
-      <div className="coluna" style={{ gap: 10 }}>
-        <h1 style={{ fontSize: 34, lineHeight: '38px', letterSpacing: '-.02em' }}>Olá, {info.clientePrimeiroNome}</h1>
-        <p className="texto-suave">
-          {info.organizacao.nome} está reunindo os documentos{info.tipo ? ` de ${info.tipo.toLowerCase()}` : ''} e pediu {plural(info.totalItens, 'item', 'itens')}. Você pode enviar tudo por aqui, pelo celular.
-        </p>
-      </div>
-      <div className="aviso">
-        <Icone nome="cadeado" />
-        <p>Seus documentos ficam guardados com segurança e só o escritório consegue ver. Eles servem apenas para este processo.</p>
-      </div>
+    <Tela
+      lateral={
+        <>
+          <Marca org={info.organizacao} grande />
+          <div className="coluna" style={{ gap: 10 }}>
+            <h1 style={{ fontSize: 34, lineHeight: '38px', letterSpacing: '-.02em' }}>Olá, {info.clientePrimeiroNome}</h1>
+            <p className="texto-suave">
+              {info.organizacao.nome} está reunindo os documentos{info.tipo ? ` de ${info.tipo.toLowerCase()}` : ''} e pediu {plural(info.totalItens, 'item', 'itens')}. Você pode enviar tudo por aqui, pelo celular ou pelo computador.
+            </p>
+          </div>
+          <div className="aviso">
+            <Icone nome="cadeado" />
+            <p>Seus documentos ficam guardados com segurança e só o escritório consegue ver. Eles servem apenas para este processo.</p>
+          </div>
+        </>
+      }
+    >
       {erro && <Erro texto={erro} />}
       {canal ? (
         <form onSubmit={entrar} className="coluna" style={{ gap: 12 }}>
@@ -262,7 +272,9 @@ function Lista({ b, abrir, verResumo }: { b: BalcaoCliente; abrir: (i: ItemClien
   const analise = b.itens.filter((i) => i.status === 'analise' || i.verificando).length;
   const p = Math.round((aprovados / b.itens.length) * 100);
   return (
-    <Tela>
+    <Tela
+      lateral={
+        <>
       <Marca org={b.organizacao} />
       <div className="coluna" style={{ gap: 12, padding: '0 4px' }}>
         <h1 style={{ fontSize: 28, lineHeight: '32px', letterSpacing: '-.02em' }}>{faltam.length ? `Falta${faltam.length > 1 ? 'm' : ''} ${plural(faltam.length, 'documento', 'documentos')}` : 'Tudo enviado'}</h1>
@@ -284,6 +296,12 @@ function Lista({ b, abrir, verResumo }: { b: BalcaoCliente; abrir: (i: ItemClien
           Ver resumo
         </button>
       )}
+      <p className="pequeno texto-suave cliente__so-computador" style={{ padding: '0 4px' }}>
+        Ficou com dúvida sobre algum documento? Fale com o escritório pelo WhatsApp que você já usa.
+      </p>
+        </>
+      }
+    >
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {!b.concluido &&
           faltam.map((d) => (
@@ -316,6 +334,7 @@ function Lista({ b, abrir, verResumo }: { b: BalcaoCliente; abrir: (i: ItemClien
           <li key={d.id} className="item-cliente item-cliente--feito">
             <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
               <span style={{ fontWeight: 500 }}>{d.nome}</span>
+              {d.detalhe && !d.verificando && d.status !== 'analise' && <span className="miudo texto-suave">{d.detalhe}</span>}
               {d.verificando && <span className="miudo texto-suave">Recebido. Estamos verificando o arquivo.</span>}
               {d.status === 'analise' && <span className="miudo texto-suave">Enviado. O escritório vai conferir.</span>}
               <VerEnviado item={d} />
@@ -324,7 +343,7 @@ function Lista({ b, abrir, verResumo }: { b: BalcaoCliente; abrir: (i: ItemClien
           </li>
         ))}
       </ul>
-      <p className="pequeno texto-suave" style={{ padding: '0 4px' }}>
+      <p className="pequeno texto-suave cliente__so-celular" style={{ padding: '0 4px' }}>
         Ficou com dúvida sobre algum documento? Fale com o escritório pelo WhatsApp que você já usa.
       </p>
     </Tela>
@@ -373,18 +392,25 @@ function Enviar({ item, voltar, enviado }: { item: ItemCliente; voltar: () => vo
   }
 
   return (
-    <Tela>
-      <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" style={{ alignSelf: 'flex-start', paddingLeft: 4 }} onClick={voltar}>
-        <Icone nome="voltar" />
-        Documentos
-      </button>
-      <div className="coluna" style={{ padding: '0 4px' }}>
-        <h1 style={{ fontSize: 28, lineHeight: '32px', letterSpacing: '-.02em' }}>{item.nome}</h1>
-        <p className="texto-suave" style={{ fontSize: 15, lineHeight: '22px' }}>
-          {item.detalhe}
-        </p>
-      </div>
-      {item.motivo && <div className="tr-item__motivo">O escritório pediu: {item.motivo}</div>}
+    <Tela
+      lateral={
+        <>
+          <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" style={{ alignSelf: 'flex-start', paddingLeft: 4 }} onClick={voltar}>
+            <Icone nome="voltar" />
+            Documentos
+          </button>
+          <div className="coluna" style={{ padding: '0 4px' }}>
+            <h1 style={{ fontSize: 28, lineHeight: '32px', letterSpacing: '-.02em' }}>{item.nome}</h1>
+            {item.detalhe && (
+              <p className="texto-suave" style={{ fontSize: 15, lineHeight: '22px' }}>
+                {item.detalhe}
+              </p>
+            )}
+          </div>
+          {item.motivo && <div className="tr-item__motivo">O escritório pediu: {item.motivo}</div>}
+        </>
+      }
+    >
       <input ref={foto} type="file" accept="image/*" capture="environment" hidden onChange={(e) => escolher(e.target.files?.[0])} />
       <input ref={qualquer} type="file" accept="image/jpeg,image/png,image/webp,image/heic,application/pdf" hidden onChange={(e) => escolher(e.target.files?.[0])} />
       {erro && <Erro texto={erro} />}

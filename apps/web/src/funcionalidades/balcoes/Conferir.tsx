@@ -184,7 +184,7 @@ function Configuracoes({ b, fechar }: { b: BalcaoDetalhe; fechar: (aviso: string
       </div>
       <label className="linha" style={{ fontSize: 15, cursor: 'pointer' }}>
         <input type="checkbox" checked={f.lembrete} onChange={(e) => setF({ ...f, lembrete: e.target.checked })} style={{ width: 18, height: 18, accentColor: '#13594b' }} />
-        Lembretes automáticos (3 dias antes do prazo, no dia e 2 dias depois)
+        Lembretes automáticos (3 dias antes do prazo e no dia)
       </label>
       {!b.cliente.email && (f.canalCodigo === 'email' || (f.lembrete && f.canalLembrete === 'email')) && <p className="miudo" style={{ color: 'var(--recusado)' }}>Este cliente não tem e-mail cadastrado: escolha o WhatsApp.</p>}
       <AvisoErro erro={salvar.error} />

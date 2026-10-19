@@ -178,7 +178,7 @@ const PERGUNTAS: { grupo: string; itens: [string, string][] }[] = [
     itens: [
       ['O cliente precisa baixar aplicativo ou criar conta?', 'Não. Ele abre o link no celular, confirma um código de seis números que chega por e-mail ou WhatsApp e envia as fotos ou PDFs.'],
       ['E se o cliente mandar o documento errado?', 'Você recusa dizendo o motivo. O cliente vê o que faltou e manda outro pelo mesmo link.'],
-      ['O cliente recebe lembretes?', 'Se você deixar ligado, sim: três dias antes do prazo, no dia e dois dias depois, enquanto faltar documento obrigatório.'],
+      ['O cliente recebe lembretes?', 'Se você deixar ligado, sim: três dias antes do prazo e no dia, enquanto faltar documento obrigatório.'],
     ],
   },
   {

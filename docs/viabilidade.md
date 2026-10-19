@@ -54,7 +54,7 @@ Regras:
 
 ## 4. Lembretes
 
-- Lembretes automáticos por e-mail em todos os planos. Cadência padrão: 3 dias antes do prazo, no dia do prazo e 2 dias depois. O escritório pode desligar balcão a balcão.
+- Lembretes automáticos por e-mail em todos os planos. Cadência padrão: 3 dias antes do prazo e no dia do prazo. O escritório pode desligar balcão a balcão.
 - No Pro e no Ultra, o escritório pode trocar o canal do lembrete para WhatsApp, respeitando a cota.
 - Os lembretes por WhatsApp usam templates aprovados na categoria **utilidade**, nunca marketing. O texto deve ser só transacional (prazo e documentos pendentes), sem oferta nem promoção.
 - Os lembretes rodam no worker, como jobs agendados.

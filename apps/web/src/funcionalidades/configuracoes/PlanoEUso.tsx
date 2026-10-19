@@ -1,11 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { ORDEM_PLANOS, PLANOS, type PlanoId } from '@trames/shared';
 import { api } from '../../dados/api';
 import { useCobranca, useSessao } from '../../dados/consultas';
 import { AvisoErro, useToast } from '../../ui/comuns';
 import { moeda, pct, plural } from '../../util/formatos';
+import { COMPARACAO } from '../publico/Planos';
 
 function Uso({ rotulo, usado, total, dica }: { rotulo: string; usado: number; total: number | null; dica?: string }) {
   const p = total ? pct(usado, total) : 0;
@@ -42,6 +42,7 @@ export function PlanoEUso() {
   const [escolhido, setEscolhido] = useState<PlanoId | null>(null);
   const [erro, setErro] = useState<unknown>(null);
   const [mudando, setMudando] = useState(false);
+  const [comparando, setComparando] = useState(false);
   const [toast, avisar] = useToast();
 
   async function mudar(id: PlanoId) {
@@ -150,10 +151,39 @@ export function PlanoEUso() {
         </div>
         <div className="secao__rodape">
           <span className="miudo texto-suave">{admin ? 'Pode mudar quando quiser.' : 'Só quem administra a conta muda o plano.'}</span>
-          <Link to="/planos" className="pequeno" style={{ fontWeight: 500 }}>
-            Comparar tudo
-          </Link>
+          <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" aria-expanded={comparando} onClick={() => setComparando(!comparando)}>
+            {comparando ? 'Esconder a comparação' : 'Comparar tudo'}
+          </button>
         </div>
+        {comparando && (
+          <div className="comparacao">
+            <table className="tabela">
+              <thead>
+                <tr>
+                  <th />
+                  {ORDEM_PLANOS.map((id) => (
+                    <th key={id} className={id === plano.id ? 'comparacao__atual' : undefined}>
+                      {PLANOS[id].nome}
+                      {id === plano.id && <span className="miudo"> · seu plano</span>}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARACAO.map((l) => (
+                  <tr key={l.rotulo}>
+                    <td className="texto-suave">{l.rotulo}</td>
+                    {l.valores.map((v, k) => (
+                      <td key={k} className={ORDEM_PLANOS[k] === plano.id ? 'comparacao__atual' : undefined} style={v === 'Não' ? { color: 'var(--tinta-suave)' } : undefined}>
+                        {v}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
       {toast}
     </>

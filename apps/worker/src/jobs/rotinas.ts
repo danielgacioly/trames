@@ -19,11 +19,12 @@ function hojeEmBrasilia() {
   return new Date(`${iso}T00:00:00Z`);
 }
 
-/** Etapas da cadência: 3 dias antes do prazo, no dia e 2 dias depois. */
-const ETAPAS = ['antes', 'dia', 'depois'] as const;
+/** Etapas da cadência: 3 dias antes do prazo e no dia. Depois do prazo, não sai lembrete automático. */
+const ETAPAS = ['antes', 'dia'] as const;
 function etapaDoDia(prazo: Date, hoje: Date) {
   const dias = Math.round((prazo.getTime() - hoje.getTime()) / DIA_MS);
-  if (dias <= -2) return 'depois';
+  // Um dia de folga, se o worker ficou parado no dia do prazo.
+  if (dias < -1) return null;
   if (dias <= 0) return 'dia';
   if (dias <= 3) return 'antes';
   return null;
@@ -33,7 +34,7 @@ function etapaDoDia(prazo: Date, hoje: Date) {
  * Lembretes automáticos em todos os planos, pelo canal do balcão (e-mail, ou
  * WhatsApp no Pro e no Ultra, dentro da cota). Cada etapa sai uma vez; se o
  * worker ficou parado, sai só a etapa mais recente. Cada lembrete leva um link
- * novo; os anteriores e a sessão de 30 dias do cliente continuam valendo.
+ * novo; os anteriores continuam valendo.
  */
 export async function lembretes(enfileirar: Enfileirar) {
   const hoje = hojeEmBrasilia();

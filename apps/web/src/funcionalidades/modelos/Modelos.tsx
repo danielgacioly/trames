@@ -14,21 +14,24 @@ const ORDENS = [
   { id: 'menos', rotulo: 'Menos documentos' },
 ] as const;
 
-function LinhaModelo({ m, podeEditar, secundario = false }: { m: Modelo; podeEditar: boolean; secundario?: boolean }) {
+function LinhaModelo({ m, podeEditar }: { m: Modelo; podeEditar: boolean }) {
   return (
-    <li className={`linha-m${secundario ? ' linha-m--secundaria' : ''}`}>
+    <li className="linha-m">
       <div className="coluna" style={{ gap: 0, minWidth: 0 }}>
-        <span className="linha-m__nome">{m.nome}</span>
+        <span className="linha-m__nome">
+          {m.nome}
+          {m.baseId && <span className="linha-m__editado">Editado pelo escritório</span>}
+        </span>
         <span className="miudo texto-suave">{m.quando}</span>
       </div>
       <span className="num miudo texto-suave">{m.itens.length} documentos</span>
       <div className="linha-m__acoes">
         {podeEditar && (
-          <Link to={m.proprio ? `/app/modelos/${m.id}` : `/app/modelos/novo?base=${m.id}`} className="tr-btn tr-btn--discreto tr-btn--sm">
-            {m.proprio ? 'Editar' : 'Duplicar e editar'}
+          <Link to={`/app/modelos/${m.id}`} className="tr-btn tr-btn--discreto tr-btn--sm">
+            Editar
           </Link>
         )}
-        <Link to={`/app/novo?modelo=${m.id}`} className={`tr-btn tr-btn--sm ${secundario ? 'tr-btn--discreto' : 'tr-btn--secundario'}`}>
+        <Link to={`/app/novo?modelo=${m.id}`} className="tr-btn tr-btn--sm tr-btn--secundario">
           Usar modelo
         </Link>
       </div>
@@ -36,18 +39,7 @@ function LinhaModelo({ m, podeEditar, secundario = false }: { m: Modelo; podeEdi
   );
 }
 
-function GrupoModelos({ titulo, children, n }: { titulo: string; n: number; children: React.ReactNode }) {
-  return (
-    <section className="grupo-linhas">
-      <h2 className="grupo-linhas__titulo rotulo">
-        {titulo} <span className="num">{n}</span>
-      </h2>
-      <ul className="linhas">{children}</ul>
-    </section>
-  );
-}
-
-/** Modelos numa lista agrupada: primeiro a área do escritório, depois os próprios, depois as outras áreas. */
+/** Modelos da área do escritório (os prontos, com as edições no lugar) e, depois, os criados pelo escritório. */
 export function Modelos() {
   const sessao = useSessao();
   const consulta = useModelos();
@@ -58,9 +50,9 @@ export function Modelos() {
   const todos = consulta.data ?? [];
   const ordenar = (l: Modelo[]) =>
     ordem === 'nome' ? [...l].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')) : ordem === 'mais' ? [...l].sort((a, b) => b.itens.length - a.itens.length) : ordem === 'menos' ? [...l].sort((a, b) => a.itens.length - b.itens.length) : l;
-  const meus = ordenar(todos.filter((m) => m.proprio));
-  const outras = (Object.keys(NOMES_AREA) as Area[]).filter((a) => a !== area);
-  const daArea = (a: Area) => ordenar(todos.filter((m) => !m.proprio && m.area === a));
+  const meus = ordenar(todos.filter((m) => m.proprio && !m.baseId));
+  // Prontos da área, já com as edições do escritório no lugar dos originais.
+  const daArea = (a: Area) => ordenar(todos.filter((m) => (!m.proprio || m.baseId) && m.area === a));
 
   return (
     <>
@@ -85,7 +77,7 @@ export function Modelos() {
           <div className="modelos-da-area__cabeca">
             <h2 className="titulo-2">{NOMES_AREA[area]}</h2>
             <span className="pequeno texto-suave">
-              <span className="num">{daArea(area).length}</span> modelos prontos da área do escritório
+              <span className="num">{daArea(area).length}</span> modelos prontos da área do escritório. Dá para editar qualquer um; a edição vale só para vocês.
             </span>
           </div>
           <ul className="linhas">
@@ -117,19 +109,6 @@ export function Modelos() {
           )}
         </section>
 
-        <section className="outras-areas">
-          <h2 className="rotulo">Modelos de outras áreas</h2>
-          <p className="miudo texto-suave">Dá para usar ou duplicar, mas não foram pensados para a sua área.</p>
-          {outras.map((a) =>
-            daArea(a).length ? (
-              <GrupoModelos key={a} titulo={NOMES_AREA[a]} n={daArea(a).length}>
-                {daArea(a).map((m) => (
-                  <LinhaModelo key={m.id} m={m} podeEditar={proprios} secundario />
-                ))}
-              </GrupoModelos>
-            ) : null,
-          )}
-        </section>
       </div>
     </>
   );

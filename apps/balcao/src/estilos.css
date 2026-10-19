@@ -34,3 +34,21 @@ button { font: inherit; }
 .cliente__rodape { margin-top: auto; padding-top: 24px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; line-height: 16px; color: var(--tinta-suave); }
 .item-cliente { text-decoration: none; color: var(--tinta); display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 14px; background: var(--areia-elevada); border: 1px solid var(--linha); }
 .item-cliente--feito { background: var(--areia-funda); border-color: transparent; }
+
+/* No celular, as duas partes da tela vão uma embaixo da outra */
+.cliente__tela--dupla { display: flex; flex-direction: column; gap: 20px; }
+.cliente__lateral, .cliente__principal { display: flex; flex-direction: column; gap: 20px; }
+.cliente__so-computador { display: none; }
+
+/* No computador: largura de página, duas colunas, o andamento fixo à esquerda */
+@media (min-width: 900px) {
+  .cliente { align-items: flex-start; }
+  .cliente__tela { max-width: 520px; padding-top: 72px; }
+  .cliente__tela--dupla { max-width: 1080px; padding: 64px 40px 32px; display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); column-gap: 64px; row-gap: 0; align-items: start; }
+  .cliente__lateral { position: sticky; top: 48px; }
+  .cliente__principal { padding-top: 4px; }
+  .cliente__tela--dupla .cliente__rodape { grid-column: 1 / -1; padding-top: 48px; }
+  .cliente__so-computador { display: block; }
+  .cliente__so-celular { display: none; }
+  .item-cliente { padding: 16px 18px; }
+}

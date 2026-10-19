@@ -268,6 +268,8 @@ export interface ModeloDto {
   quando: string;
   area: AreaId;
   proprio: boolean;
+  /** Edição de um modelo pronto: o id do pronto de origem. */
+  baseId: string | null;
   itens: ItemEntrada[];
 }
 

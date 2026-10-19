@@ -13,7 +13,6 @@ import { comChave, ListaDocumentos, PuxarModelo, type Item } from './ListaDocume
 
 
 const ARTIGOS = ['de', 'do', 'da', 'para'] as const;
-const OUTRO = 'outro';
 
 /** Carrega o modelo (se veio ?modelo=) antes de montar o formulário. */
 export function NovoBalcao() {
@@ -44,8 +43,7 @@ function FormularioBalcao({ modelo, pastaInicial }: { modelo?: { nome: string; i
   const [tipo, setTipo] = useState(modelo?.nome ?? '');
   // A palavra antes do tipo de caso é só da frase e da prévia; o balcão guarda só o tipo.
   const [artigo, setArtigo] = useState<string>(ARTIGOS[0]);
-  const [artigoLivre, setArtigoLivre] = useState('');
-  const conector = artigo === OUTRO ? artigoLivre.trim() : artigo;
+  const conector = artigo;
   const pastas = usePastas().data ?? [];
   const [pastaId, setPastaId] = useState(pastaInicial ?? '');
   const [itens, setItens] = useState<Item[]>(() => comChave(modelo?.itens ?? []));
@@ -125,8 +123,11 @@ function FormularioBalcao({ modelo, pastaInicial }: { modelo?: { nome: string; i
       </p>
       <div className="coluna" style={{ gap: 6 }}>
         {itens.map((d) => (
-          <div key={d.chave} className="linha linha--entre miudo" style={{ background: 'var(--areia-elevada)', border: '1px solid var(--linha)', borderRadius: 10, padding: '9px 12px', flexWrap: 'nowrap' }}>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.nome}</span>
+          <div key={d.chave} className="linha linha--entre miudo" style={{ background: 'var(--areia-elevada)', border: '1px solid var(--linha)', borderRadius: 10, padding: '9px 12px', flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+            <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.nome}</span>
+              {d.detalhe.trim() && <span style={{ color: 'var(--tinta-suave)', fontSize: 12, lineHeight: '16px' }}>{d.detalhe}</span>}
+            </span>
             <span style={{ color: 'var(--mangue)', fontWeight: 500 }}>Enviar</span>
           </div>
         ))}
@@ -156,15 +157,14 @@ function FormularioBalcao({ modelo, pastaInicial }: { modelo?: { nome: string; i
         <p className="frase">
           <span className="frase__pedaco">
             Documentos{' '}
-            <select className="frase__artigo" aria-label="Palavra antes do tipo de caso" value={artigo} onChange={(e) => setArtigo(e.target.value)} style={{ width: `${(artigo === OUTRO ? 6 : artigo.length) + 1.2}ch` }}>
+            <select className="frase__artigo" aria-label="Palavra antes do tipo de caso" value={artigo} onChange={(e) => setArtigo(e.target.value)} style={{ width: `${artigo.length + 1.2}ch` }}>
               {ARTIGOS.map((x) => (
                 <option key={x} value={x}>
                   {x}
                 </option>
               ))}
-              <option value={OUTRO}>outro…</option>
             </select>
-            {artigo === OUTRO && <input aria-label="Palavra antes do tipo de caso, do seu jeito" placeholder="escreva" value={artigoLivre} onChange={(e) => setArtigoLivre(e.target.value)} {...nomeEscrito(artigoLivre, 6)} />}{' '}
+{' '}
             <input aria-label="Tipo de caso" placeholder="tipo de caso" value={tipo} onChange={(e) => setTipo(e.target.value)} {...nomeEscrito(tipo, 12)} />
           </span>{' '}
           <span className="frase__pedaco">
@@ -201,12 +201,18 @@ function FormularioBalcao({ modelo, pastaInicial }: { modelo?: { nome: string; i
         </div>
       </section>
 
-      <section className="pedido-bloco">
-        <div className="pedido-bloco__titulo">
-          {marca(docsOk, 2)}
-          <div>
-            <h2>Documentos</h2>
-            <p className="miudo texto-suave">Escreva como explicaria pessoalmente. A ordem aqui é a ordem que {oCliente} vê.</p>
+      <section className="pedido-bloco pedido-bloco--docs">
+        <div className="pedido-bloco__esquerda">
+          <div className="pedido-bloco__titulo">
+            {marca(docsOk, 2)}
+            <div>
+              <h2>Documentos</h2>
+              <p className="miudo texto-suave">Escreva como explicaria pessoalmente, inclusive para que serve cada um: {oCliente} vê a explicação embaixo do nome. A ordem aqui é a ordem que ele vê.</p>
+            </div>
+          </div>
+          <div className="marca-esticada" aria-hidden="true">
+            <span className="marca-esticada__fora" />
+            <span className="marca-esticada__dentro" />
           </div>
         </div>
         <div>
@@ -230,7 +236,7 @@ function FormularioBalcao({ modelo, pastaInicial }: { modelo?: { nome: string; i
               <span className="tr-campo__rotulo">Lembretes automáticos</span>
               <span className="pedido-envio__interruptor">
                 <input type="checkbox" className="interruptor" checked={lembrete} onChange={(e) => setLembrete(e.target.checked)} />
-                <span className="miudo">{lembrete ? '3 dias antes, no dia e 2 dias depois' : 'Desligados'}</span>
+                <span className="miudo">{lembrete ? '3 dias antes e no dia do prazo' : 'Desligados'}</span>
               </span>
             </label>
             {lembrete ? <Canal rotulo="Lembretes por" valor={canalLembrete} mudar={setCanalLembrete} pode={comWhatsapp} /> : <span />}

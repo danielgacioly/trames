@@ -14,7 +14,8 @@ export function EditorModelo() {
   const consulta = useModelos();
   if (!sessao.tem('modelosProprios')) return <Bloqueio recurso="modelosProprios" />;
   if (consulta.isPending) return <Carregando />;
-  const existente = consulta.data?.find((m) => m.id === id && m.proprio);
+  // Um modelo do escritório ou um pronto da área: os dois se editam aqui (o pronto vira a versão do escritório).
+  const existente = consulta.data?.find((m) => m.id === id);
   const base = existente ?? consulta.data?.find((m) => m.id === params.get('base'));
   return <FormularioModelo key={id ?? 'novo'} existente={existente} base={base} />;
 }
@@ -89,10 +90,11 @@ function FormularioModelo({ existente, base }: { existente?: Modelo; base?: Mode
             <button type="submit" className="tr-btn tr-btn--primario tr-btn--bloco" disabled={!itens.length || salvar.isPending}>
               {salvar.isPending ? 'Salvando…' : existente ? 'Salvar alterações' : 'Criar modelo'}
             </button>
-            {existente &&
+            {existente && !existente.proprio && <span className="miudo texto-suave">É um modelo pronto da Trames. A edição vale só para o escritório, e dá para voltar ao original quando quiser.</span>}
+            {existente?.proprio &&
               (confirmarExclusao ? (
                 <div className="aviso aviso--erro" style={{ flexDirection: 'column', gap: 10 }}>
-                  <span>Excluir {existente.nome}? Os balcões já abertos com ele não mudam.</span>
+                  <span>{existente.baseId ? `Voltar ao modelo original? As suas mudanças em ${existente.nome} se perdem.` : `Excluir ${existente.nome}?`} Os balcões já abertos com ele não mudam.</span>
                   <div className="linha" style={{ gap: 6 }}>
                     <button
                       type="button"
@@ -104,7 +106,7 @@ function FormularioModelo({ existente, base }: { existente?: Modelo; base?: Mode
                         navegar('/app/modelos');
                       }}
                     >
-                      Excluir
+                      {existente.baseId ? 'Voltar ao original' : 'Excluir'}
                     </button>
                     <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" onClick={() => setConfirmarExclusao(false)}>
                       Manter
@@ -114,7 +116,7 @@ function FormularioModelo({ existente, base }: { existente?: Modelo; base?: Mode
               ) : (
                 <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" style={{ color: 'var(--recusado)', alignSelf: 'center' }} onClick={() => setConfirmarExclusao(true)}>
                   <Icone nome="lixo" />
-                  Excluir modelo
+                  {existente.baseId ? 'Voltar ao original' : 'Excluir modelo'}
                 </button>
               ))}
           </div>

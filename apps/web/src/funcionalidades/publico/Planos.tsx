@@ -5,7 +5,8 @@ import { useEu } from '../../dados/consultas';
 import { CabecalhoSite, RodapeSite } from './Site';
 import { Icone } from '../../ui/Icone';
 
-const COMPARACAO: { rotulo: string; valores: [string, string, string] }[] = [
+/** Tabela de comparação, usada aqui e em Configurações › Plano e uso. */
+export const COMPARACAO: { rotulo: string; valores: [string, string, string] }[] = [
   { rotulo: 'Balcões', valores: ['3 ativos', '40 ativos', '200 novos por mês; depois, R$ 1,00 cada'] },
   { rotulo: 'Pessoas na conta', valores: ['1', 'Até 3', 'Ilimitadas'] },
   { rotulo: 'Arquivos guardados depois de concluir', valores: ['30 dias', '90 dias', '90 dias (de 30 dias a 12 meses)'] },

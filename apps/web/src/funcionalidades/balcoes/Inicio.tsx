@@ -12,7 +12,7 @@ import { CartaoPasta, FormularioPasta } from './PastasUi';
 /** Primeira vez na conta: ainda não há nenhum balcão. */
 function PrimeiroAcesso() {
   const s = useSessao();
-  const modelos = (useModelos().data ?? []).filter((m) => !m.proprio && m.area === s.organizacao.area).slice(0, 3);
+  const modelos = (useModelos().data ?? []).filter((m) => (!m.proprio || m.baseId) && m.area === s.organizacao.area).slice(0, 3);
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 0' }}>
       <div style={{ width: '100%', maxWidth: 880, display: 'flex', flexDirection: 'column', gap: 32 }}>
