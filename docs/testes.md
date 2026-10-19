@@ -127,7 +127,7 @@ Para trocar de conta, saia pelo menu e entre com outro e-mail. Ou use uma janela
 
 ## 5. Roteiro por plano
 
-Avisos de uso (limite de balcões, excedente, cota de WhatsApp) aparecem só no canto da tela, uma vez por sessão, para quem administra. O uso do mês fica sempre em **Minha conta** (antes chamada Conta e marca).
+Avisos de uso (limite de balcões, excedente, cota de WhatsApp) aparecem só no canto da tela, uma vez por sessão, para quem administra. Os avisos não mostram valores. O uso do mês fica sempre em **Configurações › Plano e uso**.
 
 ### Início e pastas (qualquer conta)
 
@@ -144,20 +144,34 @@ Avisos de uso (limite de balcões, excedente, cota de WhatsApp) aparecem só no 
 - [ ] **Nova pasta**: dê nome e cor. Ela abre vazia, com **Novo balcão nesta pasta**. O balcão criado por ali já entra nela.
 - [ ] Na tela do balcão, ao lado do nome, troque a pasta (ou tire o balcão dela). Fica no Histórico.
 - [ ] Dentro da pasta, **Renomear** e **Apagar pasta**. Apagar não apaga os balcões, só tira da pasta. Nome repetido não é aceito.
+- [ ] **Novo balcão** é uma folha só: no topo, a frase "Documentos de [tipo] para [cliente], até [data]"; abaixo, as etapas 1 (contato), 2 (documentos) e 3 (acesso e lembretes), que ficam verdes quando prontas. Na lista, escreva um documento e tecle Enter para acrescentar; o número arrasta para mudar a ordem. À direita, a prévia do celular e o que ainda falta.
 - [ ] Depois de criar um balcão, a tela mostra, à esquerda, o envio do link e, à direita, o resumo (com as datas dos lembretes) e os documentos pedidos.
+
+### Configurações (qualquer conta)
+
+- [ ] **Configurações › Meu perfil**: mude o nome e o cargo e salve. O nome muda no rodapé do menu.
+- [ ] **Senha e acesso**: troque a senha (pede a atual). Os outros aparelhos saem e chega um e-mail avisando (`pnpm caixa`). A lista mostra os aparelhos conectados, com **Desconectar**.
+- [ ] **Aparência**: Claro, Escuro ou Automático. Vale para o painel neste navegador; o site e a página do cliente continuam claros.
+- [ ] **Escritório e marca** e **Plano e uso** (antes, Minha conta). Em Plano e uso, troque o plano direto ali (em desenvolvimento, sem cobrança).
+- [ ] Na tela de entrar, **Esqueci a senha**: em desenvolvimento aparece o botão que abre o link do e-mail. A senha nova pede o código do e-mail, como um login.
+- [ ] Apagar cliente, pasta, arquivo ou pessoa da equipe abre uma confirmação do próprio app, não a do navegador.
+
+### Site
+
+- [ ] Rodapé com **Central de ajuda**, **Contato**, **Termos de uso** e **Privacidade**, todos com página.
 
 ### Grátis (`gratis@trames.app`)
 
-- [ ] Ao entrar, um aviso no canto da tela mostra que resta 1 balcão. **Minha conta** mostra 2 de 3 balcões ativos.
+- [ ] Ao entrar, um aviso no canto da tela mostra que resta 1 balcão. **Plano e uso** mostra 2 de 3 balcões ativos.
 - [ ] Abra um balcão novo: o e-mail do cliente é obrigatório (em todos os planos). O canal "WhatsApp" aparece bloqueado, com convite para o Pro.
 - [ ] Com 3 de 3, tente abrir mais um: o botão de criar fica desligado e um aviso no canto explica que o limite acabou.
 - [ ] Modelos próprios, marca, permissões e relatório aparecem bloqueados.
-- [ ] Em **Minha conta**, a retenção é fixa: 30 dias depois de concluir.
+- [ ] Em **Escritório e marca**, a retenção é fixa: 30 dias depois de concluir.
 - [ ] O balcão concluído da Helena mostra a data em que os arquivos serão apagados.
 
 ### Pro (`pro@trames.app`)
 
-- [ ] Ao entrar, aparece o aviso "A cota de WhatsApp está no fim". **Minha conta** mostra 6 de 40 balcões e 298 de 300 mensagens.
+- [ ] Ao entrar, aparece o aviso "A cota de WhatsApp está no fim". **Plano e uso** mostra 6 de 40 balcões e 298 de 300 mensagens.
 - [ ] Abra o balcão do Júlio. A tela de conferir mostra a **miniatura** do documento; o original só sai em **Baixar original** (e fica no Histórico).
 - [ ] **Link do cliente**: a Trames não guarda links (só uma impressão digital), então clique em **Gerar link para enviar**. Os links já mandados continuam valendo e o cliente continua conectado. "Enviar pelo WhatsApp" abre o seu WhatsApp (wa.me) com a mensagem pronta; "Enviar por e-mail" manda pela Trames; "Copiar link" fica no Histórico.
 - [ ] **Arquivar**: num balcão aberto, clique em **Arquivar**. Ele sai dos ativos, o link do cliente para de valer e a tela mostra quando os arquivos serão apagados. **Reabrir balcão** desfaz.
@@ -174,15 +188,15 @@ Avisos de uso (limite de balcões, excedente, cota de WhatsApp) aparecem só no 
 
 ### Ultra (`ultra@trames.app`)
 
-- [ ] **Minha conta** mostra os balcões **novos do mês**, não os ativos. O seed deixa o Ultra com 198 de 200, e ao entrar aparece o aviso "198 de 200 balcões do mês".
-- [ ] Crie 2 balcões: com 200 de 200, ao abrir a tela de criar, aparece o aviso "Este balcão vai ser cobrado como excedente" (R$ 1,00). O 3º é criado normalmente (sem bloqueio) e outro aviso confirma que foi cobrado como excedente. Em **Minha conta**, aparece "1 excedente (R$ 1,00) na próxima fatura".
+- [ ] **Plano e uso** mostra os balcões **novos do mês**, não os ativos. O seed deixa o Ultra com 198 de 200, e ao entrar aparece o aviso "198 de 200 balcões do mês".
+- [ ] Crie 2 balcões: com 200 de 200, ao abrir a tela de criar, aparece o aviso "Você já usou os balcões do mês", sem valores. O 3º é criado normalmente (sem bloqueio) e outro aviso diz "Balcão adicional criado". Em **Plano e uso**, aparece "1 balcão adicional neste mês: R$ 1,00 na próxima fatura".
 - [ ] Ao passar de 200, quem administra recebe o e-mail "Você passou dos 200 balcões do mês" (o de 180 o seed já marcou como enviado).
-- [ ] Em **Minha conta**, a retenção pode ser 30, 90, 180 dias ou 12 meses.
+- [ ] Em **Escritório e marca**, a retenção pode ser 30, 90, 180 dias ou 12 meses.
 - [ ] Relatório de prazos e pendências; equipe com 6 pessoas e permissões por pessoa.
 
 ### Troca de plano
 
-Em desenvolvimento a cobrança é simulada. Na página **Planos**, escolha mensal ou anual e troque o plano de uma conta: os recursos liberam ou bloqueiam na hora. Rode `pnpm db:seed` para voltar ao original.
+Em desenvolvimento a cobrança é simulada. Em **Configurações › Plano e uso**, troque o plano da conta: os recursos liberam ou bloqueiam na hora. Rode `pnpm db:seed` para voltar ao original.
 
 ## 6. Roteiro do cliente
 

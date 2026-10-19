@@ -9,7 +9,7 @@ export type Fila = (typeof FILAS)[number];
  * codigo, link, lembrete e mudanca vão ao cliente; convite e login, a uma pessoa da equipe;
  * admin vai a quem administra a conta (avisos de uso, cota e retenção).
  */
-export type TipoMensagem = 'codigo' | 'link' | 'lembrete' | 'mudanca' | 'convite' | 'login' | 'admin';
+export type TipoMensagem = 'codigo' | 'link' | 'lembrete' | 'mudanca' | 'convite' | 'login' | 'redefinir_senha' | 'senha_trocada' | 'admin';
 
 export interface PayloadFila {
   'verificar-documento': { organizacaoId: string; documentoId: string };

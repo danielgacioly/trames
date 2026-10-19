@@ -1,15 +1,14 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { PRECO_EXCEDENTE_CENTAVOS, type CanalCodigo, type ItemEntrada as ItemModelo, type LinkGerado } from '@trames/shared';
+import { type CanalCodigo, type ItemEntrada as ItemModelo, type LinkGerado } from '@trames/shared';
 import { api } from '../../dados/api';
 import { chaves as chavesConsulta, useAcao, useCobranca, useModelos, usePastas, useSessao } from '../../dados/consultas';
 import { Bloqueio, Carregando, SeloConta } from '../../ui/comuns';
 import { Icone } from '../../ui/Icone';
 import { useNotificar } from '../../ui/Notificacoes';
 import { dataLonga, diaDaqui, primeiroNome, soDigitos } from '../../util/formatos';
-import { comChave, ListaDocumentos, novoItem, PuxarModelo, type Item } from './ListaDocumentos';
+import { comChave, ListaDocumentos, PuxarModelo, type Item } from './ListaDocumentos';
 
-const reais = (centavos: number) => (centavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 /** Carrega o modelo (se veio ?modelo=) antes de montar o formulário. */
 export function NovoBalcao() {
@@ -56,14 +55,14 @@ function FormularioBalcao({ modelo, pastaInicial }: { modelo?: { nome: string; i
   const podeAbrir = !noLimite && !soConfere;
   const notificar = useNotificar();
 
-  // Uso do plano aparece como pop-up, uma vez ao abrir o formulário; o detalhe fica em Minha conta.
+  // Uso do plano aparece como pop-up, uma vez ao abrir o formulário; o detalhe fica em Plano e uso.
   const avisar = !soConfere && (noLimite || excedente);
   useEffect(() => {
     if (!avisar) return;
     notificar(
       noLimite
-        ? { titulo: 'Você chegou no limite de balcões', texto: `O plano ${p.nome} permite ${p.limiteBalcoes} balcões ativos. Conclua um que já terminou ou mude de plano.`, acao: { rotulo: 'Ver em Minha conta', para: '/app/conta' } }
-        : { titulo: 'Este balcão vai ser cobrado como excedente', texto: `${reais(PRECO_EXCEDENTE_CENTAVOS)}, porque o plano ${p.nome} inclui ${p.balcoesNoMes} balcões novos por mês.`, acao: { rotulo: 'Ver em Minha conta', para: '/app/conta' } },
+        ? { titulo: 'Você chegou no limite de balcões', texto: `O plano ${p.nome} permite ${p.limiteBalcoes} balcões ativos. Conclua um que já terminou ou mude de plano.`, acao: { rotulo: 'Ver plano e uso', para: '/app/configuracoes/plano' } }
+        : { titulo: 'Você já usou os balcões do mês', texto: `O plano ${p.nome} inclui ${p.balcoesNoMes} balcões novos por mês. Este entra como adicional.`, acao: { rotulo: 'Ver plano e uso', para: '/app/configuracoes/plano' } },
     );
   }, [avisar]);
   const comWhatsapp = sessao.tem('whatsapp');
@@ -88,168 +87,190 @@ function FormularioBalcao({ modelo, pastaInicial }: { modelo?: { nome: string; i
         pastaId: pastas.some((p) => p.id === pastaId) ? pastaId : null,
         itens: itens.map(({ nome, detalhe, obrigatorio }) => ({ nome, detalhe, obrigatorio })),
       });
-      if (b.excedente) notificar({ titulo: 'Balcão cobrado como excedente', texto: `${reais(PRECO_EXCEDENTE_CENTAVOS)}, na próxima fatura.`, acao: { rotulo: 'Ver em Minha conta', para: '/app/conta' } });
+      if (b.excedente) notificar({ titulo: 'Balcão adicional criado', texto: 'Ele aparece em Plano e uso, junto com o resto do mês.', acao: { rotulo: 'Ver plano e uso', para: '/app/configuracoes/plano' } });
       navegar(`/app/balcao/${b.id}/link`, { state: { link: b.link, criado: true } });
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não deu para criar o balcão.');
     }
   }
 
+  const contatoOk = cliente.nome.trim().length >= 2 && soDigitos(cliente.whatsapp).length >= 10 && /\S+@\S+\.\S+/.test(cliente.email);
+  const docsOk = itens.length > 0;
+  const prazoOk = !!prazo && prazo >= diaDaqui(0);
+  const falta = [
+    { ok: cliente.nome.trim().length >= 2, texto: 'Nome do cliente' },
+    { ok: soDigitos(cliente.whatsapp).length >= 10 && /\S+@\S+\.\S+/.test(cliente.email), texto: 'WhatsApp e e-mail' },
+    { ok: docsOk, texto: docsOk ? `${itens.length} ${itens.length === 1 ? 'documento' : 'documentos'}` : 'Pelo menos um documento' },
+    { ok: prazoOk, texto: prazoOk ? `Prazo: ${dataLonga(prazo)}` : 'Prazo' },
+  ];
+  const nomeEscrito = (v: string, minimo: number) => ({ size: Math.max(v.length, minimo) + 1 });
+
   return (
-    <form onSubmit={criar} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <header className="linha linha--entre" style={{ gap: 16 }}>
-        <div className="linha" style={{ gap: 16, minWidth: 0 }}>
-          <Link to="/app/balcoes" className="tr-btn tr-btn--discreto tr-btn--sm">
-            <Icone nome="voltar" />
-            Balcões
-          </Link>
-          <span style={{ width: 1, height: 24, background: 'var(--linha)' }} />
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 600 }}>Novo balcão</span>
-          {modelo && <span className="tr-etiqueta">Modelo: {modelo.nome}</span>}
-        </div>
-        <button type="submit" className="tr-btn tr-btn--primario" disabled={!podeAbrir || criarBalcao.isPending}>
-          {criarBalcao.isPending ? 'Criando…' : 'Criar balcão e gerar link'}
-        </button>
+    <form onSubmit={criar} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <header className="linha" style={{ gap: 12 }}>
+        <Link to="/app/balcoes" className="tr-btn tr-btn--discreto tr-btn--sm">
+          <Icone nome="voltar" />
+          Balcões
+        </Link>
+        {modelo && <span className="tr-etiqueta">A partir do modelo {modelo.nome}</span>}
       </header>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 32, alignItems: 'flex-start' }}>
-        <div style={{ flex: '999 1 520px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {soConfere && (
-            <div className="aviso">
-              <Icone nome="info" />
-              <span>Sua permissão nesta conta é só de conferir documentos. Peça a quem administra a conta para mudar, na tela Equipe.</span>
-            </div>
-          )}
-          {erro && (
-            <div className="aviso aviso--erro" role="alert">
-              <Icone nome="info" />
-              {erro}
-            </div>
-          )}
+      {soConfere && (
+        <div className="aviso">
+          <Icone nome="info" />
+          <span>Sua permissão nesta conta é só de conferir documentos. Peça a quem administra a conta para mudar, na tela Equipe.</span>
+        </div>
+      )}
 
-          <section className="cartao" style={{ gap: 20 }}>
-            <div className="coluna" style={{ gap: 4 }}>
-              <h2 className="titulo-2">Para quem é</h2>
-              <p className="pequeno texto-suave">O cliente não precisa criar conta. Ele recebe o link e, ao abrir, um código de acesso.</p>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 16 }}>
-              <label className="tr-campo tr-campo--largo">
-                <span className="tr-campo__rotulo">Nome completo</span>
-                <input className="tr-campo__entrada" required {...campo('nome')} />
-              </label>
-              <label className="tr-campo tr-campo--largo">
-                <span className="tr-campo__rotulo">CPF</span>
-                <input className="tr-campo__entrada" inputMode="numeric" placeholder="000.000.000-00" {...campo('cpf')} />
-              </label>
-              <label className="tr-campo tr-campo--largo">
-                <span className="tr-campo__rotulo">WhatsApp</span>
-                <input className="tr-campo__entrada" inputMode="tel" required placeholder="(81) 90000-0000" {...campo('whatsapp')} />
-                <span className="tr-campo__dica">Para você mandar o link pelo seu WhatsApp.</span>
-              </label>
-              <label className="tr-campo tr-campo--largo">
-                <span className="tr-campo__rotulo">E-mail</span>
-                <input className="tr-campo__entrada" type="email" required {...campo('email')} />
-                <span className="tr-campo__dica">Código de acesso, lembretes e avisos. Se o WhatsApp falhar ou a cota acabar, é por aqui que vão.</span>
-              </label>
-              <label className="tr-campo tr-campo--largo">
-                <span className="tr-campo__rotulo">Tipo de caso</span>
-                <input className="tr-campo__entrada" placeholder="Ex.: Inventário" value={tipo} onChange={(e) => setTipo(e.target.value)} />
-                <span className="tr-campo__dica">Os balcões do mesmo tipo ficam juntos, numa pasta em Início.</span>
-              </label>
-              {pastas.length > 0 && (
+      <div className="folha-pedido">
+        <div className="folha">
+          <div className="folha__frase">
+            <span className="miudo texto-suave" style={{ fontWeight: 500, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+              Novo balcão
+            </span>
+            <p className="frase">
+              Documentos de{' '}
+              <input aria-label="Tipo de caso" placeholder="tipo de caso" value={tipo} onChange={(e) => setTipo(e.target.value)} {...nomeEscrito(tipo, 12)} /> para{' '}
+              <input aria-label="Nome completo do cliente" placeholder="nome do cliente" required autoFocus {...campo('nome')} {...nomeEscrito(cliente.nome, 15)} />, até{' '}
+              <input aria-label="Prazo para o cliente" type="date" required value={prazo} min={diaDaqui(0)} onChange={(e) => setPrazo(e.target.value)} />.
+            </p>
+            <span className="miudo texto-suave">O tipo de caso agrupa os balcões numa pasta em Início. Ex.: Inventário, Imposto de Renda, Primeira consulta.</span>
+          </div>
+
+          <section className={`etapa${contatoOk ? ' etapa--feita' : ''}`}>
+            <span className="etapa__marca">{contatoOk ? <Icone nome="check" tamanho={16} /> : 1}</span>
+            <div className="etapa__corpo">
+              <div className="etapa__cabeca">
+                <h2>Como falar com {nomeCliente === 'cliente' ? 'o cliente' : nomeCliente}</h2>
+                <p className="pequeno texto-suave">Ninguém cria conta. O link vai pelo seu WhatsApp ou por e-mail, e o acesso pede um código.</p>
+              </div>
+              <div className="campos-3">
                 <label className="tr-campo tr-campo--largo">
-                  <span className="tr-campo__rotulo">Pasta</span>
+                  <span className="tr-campo__rotulo">WhatsApp</span>
+                  <input className="tr-campo__entrada" inputMode="tel" required placeholder="(81) 90000-0000" {...campo('whatsapp')} />
+                </label>
+                <label className="tr-campo tr-campo--largo">
+                  <span className="tr-campo__rotulo">E-mail</span>
+                  <input className="tr-campo__entrada" type="email" required placeholder="nome@email.com" {...campo('email')} />
+                </label>
+                <label className="tr-campo tr-campo--largo">
+                  <span className="tr-campo__rotulo">CPF (opcional)</span>
+                  <input className="tr-campo__entrada" inputMode="numeric" placeholder="000.000.000-00" {...campo('cpf')} />
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section className={`etapa${docsOk ? ' etapa--feita' : ''}`}>
+            <span className="etapa__marca">{docsOk ? <Icone nome="check" tamanho={16} /> : 2}</span>
+            <div className="etapa__corpo">
+              <div className="etapa__cabeca">
+                <h2>O que {nomeCliente === 'cliente' ? 'o cliente' : nomeCliente} precisa mandar</h2>
+                <p className="pequeno texto-suave">Escreva como explicaria pessoalmente. A ordem aqui é a ordem que ele vê.</p>
+              </div>
+              <div>
+                <ListaDocumentos itens={itens} mudar={setItens} />
+                <PuxarModelo adicionar={(novos) => setItens([...itens, ...comChave(novos.filter((n) => !itens.some((i) => i.nome === n.nome)))])} />
+              </div>
+            </div>
+          </section>
+
+          <section className={`etapa${prazoOk ? ' etapa--feita' : ''}`}>
+            <span className="etapa__marca">{prazoOk ? <Icone nome="check" tamanho={16} /> : 3}</span>
+            <div className="etapa__corpo">
+              <div className="etapa__cabeca">
+                <h2>Acesso e lembretes</h2>
+                <p className="pequeno texto-suave">Como chega o código para abrir o link e se a Trames lembra {nomeCliente === 'cliente' ? 'o cliente' : nomeCliente} do prazo.</p>
+              </div>
+              <div className="opcoes-envio">
+                <div className="opcao-envio">
+                  <Canal rotulo="Código de acesso por" valor={canalCodigo} mudar={setCanalCodigo} pode={comWhatsapp} />
+                  <span className="miudo texto-suave">No mesmo celular, só pede de novo depois de 30 dias.</span>
+                </div>
+                <div className="opcao-envio">
+                  <label className="linha linha--entre" style={{ flexWrap: 'nowrap', cursor: 'pointer' }}>
+                    <span className="tr-campo__rotulo">Lembretes automáticos</span>
+                    <input type="checkbox" className="interruptor" checked={lembrete} onChange={(e) => setLembrete(e.target.checked)} />
+                  </label>
+                  {lembrete ? (
+                    <>
+                      <Canal rotulo="Por" valor={canalLembrete} mudar={setCanalLembrete} pode={comWhatsapp} />
+                      <span className="miudo texto-suave">3 dias antes do prazo, no dia e 2 dias depois, só se faltar algo obrigatório.</span>
+                    </>
+                  ) : (
+                    <span className="miudo texto-suave">Você pode lembrar manualmente, na tela do balcão.</span>
+                  )}
+                </div>
+              </div>
+              {comWhatsapp ? (
+                (canalCodigo === 'whatsapp' || (lembrete && canalLembrete === 'whatsapp')) && (
+                  <p className="miudo texto-suave">Mensagens pelo WhatsApp contam na cota do plano. Se a cota acabar, vão por e-mail até o mês virar.</p>
+                )
+              ) : (
+                <Bloqueio recurso="whatsapp" compacto />
+              )}
+              {pastas.length > 0 && (
+                <label className="tr-campo" style={{ maxWidth: 280 }}>
+                  <span className="tr-campo__rotulo">Guardar na pasta</span>
                   <select className="tr-campo__entrada" value={pastaId} onChange={(e) => setPastaId(e.target.value)}>
-                    <option value="">Sem pasta</option>
-                    {pastas.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nome}
+                    <option value="">Nenhuma</option>
+                    {pastas.map((pa) => (
+                      <option key={pa.id} value={pa.id}>
+                        {pa.nome}
                       </option>
                     ))}
                   </select>
-                  <span className="tr-campo__dica">Opcional. Dá para mudar depois, na tela do balcão.</span>
                 </label>
               )}
             </div>
           </section>
-
-          <section className="cartao">
-            <div className="linha linha--entre" style={{ alignItems: 'flex-end', gap: 12 }}>
-              <div className="coluna" style={{ gap: 4 }}>
-                <h2 className="titulo-2">Documentos</h2>
-                <p className="pequeno texto-suave">Escreva o que serve em cada item como você explicaria ao cliente. Arraste para mudar a ordem.</p>
-              </div>
-              <span className="pequeno texto-suave">{itens.length} documentos</span>
-            </div>
-            {itens.length === 0 && <p className="pequeno texto-suave">Nenhum documento ainda. Adicione um por um ou puxe de um modelo.</p>}
-            <ListaDocumentos itens={itens} mudar={setItens} />
-            <div className="linha">
-              <button type="button" className="tr-btn tr-btn--secundario" onClick={() => setItens([...itens, novoItem()])}>
-                <Icone nome="mais" />
-                Adicionar documento
-              </button>
-              <PuxarModelo adicionar={(novos) => setItens([...itens, ...comChave(novos.filter((n) => !itens.some((i) => i.nome === n.nome)))])} />
-            </div>
-          </section>
-
-          <section className="cartao" style={{ gap: 20 }}>
-            <h2 className="titulo-2">Prazo, código e lembretes</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: 16, alignItems: 'end' }}>
-              <label className="tr-campo tr-campo--largo">
-                <span className="tr-campo__rotulo">Prazo para o cliente</span>
-                <input className="tr-campo__entrada" type="date" required value={prazo} min={diaDaqui(0)} onChange={(e) => setPrazo(e.target.value)} />
-              </label>
-              <Canal rotulo="Código de acesso por" valor={canalCodigo} mudar={setCanalCodigo} pode={comWhatsapp} />
-            </div>
-            <label className="linha" style={{ fontSize: 15, cursor: 'pointer', alignItems: 'flex-start', flexWrap: 'nowrap' }}>
-              <input type="checkbox" checked={lembrete} onChange={(e) => setLembrete(e.target.checked)} style={{ width: 18, height: 18, marginTop: 2, accentColor: '#13594b', flex: 'none' }} />
-              <span>
-                Lembrar {nomeCliente === 'cliente' ? 'o cliente' : nomeCliente} 3 dias antes do prazo, no dia e 2 dias depois
-                <span className="miudo texto-suave" style={{ display: 'block' }}>
-                  Só se ainda faltar documento obrigatório. O lembrete leva o mesmo link.
-                </span>
-              </span>
-            </label>
-            {lembrete && (
-              <div style={{ maxWidth: 260 }}>
-                <Canal rotulo="Lembretes por" valor={canalLembrete} mudar={setCanalLembrete} pode={comWhatsapp} />
-              </div>
-            )}
-            {comWhatsapp ? (
-              (canalCodigo === 'whatsapp' || (lembrete && canalLembrete === 'whatsapp')) && (
-                <p className="miudo texto-suave">
-                  Mensagens pelo WhatsApp contam na cota do plano ({p.cotaWhatsapp.toLocaleString('pt-BR')} por mês). Se a cota acabar, vão por e-mail até o mês virar.
-                </p>
-              )
-            ) : (
-              <Bloqueio recurso="whatsapp" compacto />
-            )}
-          </section>
         </div>
 
-        <aside style={{ flex: '1 1 320px', minWidth: 0, maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 12, position: 'sticky', top: 24 }}>
+        <aside className="painel-pedido" aria-label="Resumo">
           <span className="miudo texto-suave" style={{ fontWeight: 500 }}>
-            Assim {nomeCliente === 'cliente' ? 'o cliente' : nomeCliente} vai ver
+            Assim {nomeCliente === 'cliente' ? 'o cliente' : nomeCliente} vai ver no celular
           </span>
-          <div style={{ borderRadius: 36, background: 'var(--lama)', padding: 10 }}>
-            <div style={{ borderRadius: 28, background: 'var(--areia)', padding: '24px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="previa-cliente" aria-hidden="true">
+            <div className="previa-cliente__tela">
               <div className="linha miudo texto-suave">
                 {sessao.tem('marca') && <SeloConta conta={sessao.organizacao} tamanho={24} />}
                 {sessao.organizacao.nome}
               </div>
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, lineHeight: '26px', fontWeight: 600 }}>Olá, {primeiroNome(cliente.nome) || '[nome]'}</div>
               <p className="miudo texto-suave" style={{ lineHeight: '19px' }}>
-                O escritório está reunindo os documentos{tipo ? ` de ${tipo.toLowerCase()}` : ''} e pediu {itens.length} itens até {dataLonga(prazo)}.
+                O escritório está reunindo os documentos{tipo ? ` de ${tipo.toLowerCase()}` : ''} e pediu {itens.length} {itens.length === 1 ? 'item' : 'itens'} até {dataLonga(prazo)}.
               </p>
               <div className="coluna" style={{ gap: 6 }}>
                 {itens.map((d) => (
                   <div key={d.chave} className="linha linha--entre miudo" style={{ background: 'var(--areia-elevada)', border: '1px solid var(--linha)', borderRadius: 10, padding: '9px 12px', flexWrap: 'nowrap' }}>
-                    <span>{d.nome}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.nome}</span>
                     <span style={{ color: 'var(--mangue)', fontWeight: 500 }}>Enviar</span>
                   </div>
                 ))}
               </div>
             </div>
+          </div>
+          <div className="cartao" style={{ gap: 14 }}>
+            <ul className="falta">
+              {falta.map((f) => (
+                <li key={f.texto} className={f.ok ? 'ok' : undefined}>
+                  {f.ok ? <Icone nome="check" /> : <span className="falta__bolinha" />}
+                  {f.texto}
+                </li>
+              ))}
+            </ul>
+            {erro && (
+              <div className="aviso aviso--erro" role="alert">
+                <Icone nome="info" />
+                {erro}
+              </div>
+            )}
+            <button type="submit" className="tr-btn tr-btn--primario tr-btn--bloco" disabled={!podeAbrir || criarBalcao.isPending}>
+              {criarBalcao.isPending ? 'Criando…' : 'Criar balcão e gerar link'}
+            </button>
+            <span className="miudo texto-suave" style={{ textAlign: 'center' }}>
+              Na próxima tela você manda o link.
+            </span>
           </div>
         </aside>
       </div>

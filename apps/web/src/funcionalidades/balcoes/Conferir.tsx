@@ -7,6 +7,7 @@ import { AvisoErro, Carregando, Progresso, Status, useToast } from '../../ui/com
 import { Icone } from '../../ui/Icone';
 import { PastaDoBalcao } from './PastaDoBalcao';
 import { dataLonga, primeiroNome, quandoEnviado, tamanhoLegivel } from '../../util/formatos';
+import { useConfirmar } from '../../ui/Confirmar';
 
 const ACOES: Record<string, string> = {
   'balcao.criado': 'criou o balcão',
@@ -224,6 +225,7 @@ function Exportar({ b }: { b: BalcaoDetalhe }) {
 }
 
 export function Conferir() {
+  const confirmar = useConfirmar();
   const { id = '' } = useParams();
   const s = useSessao();
   const local = useLocation();
@@ -330,7 +332,7 @@ export function Conferir() {
                   className="tr-btn tr-btn--discreto tr-btn--sm"
                   disabled={arquivar.isPending}
                   onClick={async () => {
-                    if (!window.confirm(`Arquivar o balcão de ${nome}? Ele deixa de contar como ativo, o acesso de ${nome} é encerrado e os arquivos serão apagados em ${dias} dias. Dá para reabrir antes disso.`)) return;
+                    if (!(await confirmar({ titulo: `Arquivar o balcão de ${nome}?`, texto: `Ele deixa de contar como ativo, o acesso de ${nome} é encerrado e os arquivos serão apagados em ${dias} dias. Dá para reabrir antes disso.`, botao: 'Arquivar' }))) return;
                     await arquivar.mutateAsync();
                     avisar(`Balcão arquivado. Os arquivos serão apagados em ${dias} dias.`);
                   }}
@@ -397,7 +399,7 @@ export function Conferir() {
               className="tr-btn tr-btn--discreto tr-btn--sm"
               disabled={encerrar.isPending}
               onClick={async () => {
-                if (!window.confirm(`Encerrar o acesso de ${nome}? O link continua valendo, mas ele vai precisar de um código novo para entrar.`)) return;
+                if (!(await confirmar({ titulo: `Encerrar o acesso de ${nome}?`, texto: 'O link continua valendo, mas vai pedir um código novo para entrar.', botao: 'Encerrar acesso' }))) return;
                 await encerrar.mutateAsync();
                 avisar('Acesso encerrado em todos os aparelhos.');
               }}
@@ -410,7 +412,7 @@ export function Conferir() {
               className="tr-btn tr-btn--discreto tr-btn--sm"
               disabled={novoLink.isPending}
               onClick={async () => {
-                if (!window.confirm('Gerar um link novo e cancelar todos os anteriores? Os links já enviados param de valer e o acesso de todos os aparelhos é encerrado. (Para só mandar o link de novo, use "Link do cliente".)')) return;
+                if (!(await confirmar({ titulo: 'Cancelar os links e gerar um novo?', texto: 'Os links já enviados param de valer e o acesso de todos os aparelhos é encerrado. Para só mandar o link de novo, use "Link do cliente".', botao: 'Gerar link novo', perigo: true }))) return;
                 navegar(`/app/balcao/${b.id}/link`, { state: { link: await novoLink.mutateAsync() } });
               }}
             >
@@ -567,7 +569,7 @@ export function Conferir() {
                 type="button"
                 className="tr-btn tr-btn--discreto tr-btn--sm"
                 style={{ alignSelf: 'flex-start', color: 'var(--recusado)', paddingLeft: 0 }}
-                onClick={() => window.confirm(`Apagar o arquivo "${sel.documento!.nomeArquivo}"? O item volta a ficar pendente.`) && apagarArquivo.mutate(sel.documento!.id)}
+                onClick={async () => (await confirmar({ titulo: 'Apagar este arquivo?', texto: `"${sel.documento!.nomeArquivo}" sai do balcão e o item volta a ficar pendente.`, botao: 'Apagar arquivo', perigo: true })) && apagarArquivo.mutate(sel.documento!.id)}
               >
                 <Icone nome="lixo" />
                 Apagar arquivo

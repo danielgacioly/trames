@@ -5,7 +5,7 @@ import { api } from '../../dados/api';
 import { chaves, useAcao, useModelos, useSessao } from '../../dados/consultas';
 import { AvisoErro, Bloqueio, Carregando } from '../../ui/comuns';
 import { Icone } from '../../ui/Icone';
-import { comChave, ListaDocumentos, novoItem, type Item } from '../balcoes/ListaDocumentos';
+import { comChave, ListaDocumentos, type Item } from '../balcoes/ListaDocumentos';
 
 export function EditorModelo() {
   const { id } = useParams();
@@ -36,57 +36,91 @@ function FormularioModelo({ existente, base }: { existente?: Modelo; base?: Mode
     navegar('/app/modelos');
   }
 
+  const [confirmarExclusao, setConfirmarExclusao] = useState(false);
+  const obrigatorios = itens.filter((i) => i.obrigatorio).length;
+  const tamanho = (v: string, minimo: number) => ({ size: Math.max(v.length, minimo) + 1 });
+
   return (
-    <form onSubmit={enviar} style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 860 }}>
-      <Link to="/app/modelos" className="tr-btn tr-btn--discreto tr-btn--sm" style={{ alignSelf: 'flex-start' }}>
-        <Icone nome="voltar" />
-        Modelos
-      </Link>
-      <h1 className="titulo-1">{existente ? 'Editar modelo' : 'Novo modelo'}</h1>
+    <form onSubmit={enviar} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <header className="linha" style={{ gap: 12 }}>
+        <Link to="/app/modelos" className="tr-btn tr-btn--discreto tr-btn--sm">
+          <Icone nome="voltar" />
+          Modelos
+        </Link>
+        {base && !existente && <span className="tr-etiqueta">Cópia de {base.nome}</span>}
+      </header>
       <AvisoErro erro={salvar.error ?? excluir.error} />
-      <section className="cartao" style={{ gap: 20 }}>
-        <label className="tr-campo tr-campo--largo">
-          <span className="tr-campo__rotulo">Nome do modelo</span>
-          <input className="tr-campo__entrada" required minLength={2} value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Inventário com imóvel rural" />
-        </label>
-        <label className="tr-campo tr-campo--largo">
-          <span className="tr-campo__rotulo">Quando usar</span>
-          <input className="tr-campo__entrada" value={quando} onChange={(e) => setQuando(e.target.value)} placeholder="Uma frase para lembrar a equipe" />
-        </label>
-      </section>
-      <section className="cartao">
-        <div className="linha linha--entre">
-          <h2 className="titulo-2">Documentos</h2>
-          <span className="pequeno texto-suave">{itens.length} documentos</span>
+
+      <div className="folha-pedido">
+        <div className="folha">
+          <div className="folha__frase">
+            <span className="miudo texto-suave" style={{ fontWeight: 500, letterSpacing: '.06em', textTransform: 'uppercase' }}>
+              {existente ? 'Editar modelo' : 'Novo modelo'}
+            </span>
+            <p className="frase">
+              Modelo{' '}
+              <input aria-label="Nome do modelo" placeholder="nome do modelo" required minLength={2} autoFocus={!existente} value={nome} onChange={(e) => setNome(e.target.value)} {...tamanho(nome, 14)} />
+            </p>
+            <label className="tr-campo tr-campo--largo">
+              <span className="tr-campo__rotulo">Quando usar</span>
+              <input className="tr-campo__entrada" value={quando} onChange={(e) => setQuando(e.target.value)} placeholder="Uma frase para a equipe escolher o modelo certo" />
+              <span className="tr-campo__dica">O nome do modelo vira o tipo de caso dos balcões abertos a partir dele.</span>
+            </label>
+          </div>
+          <section className={`etapa${itens.length ? ' etapa--feita' : ''}`}>
+            <span className="etapa__marca">{itens.length ? <Icone nome="check" tamanho={16} /> : 1}</span>
+            <div className="etapa__corpo">
+              <div className="etapa__cabeca">
+                <h2>Documentos que o cliente vai mandar</h2>
+                <p className="pequeno texto-suave">Ao abrir um balcão a partir deste modelo, ainda dá para tirar ou acrescentar itens.</p>
+              </div>
+              <ListaDocumentos itens={itens} mudar={setItens} />
+            </div>
+          </section>
         </div>
-        <ListaDocumentos itens={itens} mudar={setItens} />
-        <button type="button" className="tr-btn tr-btn--secundario" style={{ alignSelf: 'flex-start' }} onClick={() => setItens([...itens, novoItem()])}>
-          <Icone nome="mais" />
-          Adicionar documento
-        </button>
-      </section>
-      <div className="linha linha--entre">
-        {existente ? (
-          <button
-            type="button"
-            className="tr-btn tr-btn--discreto"
-            style={{ color: 'var(--recusado)' }}
-            onClick={async () => {
-              if (window.confirm(`Excluir o modelo ${existente.nome}?`)) {
-                await excluir.mutateAsync();
-                navegar('/app/modelos');
-              }
-            }}
-          >
-            <Icone nome="lixo" />
-            Excluir modelo
-          </button>
-        ) : (
-          <span />
-        )}
-        <button type="submit" className="tr-btn tr-btn--primario" disabled={!itens.length || salvar.isPending}>
-          Salvar modelo
-        </button>
+
+        <aside className="painel-pedido" aria-label="Resumo do modelo">
+          <div className="cartao" style={{ gap: 14 }}>
+            <div className="coluna" style={{ gap: 2 }}>
+              <strong style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 600 }}>{nome.trim() || 'Modelo sem nome'}</strong>
+              <span className="pequeno texto-suave">
+                {itens.length} {itens.length === 1 ? 'documento' : 'documentos'}
+                {itens.length > 0 && ` · ${obrigatorios} ${obrigatorios === 1 ? 'obrigatório' : 'obrigatórios'}`}
+              </span>
+            </div>
+            <button type="submit" className="tr-btn tr-btn--primario tr-btn--bloco" disabled={!itens.length || salvar.isPending}>
+              {salvar.isPending ? 'Salvando…' : existente ? 'Salvar alterações' : 'Criar modelo'}
+            </button>
+            {existente &&
+              (confirmarExclusao ? (
+                <div className="aviso aviso--erro" style={{ flexDirection: 'column', gap: 10 }}>
+                  <span>Excluir {existente.nome}? Os balcões já abertos com ele não mudam.</span>
+                  <div className="linha" style={{ gap: 6 }}>
+                    <button
+                      type="button"
+                      className="tr-btn tr-btn--sm"
+                      style={{ background: 'var(--recusado)', color: '#fff' }}
+                      disabled={excluir.isPending}
+                      onClick={async () => {
+                        await excluir.mutateAsync();
+                        navegar('/app/modelos');
+                      }}
+                    >
+                      Excluir
+                    </button>
+                    <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" onClick={() => setConfirmarExclusao(false)}>
+                      Manter
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" style={{ color: 'var(--recusado)', alignSelf: 'center' }} onClick={() => setConfirmarExclusao(true)}>
+                  <Icone nome="lixo" />
+                  Excluir modelo
+                </button>
+              ))}
+          </div>
+        </aside>
       </div>
     </form>
   );

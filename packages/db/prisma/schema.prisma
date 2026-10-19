@@ -115,6 +115,10 @@ model Usuario {
   permissao       Permissao @default(admin)
   conviteHash     String?   @unique @map("convite_hash")
   conviteExpiraEm DateTime? @map("convite_expira_em")
+  cargo           String?
+  /// SHA-256 do token do link "esqueci a senha". O token em si nunca é guardado.
+  redefinicaoHash     String?   @unique @map("redefinicao_hash")
+  redefinicaoExpiraEm DateTime? @map("redefinicao_expira_em")
   criadoEm        DateTime  @default(now()) @map("criado_em")
 
   organizacao Organizacao @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
@@ -130,6 +134,8 @@ model Sessao {
   usuarioId        String    @map("usuario_id") @db.Uuid
   /// SHA-256 do token do cookie. O token em si nunca é guardado.
   tokenHash        String    @unique @map("token_hash")
+  /// Navegador e sistema, para a lista de aparelhos conectados.
+  aparelho         String?
   segundoFator     Boolean   @default(false) @map("segundo_fator")
   /// Segundo fator por e-mail: HMAC do código de 6 dígitos desta sessão, nunca o código.
   codigoHash       String?   @map("codigo_hash")

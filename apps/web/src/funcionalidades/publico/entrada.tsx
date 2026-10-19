@@ -68,7 +68,12 @@ export function Entrar() {
             <input className="tr-campo__entrada" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </label>
           <label className={`tr-campo tr-campo--largo${erro ? ' tr-campo--erro' : ''}`}>
-            <span className="tr-campo__rotulo">Senha</span>
+            <span className="linha linha--entre">
+              <span className="tr-campo__rotulo">Senha</span>
+              <Link to="/esqueci-senha" state={{ email }} className="miudo" style={{ fontWeight: 500 }}>
+                Esqueci a senha
+              </Link>
+            </span>
             <input className="tr-campo__entrada" type="password" autoComplete="current-password" required value={senha} onChange={(e) => setSenha(e.target.value)} />
             {erro && (
               <span className="tr-campo__erro">
@@ -311,7 +316,15 @@ export function CriarConta() {
             Continuar
           </button>
           <p className="miudo texto-suave">
-            Ao continuar, você concorda com os <a href="#">Termos de uso</a> e a <a href="#">Política de privacidade</a>.
+            Ao continuar, você concorda com os{' '}
+            <Link to="/termos" target="_blank">
+              Termos de uso
+            </Link>{' '}
+            e a{' '}
+            <Link to="/privacidade" target="_blank">
+              Política de privacidade
+            </Link>
+            .
           </p>
           <p className="pequeno texto-suave">
             Já tem conta? <Link to="/entrar">Entrar</Link>
@@ -450,6 +463,155 @@ export function Convite() {
             </button>
           )}
         </form>
+      </div>
+      <ArteEntrar />
+    </div>
+  );
+}
+
+/** Pede o link para criar uma senha nova. A resposta é a mesma exista ou não a conta. */
+export function EsqueciSenha() {
+  const local = useLocation();
+  const [email, setEmail] = useState((local.state as { email?: string } | null)?.email ?? '');
+  const [enviado, setEnviado] = useState(false);
+  const [urlDev, setUrlDev] = useState<string | undefined>();
+  const [erro, setErro] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  async function pedir(e: FormEvent) {
+    e.preventDefault();
+    setErro('');
+    setEnviando(true);
+    try {
+      const r = await api<{ urlDev?: string }>('POST', '/auth/esqueci', { email });
+      setUrlDev(r.urlDev);
+      setEnviado(true);
+    } catch (x) {
+      setErro(mensagemDe(x));
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <div className="dividida">
+      <div className="dividida__form">
+        <Logo altura={32} para="/" />
+        {enviado ? (
+          <div className="formulario" style={{ maxWidth: 380 }}>
+            <span className="selo-ok">
+              <Icone nome="envio" tamanho={24} />
+            </span>
+            <div className="coluna">
+              <h1 style={{ fontSize: 32, lineHeight: '38px', letterSpacing: '-.02em' }}>Confira o seu e-mail</h1>
+              <p className="texto-suave">
+                Se existir uma conta com <strong style={{ fontWeight: 500, color: 'var(--tinta)' }}>{email}</strong>, mandamos um link para criar uma senha nova. Ele vale por 1 hora.
+              </p>
+            </div>
+            {urlDev && (
+              <a href={urlDev} className="tr-btn tr-btn--secundario tr-btn--bloco">
+                Desenvolvimento: abrir o link do e-mail
+              </a>
+            )}
+            <p className="pequeno texto-suave">
+              Não chegou? Veja a caixa de spam ou{' '}
+              <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" style={{ padding: 0, height: 'auto' }} onClick={() => setEnviado(false)}>
+                tente de novo
+              </button>
+              .
+            </p>
+            <Link to="/entrar" className="pequeno" style={{ fontWeight: 500 }}>
+              Voltar para entrar
+            </Link>
+          </div>
+        ) : (
+          <form className="formulario" style={{ maxWidth: 380 }} onSubmit={pedir}>
+            <div className="coluna">
+              <h1 style={{ fontSize: 32, lineHeight: '38px', letterSpacing: '-.02em' }}>Esqueceu a senha?</h1>
+              <p className="texto-suave">Diga o e-mail da sua conta e mandamos um link para criar uma senha nova.</p>
+            </div>
+            <label className="tr-campo tr-campo--largo">
+              <span className="tr-campo__rotulo">E-mail</span>
+              <input className="tr-campo__entrada" type="email" autoComplete="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
+            </label>
+            {erro && <AvisoErro erro={new Error(erro)} />}
+            <button type="submit" className="tr-btn tr-btn--primario tr-btn--bloco" style={{ height: 48 }} disabled={enviando}>
+              {enviando ? 'Enviando…' : 'Mandar o link'}
+            </button>
+            <Link to="/entrar" className="pequeno" style={{ fontWeight: 500 }}>
+              Voltar para entrar
+            </Link>
+          </form>
+        )}
+      </div>
+      <ArteEntrar />
+    </div>
+  );
+}
+
+/** Link do e-mail: cria a senha nova e segue para o código, como num login. */
+export function RedefinirSenha() {
+  const { token = '' } = useParams();
+  const navegar = useNavigate();
+  const qc = useQueryClient();
+  const [email, setEmail] = useState<string | null>(null);
+  const [senha, setSenha] = useState('');
+  const [repetir, setRepetir] = useState('');
+  const [erro, setErro] = useState('');
+  const [invalido, setInvalido] = useState('');
+  useEffect(() => {
+    api<{ email: string }>('GET', `/auth/redefinir/${token}`).then((r) => setEmail(r.email), (e) => setInvalido(mensagemDe(e)));
+  }, [token]);
+
+  async function salvar(e: FormEvent) {
+    e.preventDefault();
+    setErro('');
+    if (senha.length < 10) return setErro('A senha precisa de pelo menos 10 caracteres.');
+    if (senha !== repetir) return setErro('As duas senhas não são iguais.');
+    try {
+      await api<{ etapa: EtapaSessao }>('POST', `/auth/redefinir/${token}`, { senha });
+      await qc.invalidateQueries({ queryKey: chaves.eu });
+      navegar('/entrar/2fa', { state: { email } });
+    } catch (x) {
+      setErro(mensagemDe(x));
+    }
+  }
+
+  return (
+    <div className="dividida">
+      <div className="dividida__form">
+        <Logo altura={32} para="/" />
+        {invalido ? (
+          <div className="formulario" style={{ maxWidth: 380 }}>
+            <h1 style={{ fontSize: 32, lineHeight: '38px', letterSpacing: '-.02em' }}>Link vencido</h1>
+            <p className="texto-suave">{invalido}</p>
+            <Link to="/esqueci-senha" className="tr-btn tr-btn--primario tr-btn--bloco">
+              Pedir outro link
+            </Link>
+          </div>
+        ) : !email ? (
+          <Carregando />
+        ) : (
+          <form className="formulario" style={{ maxWidth: 380 }} onSubmit={salvar}>
+            <div className="coluna">
+              <h1 style={{ fontSize: 32, lineHeight: '38px', letterSpacing: '-.02em' }}>Crie uma senha nova</h1>
+              <p className="texto-suave">Para {email}. Os aparelhos conectados saem da conta.</p>
+            </div>
+            <label className="tr-campo tr-campo--largo">
+              <span className="tr-campo__rotulo">Senha nova</span>
+              <input className="tr-campo__entrada" type="password" autoComplete="new-password" required minLength={10} autoFocus value={senha} onChange={(e) => setSenha(e.target.value)} />
+              <span className="tr-campo__dica">Pelo menos 10 caracteres.</span>
+            </label>
+            <label className="tr-campo tr-campo--largo">
+              <span className="tr-campo__rotulo">Repita a senha</span>
+              <input className="tr-campo__entrada" type="password" autoComplete="new-password" required value={repetir} onChange={(e) => setRepetir(e.target.value)} />
+            </label>
+            {erro && <AvisoErro erro={new Error(erro)} />}
+            <button type="submit" className="tr-btn tr-btn--primario tr-btn--bloco" style={{ height: 48 }}>
+              Salvar e entrar
+            </button>
+          </form>
+        )}
       </div>
       <ArteEntrar />
     </div>

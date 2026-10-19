@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import argon2 from 'argon2';
 import { Router, type NextFunction, type Request, type Response } from 'express';
-import { convitePorToken, hashToken, hmacBusca, iguais, naOrganizacao, novoCodigoSeisDigitos, novoToken, sessaoPorToken, usuarioParaLogin, type Tx } from '@trames/db';
-import { AceitarConviteEntrada, CodigoLoginEntrada, CriarContaEntrada, EntrarEntrada, TENTATIVAS_CODIGO, VALIDADE_CODIGO_MINUTOS, type EtapaSessao, type Eu, type PlanoId } from '@trames/shared';
+import { convitePorToken, hashToken, redefinicaoPorToken, hmacBusca, iguais, naOrganizacao, novoCodigoSeisDigitos, novoToken, sessaoPorToken, usuarioParaLogin, type Tx } from '@trames/db';
+import { AceitarConviteEntrada, CodigoLoginEntrada, CriarContaEntrada, EntrarEntrada, EsqueciSenhaEntrada, RedefinirSenhaEntrada, TENTATIVAS_CODIGO, VALIDADE_CODIGO_MINUTOS, type EtapaSessao, type Eu, type PlanoId } from '@trames/shared';
 import { config, emDesenvolvimento } from '../../infra/config';
 import { COOKIE_EMPRESA, definirCookie, limparCookie } from '../../infra/cookies';
 import { ErroHttp } from '../../infra/erros';
@@ -48,10 +48,19 @@ async function enviarCodigoLogin(organizacaoId: string, usuarioId: string, codig
   await enfileirar('enviar-mensagem', { organizacaoId, usuarioId, tipo: 'login', canal: 'email', selado: await selarConteudo(organizacaoId, { codigo }) });
 }
 
+/** "Chrome no macOS", para a lista de aparelhos conectados. Só o nome do navegador e do sistema, nada de IP. */
+export function nomeDoAparelho(ua: string | undefined) {
+  if (!ua) return 'Navegador desconhecido';
+  const navegador = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Navegador';
+  const sistema = /iPhone|iPad/.test(ua) ? 'iPhone' : /Android/.test(ua) ? 'Android' : /Mac OS X/.test(ua) ? 'macOS' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : '';
+  return sistema ? `${navegador} no ${sistema}` : navegador;
+}
+
 /** Abre uma sessão ainda sem o segundo fator e já gera o código do e-mail. */
 async function abrirSessao(tx: Tx, res: Response, organizacaoId: string, usuarioId: string) {
   const { token, hash } = novoToken();
-  const sessao = await tx.sessao.create({ data: { organizacaoId, usuarioId, tokenHash: hash, expiraEm: new Date(Date.now() + VALIDADE_SESSAO_MS) } });
+  const aparelho = nomeDoAparelho(res.req.get('user-agent'));
+  const sessao = await tx.sessao.create({ data: { organizacaoId, usuarioId, tokenHash: hash, aparelho, expiraEm: new Date(Date.now() + VALIDADE_SESSAO_MS) } });
   definirCookie(res, COOKIE_EMPRESA, token, VALIDADE_SESSAO_MS);
   return novoCodigoLogin(tx, sessao.id);
 }
@@ -93,7 +102,7 @@ async function exigirSessaoParcial(req: Request) {
 function eu(s: NonNullable<Awaited<ReturnType<typeof carregarSessao>>>): Eu {
   const { usuario: u, organizacao: o } = s;
   return {
-    usuario: { id: u.id, nome: u.nome, email: u.email, permissao: u.permissao },
+    usuario: { id: u.id, nome: u.nome, email: u.email, cargo: u.cargo, permissao: u.permissao },
     organizacao: { id: o.id, nome: o.nome, sigla: o.sigla, cor: o.cor, area: o.area, diasRetencao: o.diasRetencao },
     plano: s.plano,
     periodicidade: s.periodicidade,
@@ -244,6 +253,72 @@ rotasAuth.post(
       return abrirSessao(tx, res, c.organizacao_id, c.usuario_id);
     });
     await enviarCodigoLogin(c.organizacao_id, c.usuario_id, codigo);
+    res.json({ etapa: etapaDe(false) });
+  }),
+);
+
+/* ---------- Esqueci a senha ---------- */
+
+/** Toda troca de senha avisa a pessoa por e-mail, para ela perceber se não foi ela. */
+export async function avisarSenhaTrocada(organizacaoId: string, usuarioId: string) {
+  await enfileirar('enviar-mensagem', { organizacaoId, usuarioId, tipo: 'senha_trocada', canal: 'email', selado: await selarConteudo(organizacaoId, {}) });
+}
+
+const VALIDADE_REDEFINICAO_MS = 60 * 60 * 1000;
+
+/** Sempre responde igual, exista ou não o e-mail, para não revelar quem tem conta. */
+rotasAuth.post(
+  '/esqueci',
+  limites.reenviarCodigo,
+  rota(async (req, res) => {
+    const { email } = validar(EsqueciSenhaEntrada, req.body);
+    const u = await usuarioParaLogin(email);
+    let urlDev: string | undefined;
+    if (u?.senha_hash) {
+      const { token, hash } = novoToken();
+      const url = `${config.URL_WEB}/redefinir-senha/${token}`;
+      await naOrganizacao(u.organizacao_id, async (tx) => {
+        await tx.usuario.update({ where: { id: u.id }, data: { redefinicaoHash: hash, redefinicaoExpiraEm: new Date(Date.now() + VALIDADE_REDEFINICAO_MS) } });
+        await auditarComo(tx, u.organizacao_id, 'usuario', u.id, ipDe(req), { acao: 'senha.pediu_redefinicao', alvoTipo: 'usuario', alvoId: u.id });
+      });
+      await enfileirar('enviar-mensagem', { organizacaoId: u.organizacao_id, usuarioId: u.id, tipo: 'redefinir_senha', canal: 'email', selado: await selarConteudo(u.organizacao_id, { url }) });
+      if (emDesenvolvimento) urlDev = url;
+    }
+    res.status(202).json({ ok: true, urlDev });
+  }),
+);
+
+async function redefinicaoValida(token: string) {
+  const r = await redefinicaoPorToken(hashToken(token));
+  if (!r || !r.expira_em || r.expira_em < new Date()) throw new ErroHttp(404, 'Este link não vale mais. Peça outro na tela de entrar.');
+  return r;
+}
+
+rotasAuth.get(
+  '/redefinir/:token',
+  rota(async (req, res) => {
+    const r = await redefinicaoValida(req.params.token);
+    const email = await naOrganizacao(r.organizacao_id, async (tx) => (await tx.usuario.findUniqueOrThrow({ where: { id: r.usuario_id } })).email);
+    res.json({ email });
+  }),
+);
+
+/** Troca a senha, derruba todas as sessões abertas e já abre uma nova (falta só o código do e-mail). */
+rotasAuth.post(
+  '/redefinir/:token',
+  limites.login,
+  rota(async (req, res) => {
+    const { senha } = validar(RedefinirSenhaEntrada, req.body);
+    const r = await redefinicaoValida(req.params.token);
+    const senhaHash = await hashSenha(senha);
+    const codigo = await naOrganizacao(r.organizacao_id, async (tx) => {
+      await tx.usuario.update({ where: { id: r.usuario_id }, data: { senhaHash, redefinicaoHash: null, redefinicaoExpiraEm: null } });
+      await tx.sessao.deleteMany({ where: { usuarioId: r.usuario_id } });
+      await auditarComo(tx, r.organizacao_id, 'usuario', r.usuario_id, ipDe(req), { acao: 'senha.redefinida', alvoTipo: 'usuario', alvoId: r.usuario_id });
+      return abrirSessao(tx, res, r.organizacao_id, r.usuario_id);
+    });
+    await enviarCodigoLogin(r.organizacao_id, r.usuario_id, codigo);
+    await avisarSenhaTrocada(r.organizacao_id, r.usuario_id);
     res.json({ etapa: etapaDe(false) });
   }),
 );

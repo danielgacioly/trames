@@ -5,8 +5,10 @@ import { chaves, useAcao, useClientes, useSessao } from '../../dados/consultas';
 import { AvisoErro, Carregando, useToast } from '../../ui/comuns';
 import { Icone } from '../../ui/Icone';
 import { plural } from '../../util/formatos';
+import { useConfirmar } from '../../ui/Confirmar';
 
 export function Clientes() {
+  const confirmar = useConfirmar();
   const s = useSessao();
   const consulta = useClientes();
   const [busca, setBusca] = useState('');
@@ -79,7 +81,7 @@ export function Clientes() {
                         className="tr-btn tr-btn--discreto tr-btn--sm"
                         style={{ color: 'var(--recusado)' }}
                         onClick={async () => {
-                          if (!window.confirm(`Apagar ${c.nome}, todos os balcões e todos os arquivos? Não dá para desfazer.`)) return;
+                          if (!(await confirmar({ titulo: `Apagar ${c.nome}?`, texto: 'Saem todos os balcões e todos os arquivos deste cliente. Não dá para desfazer.', botao: 'Apagar tudo', perigo: true }))) return;
                           await excluir.mutateAsync(c.id);
                           avisar('Dados do cliente apagados. Os arquivos saem do storage em instantes.');
                         }}

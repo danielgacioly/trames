@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { AVISO_BALCOES_NO_MES, type UsoDto } from '@trames/shared';
 import { useCobranca, useSessao } from '../dados/consultas';
 import { useNotificar, type Notificacao } from '../ui/Notificacoes';
-import { moeda, plural } from '../util/formatos';
+import { plural } from '../util/formatos';
 
 type Plano = ReturnType<typeof useSessao>['plano'];
 
@@ -17,8 +17,8 @@ export function avisosDeUso(plano: Plano, uso: UsoDto): (Notificacao & { chave: 
   }
   if (plano.balcoesNoMes !== null) {
     if (uso.excedentes > 0)
-      lista.push({ chave: `excedentes-${uso.excedentes >= 50 ? 50 : uso.excedentes >= 10 ? 10 : 1}`, titulo: `${plural(uso.excedentes, 'balcão excedente', 'balcões excedentes')} neste mês`, texto: `${moeda(uso.valorExcedentesCentavos)} entram na próxima fatura.` });
-    else if (uso.balcoesNoMes >= AVISO_BALCOES_NO_MES) lista.push({ chave: 'mes-quase', titulo: `${uso.balcoesNoMes} de ${plano.balcoesNoMes} balcões do mês`, texto: 'Depois do limite, cada balcão novo custa R$ 1,00, sem bloqueio.' });
+      lista.push({ chave: `excedentes-${uso.excedentes >= 50 ? 50 : uso.excedentes >= 10 ? 10 : 1}`, titulo: `${plural(uso.excedentes, 'balcão adicional', 'balcões adicionais')} neste mês`, texto: `Você passou dos ${plano.balcoesNoMes} balcões incluídos no plano. O detalhe fica em Plano e uso.` });
+    else if (uso.balcoesNoMes >= AVISO_BALCOES_NO_MES) lista.push({ chave: 'mes-quase', titulo: `${uso.balcoesNoMes} de ${plano.balcoesNoMes} balcões do mês`, texto: 'Você continua criando normalmente depois do limite. Os adicionais aparecem em Plano e uso.' });
   }
   if (plano.cotaWhatsapp > 0) {
     if (uso.whatsappEnviados >= plano.cotaWhatsapp) lista.push({ chave: 'whatsapp-fim', titulo: 'A cota de WhatsApp do mês acabou', texto: 'Até o mês virar, códigos e lembretes vão por e-mail.' });
@@ -38,7 +38,7 @@ function jaMostrado(chave: string) {
   return false;
 }
 
-/** Avisos de uso só como pop-up, uma vez por sessão, para quem administra. O detalhe fica em Minha conta. */
+/** Avisos de uso só como pop-up, uma vez por sessão, para quem administra. O detalhe fica em Plano e uso. */
 export function AvisosDeUso() {
   const s = useSessao();
   const admin = s.usuario.permissao === 'admin';
@@ -48,7 +48,7 @@ export function AvisosDeUso() {
   useEffect(() => {
     if (!uso) return;
     for (const { chave, ...n } of avisosDeUso(s.plano, uso)) {
-      if (!jaMostrado(`trames.aviso.${s.organizacao.id}.${uso.mes}.${chave}`)) notificar({ ...n, acao: { rotulo: 'Ver em Minha conta', para: '/app/conta' } });
+      if (!jaMostrado(`trames.aviso.${s.organizacao.id}.${uso.mes}.${chave}`)) notificar({ ...n, acao: { rotulo: 'Ver plano e uso', para: '/app/configuracoes/plano' } });
     }
   }, [uso, s.plano, s.organizacao.id, notificar]);
 

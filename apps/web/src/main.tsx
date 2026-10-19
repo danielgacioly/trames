@@ -7,7 +7,12 @@ import '@trames/shared/estilos/componentes.css';
 import { App } from './app/App';
 import { LimiteErro } from './app/LimiteErro';
 import './estilos/app.css';
+import { ProvedorConfirmacao } from './ui/Confirmar';
 import { ProvedorNotificacoes } from './ui/Notificacoes';
+import { aplicarTema } from './ui/tema';
+
+// Antes de desenhar, para o painel não piscar claro quando o tema é escuro.
+if (location.pathname.startsWith('/app')) aplicarTema();
 
 const consultas = new QueryClient({ defaultOptions: { queries: { refetchOnWindowFocus: true, staleTime: 10_000 } } });
 
@@ -16,9 +21,11 @@ createRoot(document.getElementById('raiz')!).render(
     <QueryClientProvider client={consultas}>
       <BrowserRouter>
         <ProvedorNotificacoes>
+          <ProvedorConfirmacao>
           <LimiteErro>
             <App />
           </LimiteErro>
+          </ProvedorConfirmacao>
         </ProvedorNotificacoes>
       </BrowserRouter>
     </QueryClientProvider>

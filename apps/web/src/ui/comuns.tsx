@@ -5,7 +5,14 @@ import { Icone, type NomeIcone } from './Icone';
 
 /** Logo oficial (lockup). A altura segue a das versões antigas, que mediam pela letra. */
 export function Logo({ altura = 32, para }: { altura?: number; para?: string }) {
-  const img = <img className="tr-logo-img" src="/marca/trames-lockup.svg" alt="trames" style={{ height: Math.round(altura * 1.2) }} />;
+  const h = Math.round(altura * 1.2);
+  // Versão clara para o tema escuro; o CSS mostra uma ou outra.
+  const img = (
+    <>
+      <img className="tr-logo-img tr-logo-img--claro" src="/marca/trames-lockup.svg" alt="trames" style={{ height: h }} />
+      <img className="tr-logo-img tr-logo-img--escuro" src="/marca/trames-lockup-claro.svg" alt="" aria-hidden="true" style={{ height: h }} />
+    </>
+  );
   return para ? (
     <Link to={para} className="tr-logo" aria-label="trames">
       {img}

@@ -1,47 +1,9 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { ORDEM_PLANOS, PLANOS } from '@trames/shared';
-import { api } from '../../dados/api';
 import { useEu } from '../../dados/consultas';
-import { AvisoErro, Logo } from '../../ui/comuns';
+import { CabecalhoSite, RodapeSite } from './Site';
 import { Icone } from '../../ui/Icone';
-
-function CabecalhoSite() {
-  const sessao = useEu().data?.etapa === 'completa';
-  return (
-    <header style={{ maxWidth: 1200, margin: '0 auto', padding: '20px 24px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-      <Logo altura={34} para="/" />
-      <nav style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 28, fontSize: 15 }}>
-        <a href="/#como-funciona" style={{ color: 'var(--tinta)', textDecoration: 'none' }}>
-          Como funciona
-        </a>
-        <a href="/#para-quem" style={{ color: 'var(--tinta)', textDecoration: 'none' }}>
-          Para quem é
-        </a>
-        <Link to="/planos" style={{ color: 'var(--mangue)', textDecoration: 'none', fontWeight: 500 }} aria-current="page">
-          Planos
-        </Link>
-      </nav>
-      <div className="linha">
-        {sessao ? (
-          <Link to="/app" className="tr-btn tr-btn--primario">
-            Voltar para a conta
-          </Link>
-        ) : (
-          <>
-            <Link to="/entrar" className="tr-btn tr-btn--discreto">
-              Entrar
-            </Link>
-            <Link to="/criar-conta" className="tr-btn tr-btn--primario">
-              Criar conta grátis
-            </Link>
-          </>
-        )}
-      </div>
-    </header>
-  );
-}
 
 const COMPARACAO: { rotulo: string; valores: [string, string, string] }[] = [
   { rotulo: 'Balcões', valores: ['3 ativos', '40 ativos', '200 novos por mês; depois, R$ 1,00 cada'] },
@@ -59,30 +21,20 @@ const COMPARACAO: { rotulo: string; valores: [string, string, string] }[] = [
 export function Planos() {
   const eu = useEu().data;
   const sessao = eu?.etapa === 'completa' ? eu : null;
-  const qc = useQueryClient();
   const navegar = useNavigate();
   const atual = sessao?.plano;
-  const [erro, setErro] = useState<unknown>(null);
   const [anual, setAnual] = useState(sessao?.periodicidade === 'anual');
   const periodicidade = (id: string) => (anual && id !== 'gratis' ? 'anual' : 'mensal');
 
-  async function escolher(id: (typeof ORDEM_PLANOS)[number]) {
-    if (!sessao) return navegar('/criar-conta');
-    const p = PLANOS[id];
-    const per = periodicidade(id);
-    if (!window.confirm(`Mudar a conta ${sessao.organizacao.nome} para o plano ${p.nome} ${per === 'anual' ? 'anual' : 'mensal'}? (Em desenvolvimento a troca é simulada, sem cobrança.)`)) return;
-    try {
-      await api('POST', '/cobranca/plano', { plano: id, periodicidade: per });
-      await qc.invalidateQueries();
-      navegar('/app');
-    } catch (e) {
-      setErro(e);
-    }
+  /** Com conta, a troca acontece em Configurações › Plano e uso; sem conta, começa pelo cadastro. */
+  function escolher(id: (typeof ORDEM_PLANOS)[number]) {
+    if (!sessao) return navegar('/criar-conta', { state: { plano: id } });
+    navegar('/app/configuracoes/plano');
   }
 
   return (
     <div>
-      <CabecalhoSite />
+      <CabecalhoSite atual="planos" />
       <section style={{ maxWidth: 1200, margin: '0 auto', padding: '72px 24px 48px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 20 }}>
         <h1 style={{ fontSize: 'clamp(40px, 5vw, 60px)', lineHeight: 1.05, letterSpacing: '-.03em' }}>Planos</h1>
         <p style={{ maxWidth: 640, fontSize: 20, lineHeight: '30px' }} className="texto-suave">
@@ -104,11 +56,6 @@ export function Planos() {
         </div>
       </section>
 
-      {!!erro && (
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
-          <AvisoErro erro={erro} />
-        </div>
-      )}
       <section style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 24px 64px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: 24 }}>
         {ORDEM_PLANOS.map((id) => {
           const p = PLANOS[id];
@@ -222,17 +169,7 @@ export function Planos() {
         ))}
       </section>
 
-      <footer style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px 56px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 24, fontSize: 14, borderTop: '1px solid var(--linha)' }} className="texto-suave">
-        <div className="linha" style={{ gap: 16 }}>
-          <Logo altura={26} />
-          <span>Feito no Recife</span>
-        </div>
-        <nav className="linha" style={{ gap: 24 }}>
-          <a href="#" style={{ color: 'var(--tinta-suave)' }}>Termos</a>
-          <a href="#" style={{ color: 'var(--tinta-suave)' }}>Privacidade</a>
-          <a href="#" style={{ color: 'var(--tinta-suave)' }}>Contato</a>
-        </nav>
-      </footer>
+      <RodapeSite />
     </div>
   );
 }

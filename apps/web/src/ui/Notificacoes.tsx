@@ -4,7 +4,7 @@ import { Icone } from './Icone';
 
 /*
  * Avisos que aparecem no canto da tela e somem sozinhos (uso do plano, cota de
- * WhatsApp, excedente). O detalhe fica sempre em Minha conta.
+ * WhatsApp, excedente). O detalhe fica sempre em Configurações › Plano e uso.
  */
 export interface Notificacao {
   titulo: string;

@@ -6,7 +6,8 @@ import { chaves as chavesConsulta, useAcao, useBalcao } from '../../dados/consul
 import { AvisoErro, Carregando, Status } from '../../ui/comuns';
 import { Icone } from '../../ui/Icone';
 import { primeiroNome } from '../../util/formatos';
-import { comChave, ListaDocumentos, novaChave, novoItem, PuxarModelo, type Item } from './ListaDocumentos';
+import { comChave, ListaDocumentos, novaChave, PuxarModelo, type Item } from './ListaDocumentos';
+import { useConfirmar } from '../../ui/Confirmar';
 
 const itensDoBalcao = (b: BalcaoDetalhe): Item[] =>
   b.itens.map((i) => ({ chave: novaChave(), id: i.id, nome: i.nome, detalhe: i.detalhe, obrigatorio: i.obrigatorio, status: i.status, temArquivo: !!i.documento || i.historico.length > 0 }));
@@ -21,6 +22,7 @@ export function EditarLista() {
 }
 
 function EditorLista({ b }: { b: BalcaoDetalhe }) {
+  const confirmar = useConfirmar();
   const navegar = useNavigate();
   const [original] = useState(() => itensDoBalcao(b));
   const [itens, setItens] = useState<Item[]>(original);
@@ -45,9 +47,9 @@ function EditorLista({ b }: { b: BalcaoDetalhe }) {
     );
   }
 
-  function remover(d: Item) {
+  async function remover(d: Item) {
     if (itens.length <= 1) return setErro(new Error('O balcão precisa de pelo menos um documento.'));
-    if (d.id && d.temArquivo && !window.confirm(`"${d.nome}" já tem arquivo enviado. Tirar da lista? O arquivo sai da lista de ${nome}, mas fica guardado até a retenção do balcão.`)) return;
+    if (d.id && d.temArquivo && !(await confirmar({ titulo: `Tirar "${d.nome}" da lista?`, texto: `Já tem arquivo enviado. Ele sai da lista de ${nome}, mas fica guardado até a retenção do balcão.`, botao: 'Tirar da lista' }))) return;
     setItens(itens.filter((x) => x.chave !== d.chave));
     if (d.id) setRemovidos([...removidos, d]);
   }
@@ -132,10 +134,6 @@ function EditorLista({ b }: { b: BalcaoDetalhe }) {
           }
         />
         <div className="linha">
-          <button type="button" className="tr-btn tr-btn--secundario" onClick={() => setItens([...itens, novoItem()])}>
-            <Icone nome="mais" />
-            Adicionar documento
-          </button>
           <PuxarModelo adicionar={(novos) => setItens([...itens, ...comChave(novos.filter((n) => !itens.some((i) => i.nome === n.nome)))])} />
         </div>
       </section>

@@ -74,6 +74,11 @@ export async function convitePorToken(tokenHash: string) {
   return r[0] ?? null;
 }
 
+export async function redefinicaoPorToken(tokenHash: string) {
+  const r = await prisma.$queryRaw<{ usuario_id: string; organizacao_id: string; expira_em: Date | null }[]>`SELECT * FROM auth_redefinicao(${tokenHash})`;
+  return r[0] ?? null;
+}
+
 export async function linkPorToken(tokenHash: string) {
   const r = await prisma.$queryRaw<{ id: string; organizacao_id: string; balcao_id: string; expira_em: Date; revogado_em: Date | null }[]>`
     SELECT * FROM acesso_link(${tokenHash})`;

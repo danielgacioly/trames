@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { acompanharSistema, aplicarTema, limparTema } from '../ui/tema';
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PLANOS, type Recurso } from '@trames/shared';
 import { api, ErroDaApi } from '../dados/api';
@@ -17,7 +18,7 @@ const NAV: { para: string; rotulo: string; icone: NomeIcone; recurso?: Recurso; 
   { para: '/app/clientes', rotulo: 'Clientes', icone: 'clientes' },
   { para: '/app/relatorio', rotulo: 'Relatório', icone: 'relatorio', recurso: 'relatorio' },
   { para: '/app/equipe', rotulo: 'Equipe', icone: 'equipe' },
-  { para: '/app/conta', rotulo: 'Minha conta', icone: 'ajustes' },
+  { para: '/app/configuracoes', rotulo: 'Configurações', icone: 'ajustes' },
 ];
 
 export function LayoutApp() {
@@ -26,6 +27,15 @@ export function LayoutApp() {
   const navegar = useNavigate();
   const local = useLocation();
   const [menu, setMenu] = useState(false);
+  // O tema escolhido vale só dentro do painel; o site e as telas de entrada ficam claros.
+  useEffect(() => {
+    aplicarTema();
+    const parar = acompanharSistema();
+    return () => {
+      parar();
+      limparTema();
+    };
+  }, []);
   useEffect(() => {
     setMenu(false);
   }, [local.pathname]);
@@ -73,7 +83,9 @@ export function LayoutApp() {
         </nav>
         <div className="lateral__rodape">
           <div className="pessoa">
-            <span className="avatar">{iniciais(usuario.nome)}</span>
+            <NavLink to="/app/configuracoes/perfil" className="avatar" title="Meu perfil" style={{ textDecoration: 'none' }}>
+              {iniciais(usuario.nome)}
+            </NavLink>
             <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
               <span className="pequeno" style={{ fontWeight: 500 }}>
                 {usuario.nome}

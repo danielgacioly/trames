@@ -9,11 +9,13 @@ import { iniciais, plural } from '../../util/formatos';
 import { ListaBalcoes } from './ListaBalcoes';
 import { acharPasta, busca, ordenar } from './pastas';
 import { FormularioPasta } from './PastasUi';
+import { useConfirmar } from '../../ui/Confirmar';
 
 const GRUPOS: Record<string, string> = { situacao: 'Situação', minhas: 'Minhas pastas', tipo: 'Tipo de caso', pessoa: 'Pessoa' };
 
 /** Uma pasta: os balcões dela, com busca, e os encerrados à parte. */
 export function PastaPagina() {
+  const confirmar = useConfirmar();
   const { grupo = '', valor = '' } = useParams();
   const s = useSessao();
   const navegar = useNavigate();
@@ -50,7 +52,7 @@ export function PastaPagina() {
   const paraConferir = abertos.filter((b) => !b.concluidoEm && b.contagem.analise > 0).length;
 
   async function apagarPasta() {
-    if (!daConta || !window.confirm(`Apagar a pasta "${daConta.nome}"? Os balcões continuam existindo, só saem da pasta.`)) return;
+    if (!daConta || !(await confirmar({ titulo: `Apagar a pasta "${daConta.nome}"?`, texto: 'Os balcões continuam existindo, só saem da pasta.', botao: 'Apagar pasta', perigo: true }))) return;
     await apagar.mutateAsync(daConta.id);
     notificar({ titulo: 'Pasta apagada', texto: 'Os balcões dela continuam em Início, nas outras pastas.' });
     navegar('/app');

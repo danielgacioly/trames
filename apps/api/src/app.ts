@@ -8,6 +8,7 @@ import { exigirEmpresa, rotasAuth } from './modulos/auth/auth';
 import { rotasBalcoes, rotasItens, rotasRelatorio } from './modulos/balcoes/balcoes';
 import { rotasClientes } from './modulos/clientes/clientes';
 import { rotasCobranca } from './modulos/cobranca/cobranca';
+import { rotasConta } from './modulos/conta/conta';
 import { rotasAuditoria, rotasDocumentos } from './modulos/documentos/documentos';
 import { rotasModelos } from './modulos/modelos/modelos';
 import { rotasOrganizacao } from './modulos/organizacoes/organizacoes';
@@ -48,6 +49,7 @@ export function criarApp() {
   api.use('/auditoria', exigirEmpresa, rotasAuditoria);
   api.use('/modelos', exigirEmpresa, rotasModelos);
   api.use('/pastas', exigirEmpresa, rotasPastas);
+  api.use('/conta', exigirEmpresa, rotasConta);
   api.use('/clientes', exigirEmpresa, rotasClientes);
   api.use('/organizacao', exigirEmpresa, rotasOrganizacao);
   api.use('/cobranca', exigirEmpresa, rotasCobranca);

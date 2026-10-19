@@ -53,6 +53,32 @@ export async function enviarMensagem(p: PayloadFila['enviar-mensagem']) {
       });
     }
 
+    if (p.tipo === 'redefinir_senha') {
+      const u = await tx.usuario.findUnique({ where: { id: p.usuarioId! } });
+      if (!u) return;
+      return enviar(tx, {
+        organizacaoId: org.id,
+        usuarioId: u.id,
+        canal: 'email',
+        destino: u.email,
+        assunto: 'Crie uma senha nova na Trames',
+        texto: `Olá, ${u.nome.split(' ')[0]}. Recebemos um pedido para trocar a senha da sua conta na Trames. Para criar uma senha nova, abra este link (vale 1 hora): ${conteudo.url}\n\nSe não foi você, ignore este e-mail: a sua senha continua a mesma.`,
+      });
+    }
+
+    if (p.tipo === 'senha_trocada') {
+      const u = await tx.usuario.findUnique({ where: { id: p.usuarioId! } });
+      if (!u) return;
+      return enviar(tx, {
+        organizacaoId: org.id,
+        usuarioId: u.id,
+        canal: 'email',
+        destino: u.email,
+        assunto: 'A sua senha da Trames foi trocada',
+        texto: `Olá, ${u.nome.split(' ')[0]}. A senha da sua conta na Trames acabou de ser trocada e os outros aparelhos foram desconectados. Se não foi você, use "Esqueci a senha" na tela de entrar e avise quem administra a conta ${org.nome}.`,
+      });
+    }
+
     if (p.tipo === 'convite') {
       const u = await tx.usuario.findUnique({ where: { id: p.usuarioId! } });
       if (!u) return;

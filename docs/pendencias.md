@@ -51,15 +51,15 @@ Ficam como estavam (confirme se concordar):
 
 - [ ] Contrato de operador com cada assinante, com a lista de suboperadores: AWS, Meta e o provedor de pagamento.
 - [ ] Nomear o encarregado (DPO).
-- [ ] Política de privacidade e termos de uso (os links do site ainda apontam para `#`). Precisam citar a retenção por plano e a sessão de 30 dias no aparelho do cliente.
+- [ ] Revisão jurídica dos Termos de uso e da Política de privacidade (`/termos` e `/privacidade`, texto em `apps/web/src/funcionalidades/publico/Documentos.tsx`). Falta citar a sessão de 30 dias no aparelho do cliente.
+- [ ] Criar as caixas `contato@trames.app` e `privacidade@trames.app`, citadas em Contato, Termos e Privacidade.
+- [ ] Os Termos prometem que, ao cancelar, a conta volta ao Grátis no fim do período pago. Isso precisa existir na cobrança de verdade.
 - [ ] Registro das operações de tratamento e relatório de impacto (RIPD).
 
 ## Funcionalidades que faltam
 
 - [ ] **Miniatura de HEIC.** O sharp pré-compilado não abre HEIC (codec HEVC). Hoje o HEIC chega e é conferido baixando o original. Também não há miniatura de PDF protegido por senha.
-- [ ] "Esqueci a senha". Quem controla o e-mail da pessoa tem os dois fatores; a troca de senha deve pedir o código e avisar por e-mail.
 - [ ] Exportação do titular com os arquivos (o ZIP do balcão já existe; falta um ZIP por cliente, na tela Clientes).
 - [ ] Avisar o cliente quando um documento é recusado. Hoje ele só vê ao abrir o link (o lembrete seguinte também conta).
-- [ ] "Sair de todos os aparelhos" e lista de sessões ativas para a equipe do escritório.
 - [ ] CI (GitHub Actions) com Postgres, para rodar os testes e o typecheck a cada PR.
 - [ ] Teste de ponta a ponta no repositório. Rodei com Playwright durante o desenvolvimento, mas não versionei.

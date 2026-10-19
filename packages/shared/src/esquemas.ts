@@ -127,6 +127,20 @@ export const ConviteEntrada = z.object({ nome: texto(120).min(2), email: Email, 
 export const PermissaoEntrada = z.object({ permissao: Permissao });
 export const AceitarConviteEntrada = z.object({ senha: Senha });
 
+/** Perfil da pessoa: o nome aparece para a equipe e no histórico; o cargo é opcional. */
+export const PerfilEntrada = z.object({ nome: texto(120).min(2, 'Escreva o seu nome.'), cargo: texto(80).default('') });
+export const TrocarSenhaEntrada = z.object({ atual: z.string().min(1).max(200), nova: Senha });
+export const EsqueciSenhaEntrada = z.object({ email: Email });
+export const RedefinirSenhaEntrada = z.object({ senha: Senha });
+
+/** Um aparelho (sessão) conectado à conta da pessoa. */
+export interface AparelhoDto {
+  id: string;
+  aparelho: string;
+  criadaEm: string;
+  atual: boolean;
+}
+
 export const MudarPlanoEntrada = z.object({ plano: PlanoId, periodicidade: z.enum(['mensal', 'anual']).default('mensal') });
 
 /** O canal do código é o que o escritório escolheu para o balcão; o cliente não escolhe. */
@@ -142,7 +156,7 @@ export const IniciarUploadEntrada = z.object({
 /* ---------- Respostas ---------- */
 
 export interface Eu {
-  usuario: { id: string; nome: string; email: string; permissao: Permissao };
+  usuario: { id: string; nome: string; email: string; cargo: string | null; permissao: Permissao };
   organizacao: { id: string; nome: string; sigla: string; cor: string; area: AreaId; diasRetencao: number };
   plano: PlanoId;
   periodicidade: 'mensal' | 'anual';

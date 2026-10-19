@@ -6,6 +6,7 @@ import { chaves, useAcao, useEquipe, useSessao } from '../../dados/consultas';
 import { AvisoErro, Bloqueio, Carregando, useToast } from '../../ui/comuns';
 import { Icone } from '../../ui/Icone';
 import { iniciais, plural } from '../../util/formatos';
+import { useConfirmar } from '../../ui/Confirmar';
 
 const PERMISSOES: Record<Permissao, { nome: string; texto: string }> = {
   admin: { nome: 'Administra', texto: 'Tudo, inclusive plano e equipe' },
@@ -14,6 +15,7 @@ const PERMISSOES: Record<Permissao, { nome: string; texto: string }> = {
 };
 
 export function Equipe() {
+  const confirmar = useConfirmar();
   const s = useSessao();
   const consulta = useEquipe();
   const limite = s.plano.limitePessoas;
@@ -90,7 +92,7 @@ export function Equipe() {
                 </td>
                 <td style={{ textAlign: 'right' }}>
                   {p.id !== s.usuario.id && souAdmin && (
-                    <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" style={{ color: 'var(--recusado)' }} onClick={() => window.confirm(`Tirar ${p.nome} da conta?`) && remover.mutate(p.id)}>
+                    <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" style={{ color: 'var(--recusado)' }} onClick={async () => (await confirmar({ titulo: `Tirar ${p.nome} da conta?`, texto: 'A pessoa sai na hora de todos os aparelhos. O que ela fez continua no histórico.', botao: 'Remover', perigo: true })) && remover.mutate(p.id)}>
                       Remover
                     </button>
                   )}
