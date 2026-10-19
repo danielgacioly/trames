@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { ItemEntrada as ItemModelo, TuruResposta } from '@trames/shared';
 import { api } from '../dados/api';
 import { chaves, useAcao, useSessao } from '../dados/consultas';
-import { AvisoErro, Bloqueio, useToast } from '../componentes/comuns';
+import { AvisoErro, useToast } from '../componentes/comuns';
 import { Icone } from '../componentes/Icone';
 import { primeiroNome } from '../util';
 
@@ -32,15 +32,6 @@ export function Turu() {
   useEffect(() => {
     fim.current?.scrollIntoView({ block: 'nearest' });
   }, [mensagens, pensando]);
-
-  if (!sessao.tem('turu')) {
-    return (
-      <>
-        <h1 className="titulo-1">Turu</h1>
-        <Bloqueio recurso="turu" />
-      </>
-    );
-  }
 
   async function enviar(e: FormEvent) {
     e.preventDefault();

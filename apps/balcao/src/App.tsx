@@ -108,7 +108,7 @@ const dataLonga = (iso: string) => `${Number(iso.slice(8, 10))} de ${MESES[Numbe
 
 /* ---------- Acesso: link + código ---------- */
 
-function Acesso({ token, entrou }: { token: string; entrou: () => void }) {
+function Acesso({ entrou }: { entrou: () => void }) {
   const [info, setInfo] = useState<AcessoInfo | null>(null);
   const [erro, setErro] = useState('');
   const [canal, setCanal] = useState<'whatsapp' | 'email' | null>(null);
@@ -116,14 +116,15 @@ function Acesso({ token, entrou }: { token: string; entrou: () => void }) {
   const campos = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    api<AcessoInfo>('GET', '/acesso', undefined, token).then(setInfo, (e) => setErro(e.message));
-  }, [token]);
+    api<AcessoInfo>('GET', '/acesso').then(setInfo, (e) => setErro(e.message));
+  }, []);
 
-  async function pedir(c: 'whatsapp' | 'email') {
+  /** O canal é o que o escritório escolheu para o balcão; a API diz por onde foi. */
+  async function pedir() {
     setErro('');
     try {
-      await api('POST', '/acesso/codigo', { canal: c }, token);
-      setCanal(c);
+      const r = await api<{ canal: 'whatsapp' | 'email' }>('POST', '/acesso/codigo', {});
+      setCanal(r.canal);
       setTimeout(() => campos.current[0]?.focus(), 50);
     } catch (e) {
       setErro((e as Error).message);
@@ -148,7 +149,7 @@ function Acesso({ token, entrou }: { token: string; entrou: () => void }) {
     e.preventDefault();
     setErro('');
     try {
-      await api('POST', '/acesso/entrar', { codigo: digitos.join('') }, token);
+      await api('POST', '/acesso/entrar', { codigo: digitos.join('') });
       entrou();
     } catch (x) {
       setErro((x as Error).message);
@@ -174,7 +175,9 @@ function Acesso({ token, entrou }: { token: string; entrou: () => void }) {
       {erro && <Erro texto={erro} />}
       {canal ? (
         <form onSubmit={entrar} className="coluna" style={{ gap: 12 }}>
-          <p style={{ fontSize: 15, lineHeight: '22px' }}>{canal === 'whatsapp' ? `Enviamos um código de 6 números para o seu WhatsApp terminado em ${info.whatsappFinal}.` : 'Enviamos um código de 6 números para o seu e-mail.'}</p>
+          <p style={{ fontSize: 15, lineHeight: '22px' }}>
+            {canal === 'whatsapp' ? `Enviamos um código de 6 números para o seu WhatsApp terminado em ${info.whatsappFinal}.` : `Enviamos um código de 6 números para o seu e-mail ${info.emailMascarado}.`}
+          </p>
           <div style={{ display: 'flex', gap: 8 }} role="group" aria-label="Código de acesso">
             {digitos.map((d, k) => (
               <input
@@ -194,24 +197,17 @@ function Acesso({ token, entrou }: { token: string; entrou: () => void }) {
           </div>
           <p className="pequeno texto-suave">
             Não chegou?{' '}
-            <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" style={{ padding: 0, height: 'auto' }} onClick={() => pedir(canal)}>
+            <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" style={{ padding: 0, height: 'auto' }} onClick={pedir}>
               Enviar de novo
             </button>
-            {info.temEmail && canal === 'whatsapp' && (
-              <>
-                {' '}ou{' '}
-                <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" style={{ padding: 0, height: 'auto' }} onClick={() => pedir('email')}>
-                  receber por e-mail
-                </button>
-              </>
-            )}
+            {canal === 'email' && ' Confira também a caixa de spam.'}
           </p>
           {import.meta.env.DEV && (
             <button
               type="button"
               className="tr-btn tr-btn--discreto tr-btn--sm"
               style={{ alignSelf: 'flex-start', paddingLeft: 0 }}
-              onClick={() => api<{ codigo: string | null }>('GET', '/acesso/dev-codigo', undefined, token).then((r) => r.codigo && setDigitos(r.codigo.split('')))}
+              onClick={() => api<{ codigo: string | null }>('GET', '/acesso/dev-codigo').then((r) => r.codigo && setDigitos(r.codigo.split('')))}
             >
               Desenvolvimento: preencher o código da caixa de saída
             </button>
@@ -222,17 +218,38 @@ function Acesso({ token, entrou }: { token: string; entrou: () => void }) {
         </form>
       ) : (
         <div className="coluna" style={{ gap: 10 }}>
-          <button type="button" className="tr-btn tr-btn--primario tr-btn--bloco" style={{ height: 52, fontSize: 16 }} onClick={() => pedir('whatsapp')}>
-            Receber código no WhatsApp
+          <button type="button" className="tr-btn tr-btn--primario tr-btn--bloco" style={{ height: 52, fontSize: 16 }} onClick={pedir}>
+            {info.canal === 'whatsapp' ? `Receber o código no WhatsApp final ${info.whatsappFinal}` : `Receber o código no e-mail ${info.emailMascarado}`}
           </button>
-          {info.temEmail && (
-            <button type="button" className="tr-btn tr-btn--secundario tr-btn--bloco" style={{ height: 52, fontSize: 16 }} onClick={() => pedir('email')}>
-              Receber por e-mail
-            </button>
-          )}
+          <p className="pequeno texto-suave" style={{ textAlign: 'center' }}>
+            Depois do código, este celular fica conectado por 30 dias.
+          </p>
         </div>
       )}
     </Tela>
+  );
+}
+
+/** Miniatura do que o cliente enviou (o original não volta para o celular). */
+function VerEnviado({ item }: { item: ItemCliente }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [aberto, setAberto] = useState(false);
+  if (!item.temMiniatura) return null;
+  return (
+    <div className="coluna" style={{ gap: 8, width: '100%' }}>
+      <button
+        type="button"
+        className="tr-btn tr-btn--discreto tr-btn--sm"
+        style={{ alignSelf: 'flex-start', padding: 0, height: 'auto' }}
+        onClick={() => {
+          setAberto(!aberto);
+          if (!url) api<{ url: string }>('GET', `/cliente/itens/${item.id}/miniatura`).then((r) => setUrl(r.url), () => setAberto(false));
+        }}
+      >
+        {aberto ? 'Esconder o que enviei' : 'Ver o que enviei'}
+      </button>
+      {aberto && url && <img src={url} alt={`O que você enviou em ${item.nome}`} style={{ maxWidth: '100%', borderRadius: 8, boxShadow: 'var(--shadow-sm)', background: '#fff' }} />}
+    </div>
   );
 }
 
@@ -301,6 +318,7 @@ function Lista({ b, abrir, verResumo }: { b: BalcaoCliente; abrir: (i: ItemClien
               <span style={{ fontWeight: 500 }}>{d.nome}</span>
               {d.verificando && <span className="miudo texto-suave">Recebido. Estamos verificando o arquivo.</span>}
               {d.status === 'analise' && <span className="miudo texto-suave">Enviado. O escritório vai conferir.</span>}
+              <VerEnviado item={d} />
             </span>
             {d.verificando ? <Status status="analise" /> : <Status status={d.status} />}
           </li>
@@ -444,10 +462,10 @@ function Pronto({ b, voltar }: { b: BalcaoCliente; voltar: () => void }) {
 
 /* ---------- Controle das telas ---------- */
 
-type Etapa = { tela: 'carregando' } | { tela: 'acesso'; token: string } | { tela: 'lista' } | { tela: 'enviar'; item: ItemCliente } | { tela: 'pronto' } | { tela: 'erro'; texto: string };
+type Etapa = { tela: 'carregando' } | { tela: 'acesso' } | { tela: 'lista' } | { tela: 'enviar'; item: ItemCliente } | { tela: 'pronto' } | { tela: 'erro'; texto: string };
 
 export function App() {
-  const [{ token, novo }] = useState(tokenDoLink);
+  const [{ token }] = useState(tokenDoLink);
   const [etapa, setEtapa] = useState<Etapa>({ tela: 'carregando' });
   const [balcao, setBalcao] = useState<BalcaoCliente | null>(null);
 
@@ -458,7 +476,7 @@ export function App() {
       return b;
     } catch (e) {
       if (e instanceof ErroDaApi && e.status === 401) {
-        setEtapa(token ? { tela: 'acesso', token } : { tela: 'erro', texto: 'Abra o link que o escritório mandou para você.' });
+        setEtapa({ tela: 'acesso' });
         return null;
       }
       setEtapa({ tela: 'erro', texto: (e as Error).message });
@@ -467,10 +485,10 @@ export function App() {
   }, [token]);
 
   useEffect(() => {
-    // Link novo na URL: pede o código de novo, mesmo que haja uma sessão antiga nesta aba.
-    if (novo && token) setEtapa({ tela: 'acesso', token });
+    // Sem link, não há como saber o balcão. Com link, a sessão de 30 dias deste aparelho (se houver) já abre a lista.
+    if (!token) setEtapa({ tela: 'erro', texto: 'Abra o link que o escritório mandou para você.' });
     else carregar().then((b) => b && setEtapa({ tela: 'lista' }));
-  }, [novo, token, carregar]);
+  }, [token, carregar]);
 
   // Enquanto algum arquivo está no antivírus, atualiza a lista sozinho.
   useEffect(() => {
@@ -481,7 +499,7 @@ export function App() {
 
   if (etapa.tela === 'carregando') return <Tela>{<p className="texto-suave">Abrindo…</p>}</Tela>;
   if (etapa.tela === 'erro') return <Tela>{<Erro texto={etapa.texto} />}</Tela>;
-  if (etapa.tela === 'acesso') return <Acesso token={etapa.token} entrou={() => carregar().then((b) => b && setEtapa({ tela: 'lista' }))} />;
+  if (etapa.tela === 'acesso') return <Acesso entrou={() => carregar().then((b) => b && setEtapa({ tela: 'lista' }))} />;
   if (!balcao) return null;
   if (etapa.tela === 'enviar')
     return (

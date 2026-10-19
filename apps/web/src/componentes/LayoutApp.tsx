@@ -13,7 +13,8 @@ const NAV: { para: string; rotulo: string; icone: NomeIcone; recurso?: Recurso; 
   { para: '/app', rotulo: 'Balcões', icone: 'balcoes', fim: true },
   { para: '/app/modelos', rotulo: 'Modelos', icone: 'modelos' },
   { para: '/app/clientes', rotulo: 'Clientes', icone: 'clientes' },
-  { para: '/app/turu', rotulo: 'Turu', icone: 'turu', recurso: 'turu' },
+  // Turu fica fora do lançamento (docs/viabilidade.md); VITE_TURU=1 liga em desenvolvimento.
+  ...(import.meta.env.VITE_TURU === '1' ? [{ para: '/app/turu', rotulo: 'Turu', icone: 'turu' as const }] : []),
   { para: '/app/relatorio', rotulo: 'Relatório', icone: 'relatorio', recurso: 'relatorio' },
   { para: '/app/equipe', rotulo: 'Equipe', icone: 'equipe' },
   { para: '/app/conta', rotulo: 'Conta e marca', icone: 'ajustes' },
@@ -21,19 +22,32 @@ const NAV: { para: string; rotulo: string; icone: NomeIcone; recurso?: Recurso; 
 
 function Medidor() {
   const { plano } = useSessao();
-  const ativos = useCobranca().data?.balcoesAtivos ?? 0;
-  const limite = plano.limiteBalcoes;
-  const cheio = limite !== null && ativos >= limite;
+  const uso = useCobranca().data;
+  // Ultra: conta balcões novos do mês (excedente cobrado); os outros, balcões ativos.
+  const noMes = plano.balcoesNoMes;
+  const usados = noMes !== null ? (uso?.balcoesNoMes ?? 0) : (uso?.balcoesAtivos ?? 0);
+  const limite = noMes ?? plano.limiteBalcoes;
+  const cheio = limite !== null && usados >= limite;
+  const texto =
+    noMes !== null
+      ? uso?.excedentes
+        ? `balcões novos no mês · ${uso.excedentes} ${uso.excedentes === 1 ? 'excedente' : 'excedentes'}`
+        : 'balcões novos no mês'
+      : limite === null
+        ? 'Balcões ativos sem limite'
+        : cheio
+          ? 'Você chegou no limite de balcões'
+          : 'balcões ativos';
   return (
-    <div className={`medidor${cheio ? ' medidor--cheio' : ''}`}>
+    <div className={`medidor${cheio && noMes === null ? ' medidor--cheio' : ''}`}>
       <div className="linha linha--entre miudo">
         <span style={{ fontWeight: 500 }}>Plano {plano.nome}</span>
-        <span className="texto-suave">{limite === null ? `${ativos} abertos` : `${ativos} de ${limite}`}</span>
+        <span className="texto-suave">{limite === null ? `${usados} abertos` : `${usados} de ${limite}`}</span>
       </div>
       <div className="tr-progresso__trilho">
-        <div className="tr-progresso__barra" style={{ '--p': `${limite === null ? 100 : pct(ativos, limite)}%` } as React.CSSProperties} />
+        <div className="tr-progresso__barra" style={{ '--p': `${limite === null ? 100 : pct(Math.min(usados, limite), limite)}%` } as React.CSSProperties} />
       </div>
-      <span className="miudo texto-suave">{limite === null ? 'Balcões ativos sem limite' : cheio ? 'Você chegou no limite de balcões' : 'balcões ativos'}</span>
+      <span className="miudo texto-suave">{texto}</span>
       {plano.id !== 'ultra' && (
         <Link to="/planos" className="miudo" style={{ fontWeight: 500 }}>
           Ver planos

@@ -71,7 +71,8 @@ describe('segurança', () => {
 
   it('recursos fora do plano dão 402', async () => {
     const gratis = await entrar(0);
-    await gratis.post('/api/turu').set('origin', ORIGEM).send({ mensagens: [{ de: 'eu', texto: 'inventário' }], lista: null }).expect(402);
+    const balcao = ((await gratis.get('/api/balcoes').expect(200)).body as { id: string; concluidoEm: string | null }[]).find((x) => !x.concluidoEm)!;
+    await gratis.patch(`/api/balcoes/${balcao.id}`).set('origin', ORIGEM).send({ canalLembrete: 'whatsapp', lembrete: true }).expect(402);
     await gratis.get('/api/relatorio').expect(402);
     const pro = await entrar(1);
     await pro.get('/api/relatorio').expect(402);

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { PLANOS, type Permissao } from '@trames/shared';
+import { diasRetencao, PLANOS, type Permissao } from '@trames/shared';
 import { api } from '../dados/api';
 import { chaves, useAcao, useClientes, useCobranca, useEquipe, useRelatorio, useSessao } from '../dados/consultas';
 import { AvisoErro, Bloqueio, Carregando, SeloConta, Status, useToast } from '../componentes/comuns';
@@ -373,7 +373,7 @@ export function Conta() {
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
-    await salvar.mutateAsync({ ...f, sigla: f.sigla.toUpperCase().slice(0, 2) });
+    await salvar.mutateAsync({ ...f, sigla: f.sigla.toUpperCase().slice(0, 2), diasRetencao: diasRetencao(plano.id, f.diasRetencao) });
     avisar('Alterações salvas.');
   }
 
@@ -418,17 +418,26 @@ export function Conta() {
             ) : (
               <Bloqueio recurso="marca" compacto />
             )}
-            <label className="tr-campo" style={{ maxWidth: 260 }}>
-              <span className="tr-campo__rotulo">Apagar os arquivos depois de concluído o balcão</span>
-              <select className="tr-campo__entrada" value={f.diasRetencao} onChange={(e) => setF({ ...f, diasRetencao: Number(e.target.value) })}>
-                {[30, 90, 180, 365, 730, 1825].map((d) => (
-                  <option key={d} value={d}>
-                    {d < 365 ? `${d} dias` : `${d / 365} ${d === 365 ? 'ano' : 'anos'}`}
-                  </option>
-                ))}
-              </select>
-              <span className="tr-campo__dica">Os arquivos saem do storage; fica só o registro de que existiram.</span>
-            </label>
+            {plano.retencao.opcoes.length > 1 ? (
+              <label className="tr-campo" style={{ maxWidth: 300 }}>
+                <span className="tr-campo__rotulo">Apagar os arquivos depois de concluído o balcão</span>
+                <select className="tr-campo__entrada" value={diasRetencao(plano.id, f.diasRetencao)} onChange={(e) => setF({ ...f, diasRetencao: Number(e.target.value) })}>
+                  {plano.retencao.opcoes.map((d) => (
+                    <option key={d} value={d}>
+                      {d < 365 ? `${d} dias` : '12 meses'}
+                    </option>
+                  ))}
+                </select>
+                <span className="tr-campo__dica">Vale para os balcões concluídos daqui em diante. Os arquivos saem do storage; fica só o registro de que existiram. Uma semana antes, você recebe um e-mail.</span>
+              </label>
+            ) : (
+              <div className="coluna" style={{ gap: 4 }}>
+                <span className="tr-campo__rotulo">Retenção dos arquivos</span>
+                <span className="pequeno texto-suave">
+                  No plano {plano.nome}, os arquivos são apagados {plano.retencao.padrao} dias depois de concluído o balcão (com aviso por e-mail uma semana antes). No Ultra dá para escolher de 30 dias a 12 meses.
+                </span>
+              </div>
+            )}
           </fieldset>
           {admin && (
             <button type="submit" className="tr-btn tr-btn--primario" style={{ alignSelf: 'flex-start' }} disabled={salvar.isPending}>
@@ -443,11 +452,29 @@ export function Conta() {
           </span>
           <div className="linha linha--entre">
             <h2 style={{ fontSize: 28, lineHeight: '32px' }}>{plano.nome}</h2>
-            <span className="pequeno texto-suave">{plano.preco ? `R$ ${plano.preco} por mês` : 'R$ 0'}</span>
+            <span className="pequeno texto-suave">{!plano.preco ? 'R$ 0' : s.periodicidade === 'anual' ? `R$ ${plano.precoAnual?.toLocaleString('pt-BR')} por ano` : `R$ ${plano.preco} por mês`}</span>
           </div>
           {cobranca && (
             <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 15 }}>
-              <li>{plano.limiteBalcoes === null ? `${cobranca.balcoesAtivos} balcões ativos (sem limite)` : `${cobranca.balcoesAtivos} de ${plano.limiteBalcoes} balcões ativos`}</li>
+              {plano.balcoesNoMes !== null ? (
+                <>
+                  <li>
+                    {cobranca.balcoesNoMes} de {plano.balcoesNoMes} balcões novos neste mês
+                  </li>
+                  <li>
+                    {cobranca.excedentes
+                      ? `${plural(cobranca.excedentes, 'excedente', 'excedentes')} (${(cobranca.valorExcedentesCentavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}) na próxima fatura${s.periodicidade === 'anual' ? ', à parte do plano anual' : ''}`
+                      : 'Nenhum excedente neste mês'}
+                  </li>
+                </>
+              ) : (
+                <li>{plano.limiteBalcoes === null ? `${cobranca.balcoesAtivos} balcões ativos (sem limite)` : `${cobranca.balcoesAtivos} de ${plano.limiteBalcoes} balcões ativos`}</li>
+              )}
+              {plano.cotaWhatsapp > 0 && (
+                <li>
+                  {cobranca.whatsappEnviados.toLocaleString('pt-BR')} de {plano.cotaWhatsapp.toLocaleString('pt-BR')} mensagens de WhatsApp neste mês
+                </li>
+              )}
               <li>{plano.limitePessoas === null ? `${cobranca.pessoas} pessoas (sem limite)` : `${cobranca.pessoas} de ${plano.limitePessoas} ${plano.limitePessoas === 1 ? 'pessoa' : 'pessoas'}`}</li>
             </ul>
           )}

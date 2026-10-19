@@ -2,6 +2,7 @@ import PgBoss from 'pg-boss';
 import { prisma } from '@trames/db';
 import type { PayloadFila } from '@trames/shared/filas';
 import { criarEnfileirar } from './fila';
+import { avisarMudanca, exportar } from './jobs/balcoes';
 import { apagarArquivos, verificarDocumento } from './jobs/documentos';
 import { enviarMensagem } from './jobs/mensagens';
 import { expirar, lembretes, retencao } from './jobs/rotinas';
@@ -33,6 +34,8 @@ function trabalhar<F extends keyof PayloadFila>(fila: F, fn: (dados: PayloadFila
 await trabalhar('verificar-documento', verificarDocumento, { batchSize: 2 });
 await trabalhar('enviar-mensagem', enviarMensagem, { batchSize: 5 });
 await trabalhar('apagar-arquivos', apagarArquivos);
+await trabalhar('exportar', exportar);
+await trabalhar('avisar-mudanca', (d) => avisarMudanca(d, enfileirar));
 await trabalhar('lembretes', () => lembretes(enfileirar));
 await trabalhar('expirar', expirar);
 await trabalhar('retencao', retencao);

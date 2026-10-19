@@ -1,6 +1,7 @@
 import cookieParser from 'cookie-parser';
 import express, { Router } from 'express';
 import helmet from 'helmet';
+import { config } from './infra/config';
 import { tratarErros } from './infra/erros';
 import { limites, registrarAcesso, verificarOrigem } from './infra/http';
 import { exigirCliente, rotasAcesso, rotasCliente } from './modulos/acesso-cliente/acesso';
@@ -51,7 +52,8 @@ export function criarApp() {
   api.use('/organizacao', exigirEmpresa, rotasOrganizacao);
   api.use('/cobranca', exigirEmpresa, rotasCobranca);
   api.use('/relatorio', exigirEmpresa, rotasRelatorio);
-  api.use('/turu', exigirEmpresa, rotasTuru);
+  // Turu fica fora do lançamento; só existe com TURU=1.
+  if (config.TURU === '1') api.use('/turu', exigirEmpresa, rotasTuru);
 
   // Cliente (link + código)
   api.use('/acesso', rotasAcesso);

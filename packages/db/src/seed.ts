@@ -7,11 +7,12 @@
 import { randomUUID } from 'node:crypto';
 import argon2 from 'argon2';
 import { BUCKET_DOCUMENTOS, chaveDocumento, enviar } from './armazenamento';
-import { criarKms } from './cripto';
+import { criarKms, novoToken, selar } from './cripto';
 import { cifrarDadosCliente } from './dados-cliente';
 import { MODELOS_PADRAO } from './modelos-padrao';
 import { CONTAS_TESTE, SENHA_TESTE } from './contas-teste';
 import { PrismaClient, type StatusItem } from '@prisma/client';
+import { mesDe } from '@trames/shared';
 
 if (process.env.NODE_ENV === 'production') throw new Error('O seed apaga o banco. Não rode em produção.');
 
@@ -38,7 +39,7 @@ function pdfExemplo(titulo: string) {
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
     `<< /Length ${conteudo.length} >>\nstream\n${conteudo}\nendstream`,
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
   ];
   let pdf = '%PDF-1.4\n';
   const offsets: number[] = [];
@@ -87,7 +88,11 @@ interface NovoBalcao {
   prazo: number;
   itens: { nome: string; detalhe: string; obrigatorio: boolean; status: StatusItem; arquivo?: string; enviado?: Date }[];
   lembrete?: boolean;
+  canal?: 'email' | 'whatsapp';
   concluido?: boolean;
+  /** Dias atrás em que foi concluído (padrão: 2). */
+  concluidoHa?: number;
+  diasRetencao?: number;
 }
 
 let docs = 0;
@@ -100,11 +105,21 @@ async function criarBalcao(b: NovoBalcao) {
       protocolo: `TRM-2026-${String(b.n).padStart(5, '0')}`,
       tipo: b.tipo,
       prazo: dia(b.prazo),
-      lembrete: b.lembrete ?? false,
+      lembrete: b.lembrete ?? true,
+      canalCodigo: b.canal ?? 'email',
+      canalLembrete: b.canal ?? 'email',
       criadoEm: momento(-14 - (b.n % 10)),
-      concluidoEm: b.concluido ? momento(-2, 16) : null,
+      concluidoEm: b.concluido ? momento(-(b.concluidoHa ?? 2), 16) : null,
+      apagarArquivosEm: b.concluido ? momento(-(b.concluidoHa ?? 2) + (b.diasRetencao ?? 90), 16) : null,
     },
   });
+  if (!b.concluido) {
+    // Link ativo com o token selado: lembretes e "Link do cliente" funcionam sem gerar outro.
+    const { token, hash } = novoToken();
+    await db.linkAcesso.create({
+      data: { organizacaoId: b.organizacaoId, balcaoId: balcao.id, tokenHash: hash, tokenSelado: await selar(kms, token, `link:${b.organizacaoId}`), expiraEm: new Date(Math.max(dia(b.prazo).getTime(), hoje()) + 30 * DIA) },
+    });
+  }
   for (const [k, it] of b.itens.entries()) {
     const item = await db.itemBalcao.create({
       data: {
@@ -163,7 +178,7 @@ async function criarUsuario(organizacaoId: string, nome: string, email: string, 
 async function main() {
   // Limpa (como dono, sem RLS). eventos_auditoria é append-only: o trigger deixa o dono truncar.
   await db.$executeRawUnsafe(
-    'TRUNCATE organizacoes, assinaturas, usuarios, sessoes, clientes, balcoes, itens_balcao, documentos, modelos, itens_modelo, links_acesso, codigos_acesso, sessoes_cliente, eventos_auditoria, caixa_saida_dev CASCADE',
+    'TRUNCATE organizacoes, assinaturas, usuarios, sessoes, clientes, balcoes, itens_balcao, documentos, modelos, itens_modelo, links_acesso, codigos_acesso, sessoes_cliente, eventos_auditoria, caixa_saida_dev, uso_mensal, itens_cobranca, exportacoes CASCADE',
   );
 
   for (const m of MODELOS_PADRAO) {
@@ -177,7 +192,7 @@ async function main() {
   await criarUsuario(g.id, 'Carla Menezes', CONTAS_TESTE[0].email, 'admin');
   await criarBalcao({ organizacaoId: g.id, n: 3101, tipo: 'Pré-operatório', cliente: cliFalso('Roberta Lins', 3101), prazo: 6, itens: itensDoModelo('sau-preop', [A, A, E]) });
   await criarBalcao({ organizacaoId: g.id, n: 3107, tipo: 'Reembolso do plano', cliente: cliFalso('Marcos Teixeira', 3107), prazo: 9, itens: itensDoModelo('sau-reembolso', []) });
-  await criarBalcao({ organizacaoId: g.id, n: 3088, tipo: 'Primeira consulta', cliente: cliFalso('Helena Prado', 3088), prazo: -3, itens: itensDoModelo('sau-consulta', [A, A, A, A]), concluido: true });
+  await criarBalcao({ organizacaoId: g.id, n: 3088, tipo: 'Primeira consulta', cliente: cliFalso('Helena Prado', 3088), prazo: -3, itens: itensDoModelo('sau-consulta', [A, A, A, A]), concluido: true, diasRetencao: 30 });
 
   // Pro
   const p = await criarOrganizacao({ nome: 'Albuquerque & Lima Advocacia', sigla: 'AL', cor: '#8a5330', area: 'advocacia', plano: 'pro' });
@@ -190,6 +205,7 @@ async function main() {
     lembrete: true,
     cliente: { nome: 'Júlio César Albuquerque', cpf: '41287359027', whatsapp: '81998124127', email: 'julio.albuquerque@email.com' },
     prazo: 20,
+    canal: 'whatsapp',
     itens: [
       { nome: 'Certidão de óbito', detalhe: 'A certidão emitida pelo cartório. Se tiver mais de uma página, envie todas.', obrigatorio: true, status: A, arquivo: 'certidao-obito-maria.pdf', enviado: momento(-6, 11, 5) },
       { nome: 'RG ou CNH do Júlio', detalhe: 'Frente e verso, ou a CNH digital em PDF.', obrigatorio: true, status: A, arquivo: 'cnh-julio.pdf', enviado: momento(-6, 11, 9) },
@@ -204,7 +220,7 @@ async function main() {
   await criarBalcao({ organizacaoId: p.id, n: 4140, tipo: 'Inventário', cliente: cliFalso('Lúcia Ferraz', 4140), prazo: 12, lembrete: true, itens: itensDoModelo('adv-inventario', []) });
   await criarBalcao({ organizacaoId: p.id, n: 4098, tipo: 'Previdenciário', cliente: cliFalso('Paulo Henrique Rocha', 4098), prazo: 16, itens: itensDoModelo('adv-aposentadoria', [A, A, R, A, A]) });
   await criarBalcao({ organizacaoId: p.id, n: 4088, tipo: 'Imóveis', cliente: cliFalso('Condomínio Maré Alta', 4088), prazo: 27, itens: itensDoModelo('adv-imovel', [A, A, A, A, A, A, A]) });
-  await criarBalcao({ organizacaoId: p.id, n: 4051, tipo: 'Família', cliente: cliFalso('Fernanda Rêgo', 4051), prazo: -4, itens: itensDoModelo('adv-pensao', [A, A, A, A, A, A]), concluido: true });
+  await criarBalcao({ organizacaoId: p.id, n: 4051, tipo: 'Família', cliente: cliFalso('Fernanda Rêgo', 4051), prazo: -4, itens: itensDoModelo('adv-pensao', [A, A, A, A, A, A]), concluido: true, concluidoHa: 85, diasRetencao: 90 });
   for (const m of [
     { nome: 'Inventário com herdeiro no exterior', quando: 'Criado com o Turu a partir do caso da família Albuquerque.', base: 'adv-inventario' },
     { nome: 'Usucapião', quando: 'Para quem mora há anos num imóvel sem escritura.', base: 'adv-imovel' },
@@ -246,8 +262,14 @@ async function main() {
       return P;
     });
     const n = 5000 + k * 3;
-    await criarBalcao({ organizacaoId: u.id, n, tipo: t.tipo, cliente: cliFalso(nome, n), prazo: concluido ? -6 : ((k * 11) % 46) - 6, lembrete: k % 3 !== 0, itens: itensDoModelo(t.modelo, status), concluido });
+    await criarBalcao({ organizacaoId: u.id, n, tipo: t.tipo, cliente: cliFalso(nome, n), prazo: concluido ? -6 : ((k * 11) % 46) - 6, lembrete: k % 3 !== 0, canal: k % 4 === 0 ? 'whatsapp' : 'email', itens: itensDoModelo(t.modelo, status), concluido });
   }
+
+  // Uso do mês, para testar os limites sem criar centenas de balcões:
+  // Ultra com 198 balcões novos (o 3º que você criar já é excedente) e Pro com 298 das 300 mensagens de WhatsApp.
+  const mes = mesDe();
+  await db.usoMensal.create({ data: { organizacaoId: u.id, mes, balcoesCriados: 198, whatsappEnviados: 412, aviso180Em: momento(-3) } });
+  await db.usoMensal.create({ data: { organizacaoId: p.id, mes, balcoesCriados: 6, whatsappEnviados: 298 } });
 
   console.log(`Seed pronto: 3 escritórios, ${docs} arquivos de exemplo no storage.`);
 }

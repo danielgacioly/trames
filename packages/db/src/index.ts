@@ -92,3 +92,4 @@ export async function todasAsOrganizacoes() {
   return r.map((x) => x.id);
 }
 export * from './dados-cliente';
+export * from './uso';

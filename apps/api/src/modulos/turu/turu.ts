@@ -7,7 +7,6 @@ import { NOMES_AREA, TuruEntrada, type AreaId, type ItemEntrada, type TuruRespos
 import { config } from '../../infra/config';
 import { log } from '../../infra/logger';
 import { limites, rota, validar } from '../../infra/http';
-import { exigirRecurso } from '../auth/permissoes';
 import { responderSemIa } from './sem-ia';
 
 /*
@@ -94,7 +93,6 @@ rotasTuru.post(
   '/',
   limites.turu,
   rota(async (req, res) => {
-    exigirRecurso(req, 'turu');
     const d = validar(TuruEntrada, req.body);
     const area = req.empresa!.organizacao.area;
     const ia = await responderComIa(area, d.mensagens, d.lista);

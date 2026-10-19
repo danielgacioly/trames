@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import type { ItemDetalhe, LinkGerado } from '@trames/shared';
+import { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { diasRetencao, type BalcaoDetalhe, type CanalCodigo, type DocumentoDto, type ItemDetalhe, type LinkGerado } from '@trames/shared';
 import { api } from '../dados/api';
 import { chaves, useAcao, useBalcao, useCobranca, useHistorico, useSessao } from '../dados/consultas';
 import { AvisoErro, Carregando, Progresso, Status, useToast } from '../componentes/comuns';
@@ -11,34 +11,75 @@ const ACOES: Record<string, string> = {
   'balcao.criado': 'criou o balcão',
   'balcao.concluido': 'concluiu o balcão',
   'balcao.reaberto': 'reabriu o balcão',
+  'balcao.alterado': 'mudou o prazo ou os lembretes',
   'link.criado': 'gerou um link',
   'link.revogado': 'revogou o link',
-  'link.enviado': 'enviou o link',
+  'link.enviado': 'enviou o link por e-mail',
+  'link.copiado': 'copiou o link',
+  'link.aberto_whatsapp': 'abriu o WhatsApp para mandar o link',
+  'link.visto': 'viu o link de novo',
   'lembrete.enviado': 'mandou um lembrete',
   'cliente.entrou': 'entrou com o código',
   'cliente.codigo_errado': 'errou o código',
+  'cliente.acesso_encerrado': 'encerrou o acesso do cliente',
+  'item.adicionado': 'incluiu um documento na lista',
+  'item.editado': 'editou um documento da lista',
+  'item.pedido_de_novo': 'pediu um documento de novo',
+  'item.removido': 'tirou um documento da lista',
+  'itens.reordenados': 'mudou a ordem da lista',
   'documento.enviado': 'enviou um arquivo',
   'documento.verificado': 'liberou o arquivo (antivírus e tipo conferidos)',
   'documento.rejeitado': 'rejeitou o arquivo na verificação',
-  'documento.viu': 'abriu um arquivo',
-  'documento.baixou': 'baixou um arquivo',
+  'documento.viu': 'viu a miniatura de um arquivo',
+  'documento.baixou': 'baixou um original',
   'documento.aprovou': 'aprovou um documento',
   'documento.recusou': 'recusou um documento',
   'documento.apagou': 'apagou um arquivo',
+  'exportacao.pedida': 'pediu o ZIP com todos os arquivos',
+  'exportacao.baixou': 'baixou o ZIP',
+  'cobranca.excedente': 'gerou um balcão excedente',
+  'retencao.apagou_documento': 'apagou um arquivo (retenção)',
   'retencao.apagou': 'apagou os arquivos (retenção)',
 };
 
-/** Abre o arquivo por uma URL assinada que vale ~60 segundos. Cada abertura fica na auditoria. */
-async function abrirArquivo(documentoId: string, modo: 'ver' | 'baixar') {
+/** Abre uma URL assinada (~60 segundos). A janela abre antes da resposta para o navegador não bloquear. */
+async function abrirUrl(buscar: () => Promise<{ url: string }>) {
   const janela = window.open('', '_blank');
-  const { url } = await api<{ url: string }>('GET', `/documentos/${documentoId}/url?modo=${modo}`);
-  if (janela) janela.location.href = url;
-  else window.location.href = url;
+  try {
+    const { url } = await buscar();
+    if (janela) janela.location.href = url;
+    else window.location.href = url;
+  } catch (e) {
+    janela?.close();
+    throw e;
+  }
+}
+
+/** "Baixar original": o único caminho para o arquivo original. Cada download fica na auditoria. */
+const baixarOriginal = (documentoId: string) => abrirUrl(() => api<{ url: string }>('GET', `/documentos/${documentoId}/url`));
+
+function Miniatura({ d }: { d: DocumentoDto }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [falhou, setFalhou] = useState(false);
+  useEffect(() => {
+    if (!d.temMiniatura) return;
+    api<{ url: string }>('GET', `/documentos/${d.id}/miniatura`).then((r) => setUrl(r.url), () => setFalhou(true));
+  }, [d.id, d.temMiniatura]);
+  if (url) return <img src={url} alt={`Miniatura de ${d.nomeArquivo}`} style={{ maxWidth: '100%', maxHeight: 520, borderRadius: 4, boxShadow: 'var(--shadow-sm)', background: '#fff' }} />;
+  return (
+    <>
+      <Icone nome="envio" tamanho={32} />
+      <span className="tr-protocolo">{d.nomeArquivo}</span>
+      <span className="miudo texto-suave">
+        {d.tipo === 'application/pdf' ? 'PDF' : 'Imagem'} · {tamanhoLegivel(d.tamanho)}
+        {(!d.temMiniatura || falhou) && ' · sem miniatura: baixe o original para conferir'}
+      </span>
+    </>
+  );
 }
 
 function Arquivo({ item }: { item: ItemDetalhe }) {
   const d = item.documento!;
-  const [miniatura, setMiniatura] = useState<string | null>(null);
   const [erro, setErro] = useState<unknown>(null);
   if (d.status === 'quarentena') {
     return (
@@ -59,57 +100,137 @@ function Arquivo({ item }: { item: ItemDetalhe }) {
   return (
     <div className="coluna" style={{ gap: 16 }}>
       <div style={{ background: 'var(--areia-funda)', borderRadius: 12, padding: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-        {miniatura ? (
-          <img src={miniatura} alt={`Miniatura de ${d.nomeArquivo}`} style={{ maxWidth: '100%', maxHeight: 360, borderRadius: 4, boxShadow: 'var(--shadow-sm)' }} />
-        ) : (
-          <>
-            <Icone nome="envio" tamanho={32} />
-            <span className="tr-protocolo">{d.nomeArquivo}</span>
-            <span className="miudo texto-suave">
-              {d.tipo === 'application/pdf' ? 'PDF' : 'Imagem'} · {tamanhoLegivel(d.tamanho)}
-            </span>
-          </>
-        )}
-        <div className="linha">
-          <button type="button" className="tr-btn tr-btn--secundario tr-btn--sm" onClick={() => abrirArquivo(d.id, 'ver').catch(setErro)}>
-            Abrir arquivo
-          </button>
-          <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" onClick={() => abrirArquivo(d.id, 'baixar').catch(setErro)}>
-            Baixar
-          </button>
-          {d.temMiniatura && !miniatura && (
-            <button
-              type="button"
-              className="tr-btn tr-btn--discreto tr-btn--sm"
-              onClick={() =>
-                api<{ url: string }>('GET', `/documentos/${d.id}/miniatura`)
-                  .then((r) => setMiniatura(r.url))
-                  .catch(setErro)
-              }
-            >
-              Ver miniatura
-            </button>
-          )}
-        </div>
+        <Miniatura d={d} />
       </div>
       <AvisoErro erro={erro} />
       <div className="linha linha--entre pequeno texto-suave">
-        <span className="tr-protocolo">{d.nomeArquivo}</span>
-        <span>{quandoEnviado(d.enviadoEm)}</span>
+        <span className="tr-protocolo">
+          {d.nomeArquivo} · {tamanhoLegivel(d.tamanho)}
+        </span>
+        <span className="linha" style={{ gap: 12 }}>
+          {quandoEnviado(d.enviadoEm)}
+          <button type="button" className="tr-btn tr-btn--secundario tr-btn--sm" onClick={() => baixarOriginal(d.id).catch(setErro)}>
+            <Icone nome="baixar" />
+            Baixar original
+          </button>
+        </span>
       </div>
     </div>
+  );
+}
+
+function HistoricoItem({ item }: { item: ItemDetalhe }) {
+  const [erro, setErro] = useState<unknown>(null);
+  if (!item.historico.length) return null;
+  return (
+    <details>
+      <summary className="pequeno" style={{ cursor: 'pointer', fontWeight: 500 }}>
+        Arquivos anteriores deste item ({item.historico.length})
+      </summary>
+      <ul style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {item.historico.map((h) => (
+          <li key={h.id} className="linha linha--entre pequeno" style={{ gap: 8 }}>
+            <span className="tr-protocolo texto-suave">
+              {h.nomeArquivo} · {quandoEnviado(h.enviadoEm)}
+            </span>
+            <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" onClick={() => baixarOriginal(h.id).catch(setErro)}>
+              Baixar original
+            </button>
+          </li>
+        ))}
+      </ul>
+      <AvisoErro erro={erro} />
+    </details>
+  );
+}
+
+/** Prazo, lembretes e canal do código, para mudar depois de criado o balcão. */
+function Configuracoes({ b, fechar }: { b: BalcaoDetalhe; fechar: (aviso: string) => void }) {
+  const s = useSessao();
+  const comWhatsapp = s.tem('whatsapp');
+  const [f, setF] = useState({ prazo: b.prazo, lembrete: b.lembrete, canalLembrete: b.canalLembrete, canalCodigo: b.canalCodigo });
+  const salvar = useAcao((corpo: typeof f) => api('PATCH', `/balcoes/${b.id}`, corpo), [chaves.balcao(b.id), chaves.balcoes, chaves.historico(b.id)]);
+  const canal = (k: 'canalLembrete' | 'canalCodigo', rotulo: string) => (
+    <label className="tr-campo">
+      <span className="tr-campo__rotulo">{rotulo}</span>
+      <select className="tr-campo__entrada" value={comWhatsapp ? f[k] : 'email'} disabled={!comWhatsapp} onChange={(e) => setF({ ...f, [k]: e.target.value as CanalCodigo })}>
+        <option value="email">E-mail</option>
+        <option value="whatsapp">WhatsApp</option>
+      </select>
+    </label>
+  );
+  return (
+    <form
+      className="cartao"
+      style={{ gap: 16 }}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        await salvar.mutateAsync(f);
+        fechar('Configurações do balcão salvas.');
+      }}
+    >
+      <h2 className="titulo-2">Prazo e lembretes</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: 16, alignItems: 'end' }}>
+        <label className="tr-campo">
+          <span className="tr-campo__rotulo">Prazo</span>
+          <input className="tr-campo__entrada" type="date" required value={f.prazo} onChange={(e) => setF({ ...f, prazo: e.target.value })} />
+        </label>
+        {canal('canalCodigo', 'Código de acesso por')}
+        {f.lembrete && canal('canalLembrete', 'Lembretes por')}
+      </div>
+      <label className="linha" style={{ fontSize: 15, cursor: 'pointer' }}>
+        <input type="checkbox" checked={f.lembrete} onChange={(e) => setF({ ...f, lembrete: e.target.checked })} style={{ width: 18, height: 18, accentColor: '#13594b' }} />
+        Lembretes automáticos (3 dias antes do prazo, no dia e 2 dias depois)
+      </label>
+      {!b.cliente.email && (f.canalCodigo === 'email' || (f.lembrete && f.canalLembrete === 'email')) && <p className="miudo" style={{ color: 'var(--recusado)' }}>Este cliente não tem e-mail cadastrado: escolha o WhatsApp.</p>}
+      <AvisoErro erro={salvar.error} />
+      <div className="linha">
+        <button type="submit" className="tr-btn tr-btn--primario tr-btn--sm" disabled={salvar.isPending}>
+          Salvar
+        </button>
+        <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" onClick={() => fechar('')}>
+          Cancelar
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** ZIP com os originais. O worker monta; a tela atualiza sozinha até ficar pronto. */
+function Exportar({ b }: { b: BalcaoDetalhe }) {
+  const pedir = useAcao(() => api('POST', `/balcoes/${b.id}/exportar`), [chaves.balcao(b.id), chaves.historico(b.id)]);
+  const [erro, setErro] = useState<unknown>(null);
+  const e = b.exportacao;
+  if (b.arquivosApagadosEm) return null;
+  return (
+    <span className="linha" style={{ gap: 8 }}>
+      {e?.status === 'pronta' ? (
+        <button type="button" className="tr-btn tr-btn--secundario tr-btn--sm" onClick={() => abrirUrl(() => api<{ url: string }>('GET', `/balcoes/${b.id}/exportacao/url`)).catch(setErro)}>
+          <Icone nome="baixar" />
+          Baixar ZIP
+        </button>
+      ) : (
+        <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" disabled={pedir.isPending || e?.status === 'pendente'} onClick={() => pedir.mutate()}>
+          <Icone nome="baixar" />
+          {e?.status === 'pendente' ? 'Montando o ZIP…' : e?.status === 'falhou' ? 'Tentar o ZIP de novo' : 'Baixar tudo (ZIP)'}
+        </button>
+      )}
+      <AvisoErro erro={erro ?? pedir.error} />
+    </span>
   );
 }
 
 export function Conferir() {
   const { id = '' } = useParams();
   const s = useSessao();
+  const local = useLocation();
   const navegar = useNavigate();
   const consulta = useBalcao(id);
-  const ativos = useCobranca().data?.balcoesAtivos ?? 0;
+  const uso = useCobranca().data;
   const [selId, setSelId] = useState<string | null>(null);
   const [recusando, setRecusando] = useState(false);
   const [motivo, setMotivo] = useState('');
+  const [config, setConfig] = useState(false);
   const [aba, setAba] = useState<'docs' | 'historico'>('docs');
   const historico = useHistorico(id, aba === 'historico');
   const [toast, avisar] = useToast();
@@ -118,9 +239,19 @@ export function Conferir() {
   const recusar = useAcao((x: { itemId: string; motivo: string }) => api('POST', `/itens/${x.itemId}/recusar`, { motivo: x.motivo }), recarregar);
   const concluir = useAcao(() => api('POST', `/balcoes/${id}/concluir`), recarregar);
   const reabrir = useAcao(() => api('POST', `/balcoes/${id}/reabrir`), recarregar);
-  const lembrar = useAcao(() => api('POST', `/balcoes/${id}/lembrar`), recarregar);
+  const lembrar = useAcao(() => api<{ canal: CanalCodigo }>('POST', `/balcoes/${id}/lembrar`), recarregar);
   const novoLink = useAcao(() => api<LinkGerado>('POST', `/balcoes/${id}/link`), recarregar);
+  const encerrar = useAcao(() => api('DELETE', `/balcoes/${id}/sessoes`), recarregar);
   const apagarArquivo = useAcao((docId: string) => api('DELETE', `/documentos/${docId}`), recarregar);
+
+  // Aviso vindo de outra tela (por exemplo, "Lista salva").
+  const avisoDaNavegacao = (local.state as { aviso?: string } | null)?.aviso;
+  useEffect(() => {
+    if (avisoDaNavegacao) {
+      avisar(avisoDaNavegacao);
+      navegar(local.pathname, { replace: true, state: null });
+    }
+  }, [avisoDaNavegacao, avisar, navegar, local.pathname]);
 
   if (consulta.isPending) return <Carregando />;
   if (consulta.error) return <AvisoErro erro={consulta.error} />;
@@ -130,8 +261,10 @@ export function Conferir() {
   const aberto = !b.concluidoEm;
   const soConfere = s.tem('permissoes') && s.usuario.permissao === 'confere';
   const podeConcluir = b.itens.every((i) => !i.obrigatorio || i.status === 'aprovado');
-  const noLimite = s.plano.limiteBalcoes !== null && ativos >= s.plano.limiteBalcoes;
-  const erro = aprovar.error ?? recusar.error ?? concluir.error ?? reabrir.error ?? lembrar.error ?? novoLink.error ?? apagarArquivo.error;
+  const noLimite = s.plano.limiteBalcoes !== null && (uso?.balcoesAtivos ?? 0) >= s.plano.limiteBalcoes;
+  const dias = diasRetencao(s.plano.id, s.organizacao.diasRetencao);
+  const erro = aprovar.error ?? recusar.error ?? concluir.error ?? reabrir.error ?? lembrar.error ?? novoLink.error ?? encerrar.error ?? apagarArquivo.error;
+  const canalLembrete = b.canalLembrete === 'whatsapp' && s.tem('whatsapp') ? 'WhatsApp' : 'e-mail';
 
   return (
     <>
@@ -149,27 +282,25 @@ export function Conferir() {
             </div>
             <span className="tr-protocolo texto-suave">
               {b.protocolo} · WhatsApp final {b.cliente.whatsappFinal} · prazo {dataLonga(b.prazo)}
-              {b.lembrete && aberto && ' · lembrete automático a cada 3 dias'}
+              {aberto && (b.lembrete ? ` · lembretes por ${canalLembrete}` : ' · sem lembretes')}
             </span>
           </div>
           <div className="linha">
             {aberto && !soConfere ? (
               <>
-                <button
-                  type="button"
-                  className="tr-btn tr-btn--secundario tr-btn--sm"
-                  disabled={novoLink.isPending}
-                  onClick={async () => navegar(`/app/balcao/${b.id}/link`, { state: { link: await novoLink.mutateAsync() } })}
-                >
-                  Gerar link novo
-                </button>
+                <Link to={`/app/balcao/${b.id}/lista`} className="tr-btn tr-btn--secundario tr-btn--sm">
+                  Editar lista
+                </Link>
+                <Link to={`/app/balcao/${b.id}/link`} className="tr-btn tr-btn--secundario tr-btn--sm">
+                  Link do cliente
+                </Link>
                 <button
                   type="button"
                   className="tr-btn tr-btn--secundario tr-btn--sm"
                   disabled={lembrar.isPending}
                   onClick={async () => {
-                    await lembrar.mutateAsync();
-                    avisar(`Lembrete com um link novo enviado para ${nome}. O link anterior deixa de valer.`);
+                    const r = await lembrar.mutateAsync();
+                    avisar(`Lembrete enviado para ${nome} por ${r.canal === 'whatsapp' ? 'WhatsApp' : 'e-mail'}, com o mesmo link.`);
                   }}
                 >
                   Lembrar {nome}
@@ -181,7 +312,7 @@ export function Conferir() {
                   title={podeConcluir ? undefined : 'Disponível quando todos os documentos obrigatórios forem aprovados'}
                   onClick={async () => {
                     await concluir.mutateAsync();
-                    avisar('Balcão concluído. Ele não conta mais no limite do plano e o link do cliente foi desativado.');
+                    avisar(`Balcão concluído. O acesso de ${nome} foi encerrado e os arquivos serão apagados em ${dias} dias.`);
                   }}
                 >
                   Concluir balcão
@@ -197,15 +328,71 @@ export function Conferir() {
             )}
           </div>
         </div>
-        <div style={{ maxWidth: 520 }}>
-          <Progresso feitos={b.contagem.aprovado} total={b.contagem.total} />
+        <div className="linha linha--entre" style={{ gap: 16, alignItems: 'center' }}>
+          <div style={{ flex: '1 1 320px', maxWidth: 520 }}>
+            <Progresso feitos={b.contagem.aprovado} total={b.contagem.total} />
+          </div>
+          <span className="linha" style={{ gap: 4 }}>
+            {!soConfere && <Exportar b={b} />}
+            {aberto && !soConfere && (
+              <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" onClick={() => setConfig(!config)}>
+                <Icone nome="ajustes" />
+                Prazo e lembretes
+              </button>
+            )}
+          </span>
         </div>
-        {b.arquivosApagadosEm && (
+        {b.arquivosApagadosEm ? (
           <div className="aviso">
             <Icone nome="info" />
             <span>Os arquivos deste balcão foram apagados em {dataLonga(b.arquivosApagadosEm.slice(0, 10))}, pela política de retenção da conta.</span>
           </div>
+        ) : (
+          b.apagarArquivosEm && (
+            <div className="aviso">
+              <Icone nome="relogio" />
+              <span>Os arquivos deste balcão serão apagados em {dataLonga(b.apagarArquivosEm.slice(0, 10), true)}, pela retenção do plano. Se precisar guardar, baixe o ZIP antes.</span>
+            </div>
+          )
         )}
+        {aberto && !soConfere && (
+          <div className="aviso" style={{ alignItems: 'center' }}>
+            <Icone nome="cadeado" />
+            <span style={{ flex: 1 }}>
+              {b.sessoesCliente > 0
+                ? `${nome} está conectado em ${b.sessoesCliente === 1 ? '1 aparelho' : `${b.sessoesCliente} aparelhos`} (o acesso vale 30 dias).`
+                : b.link
+                  ? `${nome} ainda não entrou com o código, ou o acesso foi encerrado.`
+                  : 'Este balcão está sem link ativo.'}
+            </span>
+            {b.sessoesCliente > 0 && (
+            <button
+              type="button"
+              className="tr-btn tr-btn--discreto tr-btn--sm"
+              disabled={encerrar.isPending}
+              onClick={async () => {
+                if (!window.confirm(`Encerrar o acesso de ${nome}? O link continua valendo, mas ele vai precisar de um código novo para entrar.`)) return;
+                await encerrar.mutateAsync();
+                avisar('Acesso encerrado em todos os aparelhos.');
+              }}
+            >
+              Encerrar acesso
+            </button>
+            )}
+            <button
+              type="button"
+              className="tr-btn tr-btn--discreto tr-btn--sm"
+              disabled={novoLink.isPending}
+              onClick={async () => {
+                if (!window.confirm('Gerar um link novo? O link atual para de valer e o acesso de todos os aparelhos é encerrado.')) return;
+                navegar(`/app/balcao/${b.id}/link`, { state: { link: await novoLink.mutateAsync() } });
+              }}
+            >
+              Gerar link novo
+            </button>
+          </div>
+        )}
+        {config && <Configuracoes key={b.id} b={b} fechar={(t) => (setConfig(false), t && avisar(t))} />}
         <AvisoErro erro={erro} />
       </header>
 
@@ -263,7 +450,13 @@ export function Conferir() {
                   >
                     <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                       <span style={{ fontWeight: 500 }}>{d.nome}</span>
-                      <span className="miudo texto-suave">{d.documento?.status === 'quarentena' ? 'Verificando o arquivo…' : d.documento?.status === 'rejeitado' ? 'Último envio rejeitado na verificação' : (d.documento?.nomeArquivo ?? (d.obrigatorio ? 'Ainda não enviado' : 'Se tiver'))}</span>
+                      <span className="miudo texto-suave">
+                        {d.documento?.status === 'quarentena'
+                          ? 'Verificando o arquivo…'
+                          : d.documento?.status === 'rejeitado'
+                            ? 'Último envio rejeitado na verificação'
+                            : (d.documento?.nomeArquivo ?? (d.historico.length ? 'Pedido de novo' : d.obrigatorio ? 'Ainda não enviado' : 'Se tiver'))}
+                      </span>
                     </span>
                     <Status status={d.status} />
                   </button>
@@ -342,6 +535,7 @@ export function Conferir() {
                 Recusado: “{sel.motivo}”
               </div>
             )}
+            <HistoricoItem item={sel} />
             {s.usuario.permissao === 'admin' && sel.documento && sel.documento.status === 'disponivel' && (
               <button
                 type="button"

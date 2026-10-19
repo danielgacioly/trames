@@ -8,7 +8,7 @@ const csp = (storage: string): Plugin => ({
   transformIndexHtml: (html) =>
     html.replace(
       '<head>',
-      `<head>\n    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ${storage}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" />`,
+      `<head>\n    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: ${storage}; connect-src 'self' ${storage}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" />`,
     ),
 });
 

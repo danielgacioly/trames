@@ -19,8 +19,12 @@ const HASH_FALSO = argon2.hash('senha-que-nao-existe', ARGON);
 export const hashSenha = (senha: string) => argon2.hash(senha, ARGON);
 
 export async function planoAtual(tx: Tx, organizacaoId: string): Promise<PlanoId> {
+  return (await assinaturaAtual(tx, organizacaoId)).plano;
+}
+
+async function assinaturaAtual(tx: Tx, organizacaoId: string) {
   const a = await tx.assinatura.findFirst({ where: { organizacaoId, status: 'ativa' }, orderBy: { inicioEm: 'desc' } });
-  return a?.plano ?? 'gratis';
+  return { plano: a?.plano ?? ('gratis' as PlanoId), periodicidade: a?.periodicidade ?? ('mensal' as const) };
 }
 
 /** Segundo fator para todo mundo: depois da senha, falta o código que chegou no e-mail. */
@@ -62,7 +66,8 @@ async function carregarSessao(req: Request) {
     const usuario = await tx.usuario.findUnique({ where: { id: s.usuario_id } });
     const organizacao = await tx.organizacao.findUnique({ where: { id: s.organizacao_id } });
     if (!usuario || !organizacao) return null;
-    return { sessaoId: s.id, usuario, organizacao, plano: await planoAtual(tx, organizacao.id), etapa: etapaDe(s.segundo_fator) };
+    const a = await assinaturaAtual(tx, organizacao.id);
+    return { sessaoId: s.id, usuario, organizacao, plano: a.plano, periodicidade: a.periodicidade, etapa: etapaDe(s.segundo_fator) };
   });
 }
 
@@ -91,6 +96,7 @@ function eu(s: NonNullable<Awaited<ReturnType<typeof carregarSessao>>>): Eu {
     usuario: { id: u.id, nome: u.nome, email: u.email, permissao: u.permissao },
     organizacao: { id: o.id, nome: o.nome, sigla: o.sigla, cor: o.cor, area: o.area, diasRetencao: o.diasRetencao },
     plano: s.plano,
+    periodicidade: s.periodicidade,
     etapa: s.etapa,
   };
 }

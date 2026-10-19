@@ -17,5 +17,7 @@ const csp = (connect: string): Plugin => ({
 
 export default defineConfig({
   plugins: [react(), csp(process.env.CSP_STORAGE ?? 'https://*.amazonaws.com')],
+  // Lê o .env da raiz; só variáveis com prefixo VITE_ chegam ao navegador.
+  envDir: '../../',
   server: { port: 5173, strictPort: true, proxy: { '/api': 'http://127.0.0.1:3000' } },
 });

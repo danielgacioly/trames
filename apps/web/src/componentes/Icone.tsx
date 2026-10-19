@@ -22,6 +22,10 @@ const CAMINHOS = {
   sino: 'M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0',
   sair: 'M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M10 16l-4-4 4-4M6 12h10',
   lixo: 'M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12',
+  cima: 'M6 15l6-6 6 6',
+  baixo: 'M6 9l6 6 6-6',
+  alca: 'M9 6v.1M15 6v.1M9 12v.1M15 12v.1M9 18v.1M15 18v.1',
+  baixar: 'M12 4v11M7.5 10.5L12 15l4.5-4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3',
   menu: 'M4 7h16M4 12h16M4 17h16',
 } as const;
 

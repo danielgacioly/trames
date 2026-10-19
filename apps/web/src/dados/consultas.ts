@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { PLANOS, type BalcaoDetalhe, type BalcaoResumo, type ClienteDto, type Eu, type EventoDto, type ModeloDto, type PessoaDto } from '@trames/shared';
+import { PLANOS, type BalcaoDetalhe, type BalcaoResumo, type ClienteDto, type Eu, type EventoDto, type ModeloDto, type PessoaDto, type UsoDto } from '@trames/shared';
 import { api, ErroDaApi } from './api';
 
 export const chaves = {
@@ -31,15 +31,20 @@ export function useSessao() {
 }
 
 export const useBalcoes = () => useQuery({ queryKey: chaves.balcoes, queryFn: () => api<BalcaoResumo[]>('GET', '/balcoes') });
-export const useBalcao = (id: string) => useQuery({ queryKey: chaves.balcao(id), queryFn: () => api<BalcaoDetalhe>('GET', `/balcoes/${id}`) });
+export const useBalcao = (id: string) =>
+  useQuery({
+    queryKey: chaves.balcao(id),
+    queryFn: () => api<BalcaoDetalhe>('GET', `/balcoes/${id}`),
+    // Enquanto um arquivo está no antivírus ou o ZIP está sendo montado, atualiza sozinho.
+    refetchInterval: (q) => (q.state.data?.itens.some((i) => i.documento?.status === 'quarentena') || q.state.data?.exportacao?.status === 'pendente' ? 3000 : false),
+  });
 export const useHistorico = (id: string, ativo: boolean) =>
   useQuery({ queryKey: chaves.historico(id), queryFn: () => api<EventoDto[]>('GET', `/auditoria/balcao/${id}`), enabled: ativo });
 export const useModelos = () => useQuery({ queryKey: chaves.modelos, queryFn: () => api<ModeloDto[]>('GET', '/modelos'), staleTime: 60_000 });
 export const useEquipe = () => useQuery({ queryKey: chaves.equipe, queryFn: () => api<PessoaDto[]>('GET', '/organizacao/equipe') });
 export const useClientes = () => useQuery({ queryKey: chaves.clientes, queryFn: () => api<ClienteDto[]>('GET', '/clientes') });
 export const useRelatorio = (ativo: boolean) => useQuery({ queryKey: chaves.relatorio, queryFn: () => api<BalcaoResumo[]>('GET', '/relatorio'), enabled: ativo });
-export const useCobranca = () =>
-  useQuery({ queryKey: chaves.cobranca, queryFn: () => api<{ plano: string; balcoesAtivos: number; pessoas: number; trocaSimulada: boolean }>('GET', '/cobranca') });
+export const useCobranca = () => useQuery({ queryKey: chaves.cobranca, queryFn: () => api<UsoDto>('GET', '/cobranca') });
 
 /** Mutação que, ao terminar, recarrega as consultas indicadas. */
 export function useAcao<E = void, S = unknown>(fn: (entrada: E) => Promise<S>, invalidar: QueryKey[] = []) {

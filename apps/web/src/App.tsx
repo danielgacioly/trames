@@ -4,7 +4,7 @@ import { LayoutApp } from './componentes/LayoutApp';
 import { Conferir } from './paginas/Conferir';
 import { Clientes, Conta, Equipe, Relatorio } from './paginas/gestao';
 import { EditorModelo, Modelos } from './paginas/Modelos';
-import { LinkBalcao, NovoBalcao } from './paginas/NovoBalcao';
+import { EditarLista, LinkBalcao, NovoBalcao } from './paginas/NovoBalcao';
 import { Painel } from './paginas/Painel';
 import { Convite, CriarConta, Entrar, EscolherArea, Landing, Planos, SegundoFator } from './paginas/publico';
 import { Turu } from './paginas/Turu';
@@ -48,11 +48,12 @@ export function App() {
           <Route path="novo" element={<NovoBalcao />} />
           <Route path="balcao/:id" element={<Conferir />} />
           <Route path="balcao/:id/link" element={<LinkBalcao />} />
+          <Route path="balcao/:id/lista" element={<EditarLista />} />
           <Route path="modelos" element={<Modelos />} />
           <Route path="modelos/novo" element={<EditorModelo />} />
           <Route path="modelos/:id" element={<EditorModelo />} />
           <Route path="clientes" element={<Clientes />} />
-          <Route path="turu" element={<Turu />} />
+          {import.meta.env.VITE_TURU === '1' && <Route path="turu" element={<Turu />} />}
           <Route path="relatorio" element={<Relatorio />} />
           <Route path="equipe" element={<Equipe />} />
           <Route path="conta" element={<Conta />} />

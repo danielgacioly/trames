@@ -1,58 +1,62 @@
 # Pendências
 
-O que falta para colocar a Trames em produção e não deu para fazer no código.
+O que falta para colocar a Trames em produção e não deu para fazer no código. Inclui os ajustes de `docs/viabilidade.md`.
 
-## Decisões em aberto: como ficaram
+## Decisões que tomei e você precisa confirmar
 
-As cinco decisões de `arquitetura.md` seguiram a recomendação:
-
-1. **Fila:** pg-boss, no próprio Postgres. A troca por BullMQ fica concentrada em `apps/api/src/infra/fila.ts` e `apps/worker/src/main.ts`.
-2. **Login:** implementação própria (argon2id + código de 6 dígitos por e-mail como segundo fator; o app autenticador foi descartado).
-3. **Hospedagem:** o código está pronto para AWS em São Paulo (S3, KMS, SES, `sa-east-1`), mas nada foi provisionado.
-4. **Front:** dois apps, `web` e `balcao`.
-5. **RLS:** ativo desde a primeira migração.
+1. **O token do link fica selado no banco, além do hash.** A arquitetura pedia só o hash. Mas a sessão de 30 dias e o "cliente vê a lista atualizada sem link novo" exigem que lembretes e avisos levem o mesmo link; com só o hash, cada lembrete teria de gerar um link novo e derrubar a sessão do cliente. O token é selado com o KMS (envelope, com o escritório como contexto), e a busca continua pelo hash. Risco: quem tiver o banco e acesso ao KMS consegue abrir os links ativos. A alternativa seria o lembrete ir sem link ("abra o link que o escritório mandou").
+2. **"Balcão arquivado" não existe.** O documento fala em "concluído nem arquivado", mas hoje só há aberto ou concluído. Um balcão que nunca é concluído não entra na retenção, e os arquivos dele (inclusive os de itens removidos da lista) ficam guardados para sempre. Sugestão: arquivar sozinho N dias depois do prazo, com aviso.
+3. **A retenção é calculada no momento de concluir.** Mudar de plano depois (ou mudar a retenção no Ultra) não muda a data dos balcões já concluídos; vale para os próximos. Reabrir cancela a data, e concluir de novo calcula outra.
+4. **Lembretes.** Saem só enquanto faltar documento obrigatório. Se o worker ficar parado e perder uma etapa, sai só a mais recente. Um balcão criado a menos de 3 dias do prazo recebe o lembrete "antes" no dia seguinte. Mudar o prazo recomeça a cadência.
+5. **Aviso de mudança na lista.** Vai para itens novos ou pedidos de novo que ainda faltam, por e-mail. Se o cliente não tem e-mail (código e lembretes só no WhatsApp), vai pelo template de lembrete e conta na cota.
+6. **No Grátis, o e-mail do cliente é obrigatório**, porque o código e os lembretes só vão por e-mail. No Pro e no Ultra, ele só é opcional quando o código e os lembretes do balcão estão no WhatsApp.
+7. **Cota de WhatsApp sem e-mail do cliente.** Se a cota acaba e o cliente não tem e-mail, a mensagem não sai; o aviso ao admin diz isso. Alternativa: deixar passar da cota nesse caso.
+8. **O mês vira no fuso de Brasília** para a contagem de balcões do Ultra e para as cotas.
+9. **Permissões fora do Ultra:** no Grátis e no Pro todo mundo administra. (Vinha de antes.)
 
 ## Infraestrutura (precisa de conta AWS)
 
-- [ ] Provisionar em `sa-east-1`: RDS Postgres, S3 (buckets `quarentena` e `documentos`, privados, SSE-KMS, bloqueio de acesso público), chave no KMS, Secrets Manager, ECS (api e worker), CloudFront (web e balcao) e VPC. Ainda não há infraestrutura como código (Terraform/CDK).
-- [ ] Criar o papel `trames_app` no RDS com senha do Secrets Manager. No deploy, rodar como dono: `pnpm db:migrate` e depois `pnpm fila:instalar`.
-- [ ] Domínios e cookies. Os cookies são `SameSite=Strict` e a API supõe a mesma origem (`/api` atrás do CloudFront). É preciso decidir os domínios, por exemplo `app.trames.app/api` e `balcao.trames.app/api`, e configurar `URL_WEB` e `URL_BALCAO`.
-- [ ] Configurar o CORS do bucket `quarentena` para a origem do balcão. Configurar a política de CSP também como cabeçalho no CloudFront (hoje ela vai numa `<meta>` no build).
-- [ ] Backups que expiram: retenção dos backups automáticos do RDS e regra de ciclo de vida para versões antigas no S3.
-- [ ] Rate limit compartilhado. Hoje ele fica na memória de cada instância; com mais de uma instância da API, precisa de um store comum (Postgres ou Redis).
-- [ ] Observabilidade: logs no CloudWatch e alertas para a fila parada, jobs que falharam e documentos presos em quarentena.
-- [ ] Rotação de chaves: ativar a rotação automática do KMS e definir como girar a `CHAVE_HMAC`, que exige recalcular os índices.
+- [ ] **Saída para a internet sem NAT Gateway.** O documento prevê VPC endpoints e nenhum NAT, mas o worker precisa chamar a API do WhatsApp (graph.facebook.com) e o gateway de pagamento, que não têm endpoint na VPC. Opções: uma NAT instance pequena (bem mais barata que o NAT Gateway) ou o worker numa subnet pública, com IP público e security group só de saída. É preciso decidir antes de provisionar.
+- [ ] Provisionar em `sa-east-1`, com infraestrutura como código (Terraform ou CDK): RDS Postgres numa zona só, instância pequena, backups criptografados; S3 (`quarentena` e `documentos`, privados, SSE-KMS, sem acesso público); KMS; Secrets Manager; ECS Fargate (1 API, 1 worker); CloudFront para `web` e `balcao`; VPC com endpoints para S3, KMS, SES e Secrets Manager. Meta de custo fixo: cerca de US$ 200 por mês.
+- [ ] **Retenção nos backups:** o RDS com no máximo 35 dias de backup automático, e o ciclo de vida dos buckets na infraestrutura igual ao de `packages/db/src/preparar-storage.ts`: quarentena em 2 dias, ZIPs em 2 dias, versões antigas em 30 dias. Assim nenhum arquivo passa de 35 dias além do prazo do plano.
+- [ ] Autoescala: a API com 2 ou mais containers quando a CPU média passar de 60%; mais workers quando a fila acumular. Multi-AZ no RDS ao passar de 100 clientes pagantes.
+- [ ] **Alertas de custo** (AWS Budgets e CloudWatch) usando como referência os números da seção 8 do `viabilidade.md`: custo por balcão, storage, saída de dados e mensagens de WhatsApp.
+- [ ] Criar o papel `trames_app` no RDS com senha do Secrets Manager. No deploy, como dono: `pnpm db:migrate` e depois `pnpm fila:instalar` (cria as filas novas `exportar` e `avisar-mudanca`).
+- [ ] Domínios e cookies (`SameSite=Strict`, API na mesma origem): por exemplo `app.trames.app/api` e `balcao.trames.app/api`, com `URL_WEB` e `URL_BALCAO`. CORS do bucket `quarentena` para o balcão. CSP também como cabeçalho no CloudFront.
+- [ ] Rate limit compartilhado entre instâncias (hoje fica na memória de cada uma).
+- [ ] Observabilidade: alertas para fila parada, jobs que falharam, documentos presos na quarentena, ZIP que falhou.
+- [ ] Rotação de chaves: KMS automático e um plano para a `CHAVE_HMAC` (exige recalcular os índices).
 
 ## Serviços de terceiros
 
-- [ ] **Antivírus:** ClamAV com `freshclam` em produção (sidecar do worker). Aqui a rede bloqueou o download das assinaturas, então testei só com uma assinatura local do EICAR. A detecção funcionou. Se o clamd cair, o job tenta 5 vezes e o arquivo fica em quarentena: falta um alerta e um jeito de reprocessar.
-- [ ] **WhatsApp:** conta WhatsApp Business (Meta) verificada, número e **templates aprovados**. Mensagem iniciada pela empresa fora da janela de 24 h só pode sair por template; o código atual manda texto livre. A Meta entra como suboperadora.
-- [ ] **E-mail:** Amazon SES em `sa-east-1` com domínio verificado (SPF, DKIM, DMARC) e fora do sandbox. Agora é também por onde passa o segundo fator do login: sem ele em produção, ninguém do escritório entra. Vale monitorar a entrega e ter um remetente reservado só para códigos.
-- [ ] **Turu com Claude:** configurar `ANTHROPIC_API_KEY`. Não testei a chamada real (não havia chave aqui); testei só o modo sem IA. A Anthropic precisa constar como suboperadora. Também falta confirmar as condições de retenção de dados e o fato de o processamento acontecer fora do Brasil.
-- [ ] **Pagamento:** escolher o provedor (Pix, cartão e nota fiscal: Asaas, Pagar.me, Iugu, Stripe…). Falta implementar no módulo `cobranca`: assinatura, webhooks, inadimplência e o que fazer quando alguém desce de plano tendo mais balcões ativos que o novo limite. Hoje a troca de plano é só simulada (`COBRANCA_SIMULADA=1`).
+- [ ] **WhatsApp (Meta):** conta Business verificada, número e dois templates aprovados:
+  - `trames_codigo`, na categoria **autenticação**, com o código no corpo e o botão "copiar código";
+  - `trames_lembrete`, na categoria **utilidade**, só transacional, com 5 variáveis: nome do cliente, escritório, documentos pendentes, prazo e link.
+  Os nomes podem mudar por `WHATSAPP_TEMPLATE_CODIGO` e `WHATSAPP_TEMPLATE_LEMBRETE`. Depois da aprovação, é preciso conferir o formato exato dos componentes em `apps/worker/src/mensagens.ts`: se o link vai como variável do corpo ou num botão de URL. Não testei a chamada real (não havia conta). A Meta entra como suboperadora.
+- [ ] **E-mail:** Amazon SES em `sa-east-1`, fora do sandbox, com SPF, DKIM e DMARC. Agora é o canal padrão de tudo: código de login, código do cliente, lembretes, avisos de mudança, avisos ao admin (180/200 balcões, cota e retenção). Vale ter um remetente só para códigos e monitorar entrega e rejeição.
+- [ ] **Pagamento (Pix e cartão):** escolher o provedor (Asaas, Pagar.me, Iugu, Stripe…) e implementar no módulo `cobranca`: assinatura mensal e anual (paga de uma vez), cobrança mensal dos `itens_cobranca` do mês anterior (no anual, à parte), marcar `faturado_em`, webhooks, inadimplência, nota fiscal, e o que fazer quando alguém desce de plano com mais balcões ativos que o novo limite. Hoje a troca de plano é simulada (`COBRANCA_SIMULADA=1`).
+- [ ] **Antivírus:** ClamAV com `freshclam` em produção (sidecar do worker). Testei só com uma assinatura local do EICAR. Falta um alerta e um jeito de reprocessar quando o clamd cai.
+
+## Segurança
+
+- [ ] **Isolar a geração de miniatura de PDF.** O worker abre PDFs enviados por clientes com o pdf.js (versão 4.10, sem `eval`), com limite de 20 segundos. Falta limite de memória, idealmente rodando essa etapa num processo ou container separado, para um PDF malicioso ou pesado não derrubar o worker.
+- [ ] **Pentest externo** antes de lançar, incluindo a sessão de 30 dias do cliente e a geração de miniaturas.
 
 ## Jurídico e LGPD
 
-- [ ] Contrato de operador com cada assinante, com a lista de suboperadores: AWS, Anthropic, Meta e o provedor de pagamento.
+- [ ] Contrato de operador com cada assinante, com a lista de suboperadores: AWS, Meta e o provedor de pagamento (a Anthropic sai enquanto o Turu estiver fora).
 - [ ] Nomear o encarregado (DPO).
-- [ ] Política de privacidade e termos de uso (os links do site ainda apontam para `#`).
+- [ ] Política de privacidade e termos de uso (os links do site ainda apontam para `#`). Precisam citar a retenção por plano e a sessão de 30 dias no aparelho do cliente.
 - [ ] Registro das operações de tratamento e relatório de impacto (RIPD).
-- [ ] **Pentest externo** antes de lançar.
 
 ## Funcionalidades que faltam
 
-- [ ] "Esqueci a senha". Com o código por e-mail, o segundo fator não precisa de recuperação própria, mas a troca de senha precisa existir. Atenção: quem controla o e-mail da pessoa passa a ter os dois fatores; a troca de senha deve pedir o código e avisar por e-mail.
-- [ ] Exportação do titular com os arquivos. Hoje ela leva os dados e a lista de arquivos; falta um ZIP gerado pelo worker, com URL temporária.
-- [ ] Avisar o cliente pelo WhatsApp quando um documento é recusado. Hoje ele só vê ao abrir o link.
-- [ ] Miniatura de PDF e de HEIC. Hoje só imagens JPG, PNG e WebP ganham miniatura.
-- [ ] "Sair de todos os aparelhos" e lista de sessões ativas.
+- [ ] **Miniatura de HEIC.** O sharp pré-compilado não abre HEIC (codec HEVC). Hoje o HEIC chega e é conferido baixando o original. Também não há miniatura de PDF protegido por senha.
+- [ ] "Esqueci a senha". Quem controla o e-mail da pessoa tem os dois fatores; a troca de senha deve pedir o código e avisar por e-mail.
+- [ ] Exportação do titular com os arquivos (o ZIP do balcão já existe; falta um ZIP por cliente, na tela Clientes).
+- [ ] Avisar o cliente quando um documento é recusado. Hoje ele só vê ao abrir o link (o lembrete seguinte também conta).
+- [ ] "Sair de todos os aparelhos" e lista de sessões ativas para a equipe do escritório.
 - [ ] CI (GitHub Actions) com Postgres, para rodar os testes e o typecheck a cada PR.
-- [ ] Teste de ponta a ponta no repositório. Rodei um com Playwright durante o desenvolvimento, mas ele não foi versionado.
-- [ ] Logos oficiais em `apps/*/public/marca/`. Os atuais foram redesenhados porque os SVGs do canvas não puderam ser exportados.
-
-## Decisões de produto para confirmar
-
-- [ ] **Lembrete gera link novo.** Como o banco guarda só o hash do link, o lembrete (manual ou automático) gera um link novo e revoga o anterior. Quem abrir um link antigo vê a mensagem "use o link da mensagem mais recente". A alternativa seria guardar o token cifrado, mas a arquitetura pede só o hash.
-- [ ] **Permissões fora do Ultra.** No Grátis e no Pro todo mundo administra. Avaliar se é isso mesmo.
-- [ ] **Segundo fator para todos.** O código por e-mail vale para todas as pessoas da conta, não só para quem administra (a arquitetura pedia "pelo menos admins"). Como não exige instalar nada, ficou para todos.
-- [ ] **Prazo do link.** O link vence 30 dias depois do prazo do balcão e é revogado quando o balcão é concluído.
+- [ ] Teste de ponta a ponta no repositório. Rodei com Playwright durante o desenvolvimento, mas não versionei.
+- [ ] Logos oficiais em `apps/*/public/marca/`.
+- [ ] Turu: fora do lançamento. O código continua no repositório, desligado (`TURU=1` e `VITE_TURU=1` ligam em desenvolvimento).

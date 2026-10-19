@@ -8,23 +8,23 @@ import { auditar } from '../auditoria/auditoria';
 import { exigirAdmin } from '../auth/permissoes';
 
 /*
- * Download: a API confere a permissão (o RLS só deixa achar documento do próprio
+ * Download do original: a API confere a permissão (o RLS só deixa achar documento do próprio
  * escritório), registra na auditoria e devolve uma URL assinada de ~60 segundos.
  * O arquivo vai direto do storage para o navegador.
  */
 
 export const rotasDocumentos = Router();
 
+/** "Baixar original": é o único caminho para o arquivo original. Conferir usa a miniatura. */
 rotasDocumentos.get(
   '/:id/url',
   rota(async (req, res) => {
-    const baixar = req.query.modo === 'baixar';
     const url = await naOrganizacao(req.empresa!.organizacao.id, async (tx) => {
       const d = await tx.documento.findUnique({ where: { id: req.params.id } });
       if (!d) throw naoEncontrado('Documento não encontrado.');
       if (d.status !== 'disponivel') throw new ErroHttp(409, d.status === 'quarentena' ? 'O arquivo ainda está sendo verificado.' : 'Este arquivo não está disponível.');
-      await auditar(tx, req, { acao: baixar ? 'documento.baixou' : 'documento.viu', alvoTipo: 'documento', alvoId: d.id, detalhes: { balcaoId: d.balcaoId } });
-      return urlDeDownload(BUCKET_DOCUMENTOS, d.chave, d.nomeArquivo, d.tipoReal ?? d.tipoDeclarado, baixar);
+      await auditar(tx, req, { acao: 'documento.baixou', alvoTipo: 'documento', alvoId: d.id, detalhes: { balcaoId: d.balcaoId, original: true } });
+      return urlDeDownload(BUCKET_DOCUMENTOS, d.chave, d.nomeArquivo, d.tipoReal ?? d.tipoDeclarado, true);
     });
     res.json({ url });
   }),

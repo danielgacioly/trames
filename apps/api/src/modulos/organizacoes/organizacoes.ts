@@ -18,14 +18,23 @@ rotasOrganizacao.put(
   rota(async (req, res) => {
     exigirAdmin(req);
     const d = validar(OrganizacaoEntrada, req.body);
-    const comMarca = plano(req).recursos.marca;
+    const p = plano(req);
+    const comMarca = p.recursos.marca;
+    // A retenção só é escolhida no Ultra; nos outros planos vale a do plano e o campo é ignorado.
+    const escolheRetencao = p.retencao.opcoes.length > 1;
+    if (escolheRetencao && !p.retencao.opcoes.includes(d.diasRetencao)) throw new ErroHttp(400, 'Retenção fora das opções do plano.');
     const org = req.empresa!.organizacao.id;
     await naOrganizacao(org, async (tx) => {
       await tx.organizacao.update({
         where: { id: org },
-        data: { nome: d.nome, diasRetencao: d.diasRetencao, ...(comMarca && d.sigla ? { sigla: d.sigla } : {}), ...(comMarca && d.cor ? { cor: d.cor } : {}) },
+        data: { nome: d.nome, ...(escolheRetencao ? { diasRetencao: d.diasRetencao } : {}), ...(comMarca && d.sigla ? { sigla: d.sigla } : {}), ...(comMarca && d.cor ? { cor: d.cor } : {}) },
       });
-      await auditar(tx, req, { acao: 'organizacao.alterada', alvoTipo: 'organizacao', alvoId: org, detalhes: { diasRetencao: d.diasRetencao } });
+      await auditar(tx, req, {
+        acao: 'organizacao.alterada',
+        alvoTipo: 'organizacao',
+        alvoId: org,
+        detalhes: { antes: { diasRetencao: req.empresa!.organizacao.diasRetencao }, depois: { diasRetencao: escolheRetencao ? d.diasRetencao : req.empresa!.organizacao.diasRetencao } },
+      });
     });
     res.status(204).end();
   }),

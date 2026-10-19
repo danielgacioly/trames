@@ -49,6 +49,17 @@ enum StatusAssinatura {
   inadimplente
 }
 
+enum Periodicidade {
+  mensal
+  anual
+}
+
+enum StatusExportacao {
+  pendente
+  pronta
+  falhou
+}
+
 enum TipoAtor {
   usuario
   cliente
@@ -61,7 +72,7 @@ model Organizacao {
   sigla        String
   cor          String   @default("#13594b")
   area         Area     @default(advocacia)
-  /// Dias, depois de concluído o balcão, até os arquivos serem apagados.
+  /// Retenção escolhida no Ultra (30, 90, 180 ou 365 dias). Nos outros planos vale a do plano.
   diasRetencao Int      @default(90) @map("dias_retencao")
   criadaEm     DateTime @default(now()) @map("criada_em")
 
@@ -70,6 +81,8 @@ model Organizacao {
   clientes    Cliente[]
   balcoes     Balcao[]
   modelos     Modelo[]
+  usos        UsoMensal[]
+  cobrancas   ItemCobranca[]
 
   @@map("organizacoes")
 }
@@ -78,6 +91,7 @@ model Assinatura {
   id            String           @id @default(uuid()) @db.Uuid
   organizacaoId String           @map("organizacao_id") @db.Uuid
   plano         Plano
+  periodicidade Periodicidade    @default(mensal)
   status        StatusAssinatura @default(ativa)
   inicioEm      DateTime         @default(now()) @map("inicio_em")
   fimEm         DateTime?        @map("fim_em")
@@ -91,16 +105,16 @@ model Assinatura {
 }
 
 model Usuario {
-  id                 String    @id @default(uuid()) @db.Uuid
-  organizacaoId      String    @map("organizacao_id") @db.Uuid
-  nome               String
-  email              String    @unique
+  id              String    @id @default(uuid()) @db.Uuid
+  organizacaoId   String    @map("organizacao_id") @db.Uuid
+  nome            String
+  email           String    @unique
   /// argon2id. Nulo enquanto o convite não foi aceito.
-  senhaHash          String?   @map("senha_hash")
-  permissao          Permissao @default(admin)
-  conviteHash        String?   @unique @map("convite_hash")
-  conviteExpiraEm    DateTime? @map("convite_expira_em")
-  criadoEm           DateTime  @default(now()) @map("criado_em")
+  senhaHash       String?   @map("senha_hash")
+  permissao       Permissao @default(admin)
+  conviteHash     String?   @unique @map("convite_hash")
+  conviteExpiraEm DateTime? @map("convite_expira_em")
+  criadoEm        DateTime  @default(now()) @map("criado_em")
 
   organizacao Organizacao @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
   sessoes     Sessao[]
@@ -110,18 +124,18 @@ model Usuario {
 }
 
 model Sessao {
-  id            String   @id @default(uuid()) @db.Uuid
-  organizacaoId String   @map("organizacao_id") @db.Uuid
-  usuarioId     String   @map("usuario_id") @db.Uuid
+  id               String    @id @default(uuid()) @db.Uuid
+  organizacaoId    String    @map("organizacao_id") @db.Uuid
+  usuarioId        String    @map("usuario_id") @db.Uuid
   /// SHA-256 do token do cookie. O token em si nunca é guardado.
-  tokenHash     String   @unique @map("token_hash")
-  segundoFator  Boolean  @default(false) @map("segundo_fator")
+  tokenHash        String    @unique @map("token_hash")
+  segundoFator     Boolean   @default(false) @map("segundo_fator")
   /// Segundo fator por e-mail: HMAC do código de 6 dígitos desta sessão, nunca o código.
   codigoHash       String?   @map("codigo_hash")
   codigoExpiraEm   DateTime? @map("codigo_expira_em")
   codigoTentativas Int       @default(0) @map("codigo_tentativas")
-  expiraEm      DateTime @map("expira_em")
-  criadaEm      DateTime @default(now()) @map("criada_em")
+  expiraEm         DateTime  @map("expira_em")
+  criadaEm         DateTime  @default(now()) @map("criada_em")
 
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
@@ -154,24 +168,36 @@ model Cliente {
 }
 
 model Balcao {
-  id                 String    @id @default(uuid()) @db.Uuid
-  organizacaoId      String    @map("organizacao_id") @db.Uuid
-  clienteId          String    @map("cliente_id") @db.Uuid
-  protocolo          String
-  tipo               String    @default("")
-  prazo              DateTime  @db.Date
-  lembrete           Boolean   @default(false)
-  ultimoLembreteEm   DateTime? @map("ultimo_lembrete_em")
-  criadoPorId        String?   @map("criado_por_id") @db.Uuid
-  criadoEm           DateTime  @default(now()) @map("criado_em")
-  concluidoEm        DateTime? @map("concluido_em")
-  arquivosApagadosEm DateTime? @map("arquivos_apagados_em")
+  id                   String    @id @default(uuid()) @db.Uuid
+  organizacaoId        String    @map("organizacao_id") @db.Uuid
+  clienteId            String    @map("cliente_id") @db.Uuid
+  protocolo            String
+  tipo                 String    @default("")
+  prazo                DateTime  @db.Date
+  /// Canal do código de acesso do cliente. WhatsApp só no Pro e no Ultra.
+  canalCodigo          String    @default("email") @map("canal_codigo")
+  /// Lembretes automáticos (3 dias antes, no dia e 2 dias depois do prazo).
+  lembrete             Boolean   @default(true)
+  canalLembrete        String    @default("email") @map("canal_lembrete")
+  /// Etapas da cadência já enviadas: "antes", "dia", "depois".
+  lembretesEnviados    String[]  @default([]) @map("lembretes_enviados")
+  ultimoLembreteEm     DateTime? @map("ultimo_lembrete_em")
+  /// Quando a lista mudou e o cliente ainda não foi avisado (o aviso agrupa 10 minutos).
+  ultimoAvisoMudancaEm DateTime? @map("ultimo_aviso_mudanca_em")
+  criadoPorId          String?   @map("criado_por_id") @db.Uuid
+  criadoEm             DateTime  @default(now()) @map("criado_em")
+  concluidoEm          DateTime? @map("concluido_em")
+  /// Exclusão dos arquivos agendada ao concluir, pela retenção do plano.
+  apagarArquivosEm     DateTime? @map("apagar_arquivos_em")
+  avisoRetencaoEm      DateTime? @map("aviso_retencao_em")
+  arquivosApagadosEm   DateTime? @map("arquivos_apagados_em")
 
-  organizacao Organizacao   @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
-  cliente     Cliente       @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  organizacao Organizacao  @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+  cliente     Cliente      @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   itens       ItemBalcao[]
   documentos  Documento[]
   links       LinkAcesso[]
+  exportacoes Exportacao[]
 
   @@unique([organizacaoId, protocolo])
   @@index([organizacaoId, concluidoEm])
@@ -180,15 +206,19 @@ model Balcao {
 
 /// Documento pedido ao cliente.
 model ItemBalcao {
-  id            String     @id @default(uuid()) @db.Uuid
-  organizacaoId String     @map("organizacao_id") @db.Uuid
-  balcaoId      String     @map("balcao_id") @db.Uuid
-  ordem         Int
-  nome          String
-  detalhe       String     @default("")
-  obrigatorio   Boolean    @default(true)
-  status        StatusItem @default(pendente)
-  motivoRecusa  String?    @map("motivo_recusa")
+  id             String     @id @default(uuid()) @db.Uuid
+  organizacaoId  String     @map("organizacao_id") @db.Uuid
+  balcaoId       String     @map("balcao_id") @db.Uuid
+  ordem          Int
+  nome           String
+  detalhe        String     @default("")
+  obrigatorio    Boolean    @default(true)
+  status         StatusItem @default(pendente)
+  motivoRecusa   String?    @map("motivo_recusa")
+  /// Pedido de novo: os arquivos enviados antes disso ficam só no histórico do item.
+  pedidoDeNovoEm DateTime?  @map("pedido_de_novo_em")
+  /// Removido da lista. Os arquivos seguem a retenção do balcão.
+  removidoEm     DateTime?  @map("removido_em")
 
   balcao     Balcao      @relation(fields: [balcaoId], references: [id], onDelete: Cascade)
   documentos Documento[]
@@ -225,12 +255,12 @@ model Documento {
 
 /// Modelo de lista de documentos. organizacao_id nulo = modelo padrão da Trames.
 model Modelo {
-  id            String       @id @default(uuid()) @db.Uuid
-  organizacaoId String?      @map("organizacao_id") @db.Uuid
+  id            String   @id @default(uuid()) @db.Uuid
+  organizacaoId String?  @map("organizacao_id") @db.Uuid
   area          Area
   nome          String
-  quando        String       @default("")
-  criadoEm      DateTime     @default(now()) @map("criado_em")
+  quando        String   @default("")
+  criadoEm      DateTime @default(now()) @map("criado_em")
 
   organizacao Organizacao? @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
   itens       ItemModelo[]
@@ -260,13 +290,15 @@ model LinkAcesso {
   organizacaoId String    @map("organizacao_id") @db.Uuid
   balcaoId      String    @map("balcao_id") @db.Uuid
   tokenHash     String    @unique @map("token_hash")
+  /// Token selado com o KMS (AAD = escritório), para lembretes e avisos levarem o mesmo link.
+  tokenSelado   Bytes?    @map("token_selado")
   criadoEm      DateTime  @default(now()) @map("criado_em")
   expiraEm      DateTime  @map("expira_em")
   revogadoEm    DateTime? @map("revogado_em")
 
-  balcao   Balcao          @relation(fields: [balcaoId], references: [id], onDelete: Cascade)
-  codigos  CodigoAcesso[]
-  sessoes  SessaoCliente[]
+  balcao  Balcao          @relation(fields: [balcaoId], references: [id], onDelete: Cascade)
+  codigos CodigoAcesso[]
+  sessoes SessaoCliente[]
 
   @@index([organizacaoId, balcaoId])
   @@map("links_acesso")
@@ -303,6 +335,63 @@ model SessaoCliente {
 
   @@index([organizacaoId])
   @@map("sessoes_cliente")
+}
+
+/// Uso do mês (fuso de Brasília), para o excedente do Ultra e as cotas de WhatsApp.
+/// Contador, não contagem: balcão apagado continua contando.
+model UsoMensal {
+  organizacaoId       String    @map("organizacao_id") @db.Uuid
+  /// "AAAA-MM"
+  mes                 String
+  balcoesCriados      Int       @default(0) @map("balcoes_criados")
+  whatsappEnviados    Int       @default(0) @map("whatsapp_enviados")
+  aviso180Em          DateTime? @map("aviso_180_em")
+  aviso200Em          DateTime? @map("aviso_200_em")
+  avisoCotaWhatsappEm DateTime? @map("aviso_cota_whatsapp_em")
+
+  organizacao Organizacao @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+
+  @@id([organizacaoId, mes])
+  @@map("uso_mensal")
+}
+
+/// Item a somar na próxima fatura (hoje: balcão excedente do Ultra).
+model ItemCobranca {
+  id            String    @id @default(uuid()) @db.Uuid
+  organizacaoId String    @map("organizacao_id") @db.Uuid
+  /// "AAAA-MM"
+  mesReferencia String    @map("mes_referencia")
+  tipo          String
+  descricao     String
+  valorCentavos Int       @map("valor_centavos")
+  /// Sem chave estrangeira: o item fica mesmo se o balcão for apagado.
+  balcaoId      String?   @map("balcao_id") @db.Uuid
+  criadoEm      DateTime  @default(now()) @map("criado_em")
+  faturadoEm    DateTime? @map("faturado_em")
+
+  organizacao Organizacao @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+
+  @@index([organizacaoId, mesReferencia])
+  @@map("itens_cobranca")
+}
+
+/// ZIP com os originais de um balcão, gerado pelo worker. Vale 24 horas.
+model Exportacao {
+  id            String           @id @default(uuid()) @db.Uuid
+  organizacaoId String           @map("organizacao_id") @db.Uuid
+  balcaoId      String           @map("balcao_id") @db.Uuid
+  pedidaPorId   String?          @map("pedida_por_id") @db.Uuid
+  status        StatusExportacao @default(pendente)
+  chave         String?
+  tamanho       BigInt?
+  criadaEm      DateTime         @default(now()) @map("criada_em")
+  prontaEm      DateTime?        @map("pronta_em")
+  expiraEm      DateTime?        @map("expira_em")
+
+  balcao Balcao @relation(fields: [balcaoId], references: [id], onDelete: Cascade)
+
+  @@index([organizacaoId, balcaoId])
+  @@map("exportacoes")
 }
 
 /// Log só de inclusão: um trigger impede UPDATE e DELETE.

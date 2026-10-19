@@ -45,26 +45,57 @@ export const ItemEntrada = z.object({
 });
 export type ItemEntrada = z.infer<typeof ItemEntrada>;
 
-export const CriarBalcaoEntrada = z.object({
-  cliente: z.object({
-    nome: texto(160).min(2),
-    cpf: Cpf.default(''),
-    whatsapp: Telefone,
-    email: z.union([Email, z.literal('')]).default(''),
-  }),
-  tipo: texto(80).default(''),
-  prazo: DataISO,
-  lembrete: z.boolean().default(false),
-  itens: z.array(ItemEntrada).min(1).max(60),
-});
+export const CriarBalcaoEntrada = z
+  .object({
+    cliente: z.object({
+      nome: texto(160).min(2),
+      cpf: Cpf.default(''),
+      whatsapp: Telefone,
+      email: z.union([Email, z.literal('')]).default(''),
+    }),
+    tipo: texto(80).default(''),
+    prazo: DataISO,
+    /** Canal do código de acesso. WhatsApp só no Pro e no Ultra (a API confere). */
+    canalCodigo: CanalCodigo.default('email'),
+    lembrete: z.boolean().default(true),
+    canalLembrete: CanalCodigo.default('email'),
+    itens: z.array(ItemEntrada).min(1).max(60),
+  })
+  .refine((d) => d.cliente.email || (d.canalCodigo === 'whatsapp' && (!d.lembrete || d.canalLembrete === 'whatsapp')), {
+    message: 'Informe o e-mail do cliente: o código de acesso e os lembretes vão por e-mail.',
+    path: ['cliente', 'email'],
+  });
 export type CriarBalcaoEntrada = z.infer<typeof CriarBalcaoEntrada>;
+
+/** Configurações do balcão que dá para mudar depois de criado. */
+export const ConfigBalcaoEntrada = z.object({
+  prazo: DataISO.optional(),
+  lembrete: z.boolean().optional(),
+  canalLembrete: CanalCodigo.optional(),
+  canalCodigo: CanalCodigo.optional(),
+});
+
+/* ---------- Editar a lista de um balcão aberto ---------- */
+
+export const AdicionarItensEntrada = z.object({ itens: z.array(ItemEntrada).min(1).max(60) });
+
+export const EditarItemEntrada = z.object({
+  nome: texto(120).min(1).optional(),
+  detalhe: texto(300).optional(),
+  obrigatorio: z.boolean().optional(),
+  /** O pedido mudou: o item volta a pendente e os arquivos anteriores vão para o histórico. */
+  pedirDeNovo: z.boolean().default(false),
+});
+
+export const ReordenarEntrada = z.object({ ids: z.array(z.string().uuid()).min(1).max(120) });
 
 export const RecusarEntrada = z.object({ motivo: texto(500).min(3) });
 
-export const EnviarLinkEntrada = z.object({
-  canal: CanalCodigo,
-  mensagem: texto(1000).default(''),
-});
+/** Envio do link pela Trames: só por e-mail. Pelo WhatsApp, quem manda é o próprio escritório (wa.me). */
+export const EnviarLinkEntrada = z.object({ mensagem: texto(1000).default('') });
+
+/** O escritório copiou o link ou abriu o WhatsApp dele para mandar: fica na auditoria. */
+export const RegistrarEnvioEntrada = z.object({ canal: z.enum(['whatsapp', 'copiado']) });
 
 export const ModeloEntrada = z.object({
   nome: texto(120).min(2),
@@ -76,7 +107,8 @@ export const OrganizacaoEntrada = z.object({
   nome: texto(120).min(2),
   sigla: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{1,2}$/).optional(),
   cor: z.string().regex(/^#[0-9a-f]{6}$/i).optional(),
-  diasRetencao: z.number().int().min(7).max(3650),
+  /** Só vale no Ultra (30, 90, 180 ou 365); nos outros planos a API usa a retenção do plano. */
+  diasRetencao: z.number().int().refine((d) => [30, 90, 180, 365].includes(d), 'Escolha 30, 90, 180 ou 365 dias.'),
 });
 
 export const ConviteEntrada = z.object({ nome: texto(120).min(2), email: Email, permissao: Permissao });
@@ -91,9 +123,10 @@ export const TuruEntrada = z.object({
   lista: z.array(ItemEntrada).max(60).nullable(),
 });
 
-export const MudarPlanoEntrada = z.object({ plano: PlanoId });
+export const MudarPlanoEntrada = z.object({ plano: PlanoId, periodicidade: z.enum(['mensal', 'anual']).default('mensal') });
 
-export const PedirCodigoEntrada = z.object({ canal: CanalCodigo.default('whatsapp') });
+/** O canal do código é o que o escritório escolheu para o balcão; o cliente não escolhe. */
+export const PedirCodigoEntrada = z.object({});
 export const EntrarClienteEntrada = z.object({ codigo: CodigoSeisDigitos });
 
 export const IniciarUploadEntrada = z.object({
@@ -108,6 +141,7 @@ export interface Eu {
   usuario: { id: string; nome: string; email: string; permissao: Permissao };
   organizacao: { id: string; nome: string; sigla: string; cor: string; area: AreaId; diasRetencao: number };
   plano: PlanoId;
+  periodicidade: 'mensal' | 'anual';
   etapa: EtapaSessao;
 }
 
@@ -126,7 +160,10 @@ export interface BalcaoResumo {
   clienteNome: string;
   prazo: string;
   lembrete: boolean;
+  canalLembrete: CanalCodigo;
+  canalCodigo: CanalCodigo;
   concluidoEm: string | null;
+  apagarArquivosEm: string | null;
   arquivosApagadosEm: string | null;
   contagem: Contagem;
 }
@@ -149,13 +186,41 @@ export interface ItemDetalhe {
   obrigatorio: boolean;
   status: StatusItem;
   motivo: string | null;
+  /** Último arquivo enviado depois do último "pedir de novo". */
   documento: DocumentoDto | null;
+  /** Arquivos anteriores (substituídos ou de antes de pedir de novo), do mais novo para o mais antigo. */
+  historico: DocumentoDto[];
 }
 
 export interface BalcaoDetalhe extends BalcaoResumo {
   cliente: { id: string; nome: string; whatsappFinal: string; email: string };
   itens: ItemDetalhe[];
   link: { criadoEm: string; expiraEm: string } | null;
+  /** Aparelhos do cliente com sessão aberta neste balcão. */
+  sessoesCliente: number;
+  exportacao: ExportacaoDto | null;
+}
+
+export interface ExportacaoDto {
+  id: string;
+  status: 'pendente' | 'pronta' | 'falhou';
+  criadaEm: string;
+  expiraEm: string | null;
+}
+
+/** Uso do mês e do plano, para o painel, a tela Conta e os avisos. */
+export interface UsoDto {
+  plano: PlanoId;
+  periodicidade: 'mensal' | 'anual';
+  mes: string;
+  balcoesAtivos: number;
+  balcoesNoMes: number;
+  /** Excedentes já gerados no mês (Ultra). */
+  excedentes: number;
+  valorExcedentesCentavos: number;
+  whatsappEnviados: number;
+  pessoas: number;
+  trocaSimulada: boolean;
 }
 
 export interface LinkGerado {
@@ -208,8 +273,10 @@ export interface MarcaDto {
 export interface AcessoInfo {
   organizacao: MarcaDto;
   clientePrimeiroNome: string;
+  /** Por onde o código vai, como o escritório escolheu (pode cair para e-mail se a cota acabar). */
+  canal: CanalCodigo;
   whatsappFinal: string;
-  temEmail: boolean;
+  emailMascarado: string;
   tipo: string;
   totalItens: number;
 }
@@ -222,6 +289,8 @@ export interface ItemCliente {
   status: StatusItem;
   motivo: string | null;
   verificando: boolean;
+  /** Há miniatura do que o cliente enviou (o original não volta para o celular). */
+  temMiniatura: boolean;
 }
 
 export interface BalcaoCliente {

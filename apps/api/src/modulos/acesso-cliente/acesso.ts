@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import {
   hashToken,
@@ -11,10 +11,11 @@ import {
   sessaoClientePorToken,
   type Tx,
 } from '@trames/db';
-import { BUCKET_QUARENTENA, chaveDocumento, existe, urlDeUpload } from '@trames/db/armazenamento';
+import { BUCKET_DOCUMENTOS, BUCKET_QUARENTENA, chaveDocumento, existe, urlDeDownload, urlDeUpload } from '@trames/db/armazenamento';
 import {
   EntrarClienteEntrada,
   IniciarUploadEntrada,
+  mesDe,
   PedirCodigoEntrada,
   PLANOS,
   TAMANHO_MAXIMO_ARQUIVO,
@@ -36,11 +37,29 @@ import { selarConteudo } from './links';
 
 /*
  * Acesso do cliente, em duas etapas:
- *  1. o link (token no cabeçalho x-link; o banco só tem o hash) mostra para quem é o balcão;
- *  2. o código de 6 dígitos, enviado por WhatsApp ou e-mail, abre uma sessão curta.
+ *  1. o link (token no cabeçalho x-link; a busca é pelo hash) mostra para quem é o balcão;
+ *  2. o código de 6 dígitos, por e-mail (ou WhatsApp, se o escritório escolheu no Pro/Ultra),
+ *     abre uma sessão de 30 dias naquele aparelho, só para aquele balcão.
+ * A sessão cai antes se o balcão for concluído, o link for revogado ou o escritório
+ * encerrar o acesso (a função acesso_sessao_cliente confere tudo isso a cada pedido).
  */
 
-const VALIDADE_SESSAO_CLIENTE_MS = 2 * 60 * 60 * 1000;
+const VALIDADE_SESSAO_CLIENTE_MS = 30 * 86_400_000;
+
+/** Um cookie por balcão: o mesmo aparelho pode ter balcões de escritórios diferentes. */
+const cookieDoBalcao = (balcaoId: string) => `${COOKIE_CLIENTE}_${createHash('sha256').update(balcaoId).digest('hex').slice(0, 16)}`;
+
+const mascararEmail = (email: string) => email.replace(/^(.)[^@]*(@.).*(\.[^.]+)$/, '$1***$2***$3');
+
+/** Canal do código: o do balcão, se o plano ainda permite e a cota de WhatsApp não acabou. */
+async function canalDoCodigo(tx: Tx, organizacaoId: string, canal: string, temEmail: boolean) {
+  if (canal !== 'whatsapp') return 'email' as const;
+  const p = PLANOS[await planoAtual(tx, organizacaoId)];
+  if (!p.recursos.whatsapp) return 'email' as const;
+  const uso = await tx.usoMensal.findUnique({ where: { organizacaoId_mes: { organizacaoId, mes: mesDe() } } });
+  if ((uso?.whatsappEnviados ?? 0) >= p.cotaWhatsapp && temEmail) return 'email' as const;
+  return 'whatsapp' as const;
+}
 const hashCodigo = (linkId: string, codigo: string) => hmacBusca(config.CHAVE_HMAC, linkId, codigo);
 
 async function linkValido(req: Request) {
@@ -48,7 +67,11 @@ async function linkValido(req: Request) {
   if (!token || token.length < 30 || token.length > 100) throw new ErroHttp(404, 'Link não encontrado.', 'link_invalido');
   const l = await linkPorToken(hashToken(token));
   if (!l) throw new ErroHttp(404, 'Link não encontrado.', 'link_invalido');
-  if (l.revogado_em || l.expira_em < new Date()) throw new ErroHttp(410, 'Este link foi substituído por um mais novo ou não vale mais. Use o link da mensagem mais recente do escritório.', 'link_vencido');
+  if (l.revogado_em || l.expira_em < new Date()) {
+    const b = await naOrganizacao(l.organizacao_id, (tx) => tx.balcao.findUnique({ where: { id: l.balcao_id }, select: { concluidoEm: true } }));
+    if (b?.concluidoEm) throw new ErroHttp(410, 'O escritório já concluiu este balcão. Se precisar mandar mais alguma coisa, fale com ele.', 'balcao_concluido');
+    throw new ErroHttp(410, 'Este link foi substituído por um mais novo ou não vale mais. Use o link da mensagem mais recente do escritório.', 'link_vencido');
+  }
   return l;
 }
 
@@ -66,12 +89,13 @@ rotasAcesso.get(
   rota(async (req, res) => {
     const l = await linkValido(req);
     const info = await naOrganizacao(l.organizacao_id, async (tx): Promise<AcessoInfo> => {
-      const b = await tx.balcao.findUniqueOrThrow({ where: { id: l.balcao_id }, include: { cliente: true, _count: { select: { itens: true } } } });
+      const b = await tx.balcao.findUniqueOrThrow({ where: { id: l.balcao_id }, include: { cliente: true, _count: { select: { itens: { where: { removidoEm: null } } } } } });
       return {
         organizacao: await marca(tx, l.organizacao_id),
         clientePrimeiroNome: primeiroNome(b.cliente.nome),
+        canal: await canalDoCodigo(tx, l.organizacao_id, b.canalCodigo, !!b.cliente.email),
         whatsappFinal: b.cliente.telefoneFinal,
-        temEmail: !!b.cliente.email,
+        emailMascarado: b.cliente.email ? mascararEmail(b.cliente.email) : '',
         tipo: b.tipo,
         totalItens: b._count.itens,
       };
@@ -83,16 +107,20 @@ rotasAcesso.get(
 rotasAcesso.post(
   '/codigo',
   limites.pedirCodigo,
+  limites.codigoPorBalcao,
   rota(async (req, res) => {
     const l = await linkValido(req);
-    const { canal } = validar(PedirCodigoEntrada, req.body ?? {});
+    validar(PedirCodigoEntrada, req.body ?? {});
     const codigo = novoCodigoSeisDigitos();
-    await naOrganizacao(l.organizacao_id, async (tx) => {
+    const canal = await naOrganizacao(l.organizacao_id, async (tx) => {
+      const b = await tx.balcao.findUniqueOrThrow({ where: { id: l.balcao_id }, include: { cliente: { select: { email: true } } } });
+      const c = await canalDoCodigo(tx, l.organizacao_id, b.canalCodigo, !!b.cliente.email);
       // Um código novo invalida os anteriores deste link.
       await tx.codigoAcesso.updateMany({ where: { linkId: l.id, usadoEm: null }, data: { expiraEm: new Date() } });
       await tx.codigoAcesso.create({
-        data: { organizacaoId: l.organizacao_id, linkId: l.id, codigoHash: hashCodigo(l.id, codigo), canal, expiraEm: new Date(Date.now() + VALIDADE_CODIGO_MINUTOS * 60_000) },
+        data: { organizacaoId: l.organizacao_id, linkId: l.id, codigoHash: hashCodigo(l.id, codigo), canal: c, expiraEm: new Date(Date.now() + VALIDADE_CODIGO_MINUTOS * 60_000) },
       });
+      return c;
     });
     await enfileirar('enviar-mensagem', { organizacaoId: l.organizacao_id, balcaoId: l.balcao_id, tipo: 'codigo', canal, selado: await selarConteudo(l.organizacao_id, { codigo }) });
     res.status(202).json({ canal });
@@ -102,6 +130,7 @@ rotasAcesso.post(
 rotasAcesso.post(
   '/entrar',
   limites.entrarCliente,
+  limites.entrarPorBalcao,
   rota(async (req, res) => {
     const l = await linkValido(req);
     const { codigo } = validar(EntrarClienteEntrada, req.body);
@@ -116,7 +145,7 @@ rotasAcesso.post(
       await tx.codigoAcesso.update({ where: { id: c.id }, data: { usadoEm: new Date() } });
       const { token, hash } = novoToken();
       await tx.sessaoCliente.create({ data: { organizacaoId: l.organizacao_id, linkId: l.id, balcaoId: l.balcao_id, tokenHash: hash, expiraEm: new Date(Date.now() + VALIDADE_SESSAO_CLIENTE_MS) } });
-      definirCookie(res, COOKIE_CLIENTE, token, VALIDADE_SESSAO_CLIENTE_MS);
+      definirCookie(res, cookieDoBalcao(l.balcao_id), token, VALIDADE_SESSAO_CLIENTE_MS);
       await auditarComo(tx, l.organizacao_id, 'cliente', null, ipDe(req), { acao: 'cliente.entrou', alvoTipo: 'balcao', alvoId: l.balcao_id });
       return true;
     });
@@ -139,11 +168,13 @@ if (emDesenvolvimento) {
 
 /* ---------- Sessão do cliente ---------- */
 
+/** Exige o link (x-link) e a sessão daquele balcão neste aparelho. */
 export async function exigirCliente(req: Request, _res: Response, next: NextFunction) {
   try {
-    const token = req.cookies?.[COOKIE_CLIENTE];
+    const l = await linkValido(req);
+    const token = req.cookies?.[cookieDoBalcao(l.balcao_id)];
     const s = typeof token === 'string' && token ? await sessaoClientePorToken(hashToken(token)) : null;
-    if (!s) throw new ErroHttp(401, 'Abra o link de novo e digite o código.', 'sem_sessao');
+    if (!s || s.balcao_id !== l.balcao_id || s.link_id !== l.id) throw new ErroHttp(401, 'Digite o código para abrir o balcão.', 'sem_sessao');
     req.cliente = { sessaoId: s.id, organizacaoId: s.organizacao_id, balcaoId: s.balcao_id, linkId: s.link_id };
     next();
   } catch (e) {
@@ -160,9 +191,9 @@ rotasCliente.get(
     const dados = await naOrganizacao(organizacaoId, async (tx): Promise<BalcaoCliente> => {
       const b = await tx.balcao.findUniqueOrThrow({ where: { id: balcaoId }, include: { cliente: { select: { nome: true } } } });
       const itens = await tx.itemBalcao.findMany({
-        where: { balcaoId },
+        where: { balcaoId, removidoEm: null },
         orderBy: { ordem: 'asc' },
-        include: { documentos: { where: { status: 'quarentena' }, select: { id: true }, take: 1 } },
+        include: { documentos: { where: { status: { in: ['quarentena', 'disponivel'] } }, select: { status: true, enviadoEm: true, chaveMiniatura: true }, orderBy: { enviadoEm: 'desc' } } },
       });
       return {
         organizacao: await marca(tx, organizacaoId),
@@ -170,7 +201,21 @@ rotasCliente.get(
         tipo: b.tipo,
         prazo: b.prazo.toISOString().slice(0, 10),
         concluido: !!b.concluidoEm,
-        itens: itens.map((i) => ({ id: i.id, nome: i.nome, detalhe: i.detalhe, obrigatorio: i.obrigatorio, status: i.status, motivo: i.motivoRecusa, verificando: i.documentos.length > 0 })),
+        itens: itens.map((i) => {
+          // Só conta o que veio depois do último "pedir de novo".
+          const docs = i.documentos.filter((d) => d.enviadoEm > (i.pedidoDeNovoEm ?? new Date(0)));
+          const ultimo = docs.find((d) => d.status === 'disponivel');
+          return {
+            id: i.id,
+            nome: i.nome,
+            detalhe: i.detalhe,
+            obrigatorio: i.obrigatorio,
+            status: i.status,
+            motivo: i.motivoRecusa,
+            verificando: docs[0]?.status === 'quarentena',
+            temMiniatura: i.status !== 'pendente' && !!ultimo?.chaveMiniatura,
+          };
+        }),
       };
     });
     res.json(dados);
@@ -185,7 +230,7 @@ rotasCliente.post(
     const { organizacaoId, balcaoId } = req.cliente!;
     const d = validar(IniciarUploadEntrada, req.body);
     const r = await naOrganizacao(organizacaoId, async (tx): Promise<UploadIniciado> => {
-      const item = await tx.itemBalcao.findFirst({ where: { id: req.params.id, balcaoId }, include: { balcao: { select: { concluidoEm: true } } } });
+      const item = await tx.itemBalcao.findFirst({ where: { id: req.params.id, balcaoId, removidoEm: null }, include: { balcao: { select: { concluidoEm: true } } } });
       if (!item || item.balcao.concluidoEm) throw naoEncontrado('Documento não encontrado.');
       if (item.status === 'aprovado' || item.status === 'analise') throw new ErroHttp(409, 'Este documento já foi enviado.');
       // Uploads abandonados deste item saem da frente.
@@ -219,12 +264,31 @@ rotasCliente.post(
   }),
 );
 
+/** Miniatura do que o cliente enviou. O original não volta para o celular. */
+rotasCliente.get(
+  '/itens/:id/miniatura',
+  rota(async (req, res) => {
+    const { organizacaoId, balcaoId } = req.cliente!;
+    const url = await naOrganizacao(organizacaoId, async (tx) => {
+      const item = await tx.itemBalcao.findFirst({ where: { id: req.params.id, balcaoId, removidoEm: null } });
+      if (!item) throw naoEncontrado('Documento não encontrado.');
+      const d = await tx.documento.findFirst({
+        where: { itemId: item.id, status: 'disponivel', chaveMiniatura: { not: null }, enviadoEm: { gt: item.pedidoDeNovoEm ?? new Date(0) } },
+        orderBy: { enviadoEm: 'desc' },
+      });
+      if (!d?.chaveMiniatura) throw naoEncontrado('Sem miniatura.');
+      return urlDeDownload(BUCKET_DOCUMENTOS, d.chaveMiniatura, 'miniatura.webp', 'image/webp', false);
+    });
+    res.json({ url });
+  }),
+);
+
 rotasCliente.post(
   '/sair',
   rota(async (req, res) => {
-    const { organizacaoId, sessaoId } = req.cliente!;
+    const { organizacaoId, sessaoId, balcaoId } = req.cliente!;
     await naOrganizacao(organizacaoId, (tx) => tx.sessaoCliente.delete({ where: { id: sessaoId } }));
-    limparCookie(res, COOKIE_CLIENTE);
+    limparCookie(res, cookieDoBalcao(balcaoId));
     res.status(204).end();
   }),
 );

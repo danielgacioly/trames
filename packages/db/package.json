@@ -17,7 +17,8 @@
     "migrate": "node scripts/com-dono.mjs prisma migrate deploy",
     "migrate:dev": "node scripts/com-dono.mjs prisma migrate dev",
     "seed": "node scripts/com-dono.mjs tsx src/seed.ts",
-    "storage": "dotenv -e ../../.env -- tsx src/preparar-storage.ts"
+    "storage": "dotenv -e ../../.env -- tsx src/preparar-storage.ts",
+    "caixa": "node scripts/com-dono.mjs tsx src/caixa-saida.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.1.0",

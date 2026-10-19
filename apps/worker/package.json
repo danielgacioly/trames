@@ -8,18 +8,24 @@
     "build": "tsup",
     "start": "node dist/main.js",
     "typecheck": "tsc -p .",
-    "fila:instalar": "dotenv -e ../../.env -- tsx src/instalar-fila.ts"
+    "fila:instalar": "dotenv -e ../../.env -- tsx src/instalar-fila.ts",
+    "miniaturas": "dotenv -e ../../.env -- tsx src/gerar-miniaturas.ts"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.716.0",
+    "@aws-sdk/lib-storage": "^3.1152.0",
+    "@napi-rs/canvas": "0.1.65",
     "@trames/db": "workspace:*",
     "@trames/shared": "workspace:*",
+    "archiver": "^7.0.1",
     "file-type": "^19.6.0",
+    "pdfjs-dist": "4.10.38",
     "pg-boss": "^10.1.6",
     "pino": "^9.6.0",
     "sharp": "^0.33.5"
   },
   "devDependencies": {
+    "@types/archiver": "^6.0.4",
     "@types/node": "^22.10.2",
     "dotenv-cli": "^8.0.0",
     "tsup": "^8.3.5",

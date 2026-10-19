@@ -77,9 +77,25 @@ pnpm storage
 pnpm db:seed
 ```
 
-O `pnpm db:seed` também serve para voltar os dados de teste ao estado inicial a qualquer momento.
+O `pnpm db:seed` também serve para voltar os dados de teste ao estado inicial a qualquer momento. Ele gera também as miniaturas dos documentos de exemplo (leva alguns segundos).
 
 Para parar: Ctrl+C no terminal do `pnpm dev`.
+
+### Depois de baixar uma versão nova (`git pull`)
+
+Pare o `pnpm dev` (Ctrl+C) e rode, um de cada vez:
+
+```
+pnpm install
+```
+```
+pnpm preparar
+```
+```
+pnpm dev
+```
+
+O `pnpm preparar` aplica as migrações novas do banco, cria as filas novas do worker, prepara os buckets e roda o seed.
 
 ## 3. Endereços
 
@@ -113,49 +129,76 @@ Para trocar de conta, saia pelo menu e entre com outro e-mail. Ou use uma janela
 
 ### Grátis (`gratis@trames.app`)
 
-- [ ] O painel mostra 2 de 3 balcões usados.
-- [ ] Abra um balcão novo: deve funcionar (3 de 3).
-- [ ] Tente abrir mais um: a Trames deve avisar que o limite do plano acabou.
-- [ ] Turu, relatório, modelos próprios, lembretes, marca e permissões aparecem bloqueados, com convite para mudar de plano.
+- [ ] O painel e o menu lateral mostram 2 de 3 balcões ativos.
+- [ ] Abra um balcão novo: o e-mail do cliente é obrigatório, porque o código de acesso e os lembretes vão por e-mail. O canal "WhatsApp" aparece bloqueado, com convite para o Pro.
+- [ ] Com 3 de 3, tente abrir mais um: a Trames avisa que o limite acabou.
+- [ ] Modelos próprios, marca, permissões e relatório aparecem bloqueados.
+- [ ] Em **Conta e marca**, a retenção é fixa: 30 dias depois de concluir.
+- [ ] O balcão concluído da Helena mostra a data em que os arquivos serão apagados.
 
 ### Pro (`pro@trames.app`)
 
 - [ ] O painel mostra 6 de 40 balcões.
-- [ ] Abra o balcão do Júlio e veja os documentos em cada estado (pendente, em análise, aprovado, recusado).
-- [ ] Crie um balcão usando o Turu: descreva o caso em texto e veja a lista de documentos sugerida. Sem `ANTHROPIC_API_KEY` no `.env`, o Turu usa palavras-chave; com a chave, usa o Claude.
-- [ ] Crie um modelo próprio de lista de documentos e use-o num balcão novo.
-- [ ] Envie um lembrete para um cliente.
+- [ ] Abra o balcão do Júlio. A tela de conferir mostra a **miniatura** do documento; o original só sai em **Baixar original** (e fica no Histórico).
+- [ ] **Link do cliente**: o link aparece de novo (não precisa gerar outro). "Enviar pelo WhatsApp" abre o seu WhatsApp (wa.me) com a mensagem pronta; "Enviar por e-mail" manda pela Trames; "Copiar link" fica no Histórico.
+- [ ] **Editar lista**: inclua um documento, puxe itens de um modelo, mude a ordem (arrastando ou pelas setas), marque "Pedir de novo" num item aprovado e tire um item que já tem arquivo (pede confirmação). Salve e confira o Histórico, com o antes e o depois.
+- [ ] Tente tirar todos os itens: o último não sai.
+- [ ] **Prazo e lembretes**: desligue os lembretes do balcão, troque o canal para WhatsApp, mude o prazo.
+- [ ] **Cota de WhatsApp**: o seed deixa o Pro com 298 das 300 mensagens do mês. Clique em **Lembrar Júlio** três vezes (o balcão dele está no WhatsApp): as duas primeiras vão pelo WhatsApp, a terceira cai para e-mail e quem administra recebe o aviso "A cota de WhatsApp do mês acabou". Tudo aparece na caixa de saída (seção 6).
+- [ ] **Baixar tudo (ZIP)**: o worker monta o ZIP em segundos; depois aparece "Baixar ZIP" (vale 24 horas).
+- [ ] O balcão concluído da Fernanda vai ter os arquivos apagados em poucos dias: é o caso do aviso de 7 dias (seção 6).
+- [ ] Crie um modelo próprio e use-o num balcão novo.
 - [ ] Na tela do cliente, a sigla e a cor do escritório aparecem.
 - [ ] Equipe: convide pessoas até o limite de 3.
 
 ### Ultra (`ultra@trames.app`)
 
-- [ ] O painel mostra 46 balcões abertos (mais que o limite do Pro).
-- [ ] Relatório de prazos e pendências.
-- [ ] Equipe com 6 pessoas e permissões diferentes por pessoa.
+- [ ] O menu lateral mostra os balcões **novos do mês**, não os ativos. O seed deixa o Ultra com 198 de 200.
+- [ ] O painel mostra ao admin o uso do mês e os excedentes.
+- [ ] Crie 2 balcões: com 200 de 200, a tela de criar mostra "Este balcão será cobrado como excedente (R$ 1,00)". O 3º é criado normalmente (sem bloqueio) e a tela do link avisa que foi excedente. Em **Conta e marca**, aparece "1 excedente (R$ 1,00) na próxima fatura".
+- [ ] Ao passar de 200, quem administra recebe o e-mail "Você passou dos 200 balcões do mês" (o de 180 o seed já marcou como enviado).
+- [ ] Em **Conta e marca**, a retenção pode ser 30, 90, 180 dias ou 12 meses.
+- [ ] Relatório de prazos e pendências; equipe com 6 pessoas e permissões por pessoa.
 
 ### Troca de plano
 
-Em desenvolvimento a cobrança é simulada. Na página **Planos**, troque o plano de uma conta e veja os recursos liberarem ou bloquearem na hora. Rode `pnpm db:seed` para voltar ao original.
+Em desenvolvimento a cobrança é simulada. Na página **Planos**, escolha mensal ou anual e troque o plano de uma conta: os recursos liberam ou bloqueiam na hora. Rode `pnpm db:seed` para voltar ao original.
+
+O Turu está fora do lançamento e não aparece. Para ligar em desenvolvimento, ponha `TURU=1` e `VITE_TURU=1` no `.env` e reinicie o `pnpm dev`.
 
 ## 6. Roteiro do cliente
 
 1. Entre com uma conta (Pro é a mais completa) e crie um balcão.
-2. Na tela **"Balcão criado"**, copie o link e abra numa janela anônima (de preferência no modo celular do navegador).
-3. Peça o código de acesso. Como o WhatsApp e o e-mail não saem em desenvolvimento, use **"preencher o código da caixa de saída"**.
-4. Envie arquivos para os documentos pedidos (foto, PDF).
-5. O arquivo aparece como **"Recebido. Estamos verificando o arquivo."** enquanto o worker confere o tipo e passa o antivírus. Depois fica **em análise** para o escritório.
-6. Volte ao painel da empresa, abra o balcão e aprove ou recuse cada documento. Na recusa, escreva o motivo.
-7. Recarregue a tela do cliente: o documento recusado aparece com o motivo, pronto para reenvio.
-8. Veja a aba **Histórico** do balcão: cada visualização, download, aprovação e recusa está registrada.
+2. Na tela **"Balcão criado"**, clique em **Ver como o cliente** (ou copie o link e abra numa janela anônima, no modo celular do navegador).
+3. Clique em **Receber o código**: ele vai pelo canal que o escritório escolheu (e-mail, por padrão). Como nada sai em desenvolvimento, use **"preencher o código da caixa de saída"**.
+4. Envie uma foto e um PDF. O arquivo aparece como **"Recebido. Estamos verificando o arquivo."** enquanto o worker confere o tipo, passa o antivírus e gera a miniatura. Depois fica **em análise**, e o cliente pode tocar em **Ver o que enviei** (a miniatura, nunca o original).
+5. Feche a aba e abra o link de novo: entra direto na lista, sem código. A sessão vale 30 dias naquele aparelho e só para aquele balcão.
+6. No painel, aprove ou recuse cada documento. Recarregue a tela do cliente: o recusado aparece com o motivo.
+7. No painel, clique em **Encerrar acesso**: no celular, o código é pedido de novo. Concluir o balcão ou gerar um link novo também encerra o acesso.
+8. Edite a lista e inclua um documento: 10 minutos depois o worker manda ao cliente um e-mail com o que mudou (todas as mudanças desses 10 minutos vão juntas).
 
 O ClamAV baixa as assinaturas de vírus na primeira vez que sobe e leva alguns minutos. Até lá, os arquivos ficam na verificação e o worker tenta de novo sozinho.
 
+### Onde ver as mensagens que "sairiam"
+
+Em desenvolvimento, e-mails e WhatsApp vão para a tabela `caixa_saida_dev`. Para ver as últimas 10 (código, lembretes, avisos ao admin):
+
+```
+pnpm caixa
+```
+
+Para ver mais, ponha o número no fim: `pnpm caixa 30`. As mensagens de WhatsApp aparecem com o nome do template.
+
+### Rotinas do worker
+
+Lembretes (às 10h), retenção (às 3h30) e limpeza (de hora em hora) rodam sozinhos no horário de Brasília. Os lembretes saem 3 dias antes do prazo, no dia e 2 dias depois, só se ainda faltar documento obrigatório, e levam sempre o mesmo link.
+
 ### Testes de segurança que dá para fazer na mão
 
-- [ ] Abra o link do cliente sem o código: não deve mostrar nada do balcão.
+- [ ] Abra o link do cliente sem o código: não mostra nada do balcão.
 - [ ] Erre o código 5 vezes: o acesso trava e é preciso pedir um código novo.
-- [ ] Envie um lembrete: o link antigo deixa de valer e mostra "use o link da mensagem mais recente".
+- [ ] Conectado num balcão, abra no mesmo navegador o link de outro balcão: o código é pedido de novo.
+- [ ] Gere um link novo: o antigo deixa de valer e mostra "use o link da mensagem mais recente".
 - [ ] Entre como Grátis e, numa janela anônima, como Pro: um escritório nunca vê balcões, clientes ou arquivos do outro.
 - [ ] Erre o código de login 5 vezes: o código deixa de valer e é preciso pedir um novo.
 
@@ -167,7 +210,7 @@ Com o Docker no ar e o seed rodado:
 pnpm test
 ```
 
-Rodam 8 testes de integração da API: isolamento entre escritórios, código de login, limites de plano, checagem de origem e auditoria.
+Rodam 13 testes de integração da API: isolamento entre escritórios, código de login, limites e canais por plano, excedente do Ultra, sessão de 30 dias do cliente, edição da lista, retenção por plano, checagem de origem e auditoria. Os testes apagam o que criam.
 
 ```
 pnpm typecheck
@@ -201,6 +244,9 @@ lsof -nP -iTCP:5432 -sTCP:LISTEN
 
 **`pull access denied for minio/minio`**
 Versão antiga do `docker-compose.yml`. Rode `git pull`.
+
+**`Queue avisar-mudanca does not exist` (ou exportar)**
+Faltou criar as filas novas depois do `git pull`. Rode `pnpm fila:instalar` (ou `pnpm preparar`).
 
 **Arquivo do cliente parado em "Estamos verificando o arquivo"**
 Confira se o ClamAV está rodando e terminou de baixar as assinaturas:

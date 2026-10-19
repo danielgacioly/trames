@@ -1,9 +1,9 @@
 import { fileTypeFromBuffer } from 'file-type';
-import sharp from 'sharp';
 import { naOrganizacao } from '@trames/db';
 import { apagar, baixar, BUCKET_DOCUMENTOS, BUCKET_QUARENTENA, chaveMiniatura, enviar, moverParaDocumentos } from '@trames/db/armazenamento';
 import { ehTipoPermitido, TAMANHO_MAXIMO_ARQUIVO, type PayloadFila } from '@trames/shared';
 import { escanear } from '../antivirus';
+import { gerarMiniatura } from '../miniatura';
 import { log } from '../log';
 
 const MOTIVO_CLIENTE = 'Não conseguimos aceitar este arquivo. Envie uma foto nítida ou um PDF.';
@@ -38,15 +38,12 @@ export async function verificarDocumento({ organizacaoId, documentoId }: Payload
   }
 
   await moverParaDocumentos(doc.chave, tipo!.mime);
+  // Miniatura para conferir: a tela mostra ela, e o original só sai em "Baixar original".
   let miniatura: string | null = null;
-  if (tipo!.mime.startsWith('image/') && tipo!.mime !== 'image/heic') {
-    try {
-      const corpo = await sharp(arquivo).rotate().resize(480, 480, { fit: 'inside' }).webp({ quality: 70 }).toBuffer();
-      miniatura = chaveMiniatura(organizacaoId, doc.id);
-      await enviar(BUCKET_DOCUMENTOS, miniatura, corpo, 'image/webp');
-    } catch {
-      miniatura = null; // imagem que o sharp não abre: segue sem miniatura
-    }
+  const corpo = await gerarMiniatura(arquivo, tipo!.mime);
+  if (corpo) {
+    miniatura = chaveMiniatura(organizacaoId, doc.id);
+    await enviar(BUCKET_DOCUMENTOS, miniatura, corpo, 'image/webp');
   }
   await naOrganizacao(organizacaoId, async (tx) => {
     await tx.documento.update({ where: { id: doc.id }, data: { status: 'disponivel', tipoReal: tipo!.mime, chaveMiniatura: miniatura, verificadoEm: new Date() } });

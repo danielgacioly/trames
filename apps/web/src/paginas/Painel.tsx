@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { NOMES_AREA, type BalcaoResumo } from '@trames/shared';
+import { AVISO_BALCOES_NO_MES, NOMES_AREA, type BalcaoResumo } from '@trames/shared';
 import { useBalcoes, useCobranca, useModelos, useSessao } from '../dados/consultas';
 import { AvisoErro, Carregando, Status } from '../componentes/comuns';
 import { Icone } from '../componentes/Icone';
@@ -92,6 +92,7 @@ function Inicio() {
             <span style={{ fontWeight: 500 }}>Balcão em branco</span>
           </Link>
         </div>
+        {import.meta.env.VITE_TURU === '1' && (
         <Link
           to="/app/turu"
           style={{ textDecoration: 'none', color: 'var(--tinta)', alignSelf: 'center', width: '100%', maxWidth: 640, display: 'flex', alignItems: 'center', gap: 12, background: 'var(--areia-elevada)', border: '1px solid var(--linha)', borderRadius: 9999, padding: '8px 8px 8px 10px' }}
@@ -99,12 +100,12 @@ function Inicio() {
           <img src="/marca/turu.svg" alt="" style={{ width: 36, height: 36, borderRadius: 9999, flex: 'none' }} />
           <span className="texto-suave" style={{ flex: 1, fontSize: 15 }}>
             Prefere contar o caso? O Turu monta a lista para você.
-            {!s.tem('turu') && ' (Pro e Ultra)'}
           </span>
           <span className="tr-btn tr-btn--secundario tr-btn--sm" style={{ borderRadius: 9999 }}>
             Falar com o Turu
           </span>
         </Link>
+        )}
       </div>
     </div>
   );
@@ -113,7 +114,8 @@ function Inicio() {
 export function Painel() {
   const s = useSessao();
   const consulta = useBalcoes();
-  const ativos = useCobranca().data?.balcoesAtivos ?? 0;
+  const uso = useCobranca().data;
+  const ativos = uso?.balcoesAtivos ?? 0;
   const [filtro, setFiltro] = useState<'abertos' | Grupo>('abertos');
   const [busca, setBusca] = useState('');
 
@@ -169,6 +171,18 @@ export function Painel() {
           <Icone nome="cadeado" />
           <span>
             Você está usando os {limite} balcões ativos do plano {s.plano.nome}. Para abrir um novo, conclua um balcão que já terminou ou <Link to="/planos">mude de plano</Link>.
+          </span>
+        </div>
+      )}
+
+      {s.plano.balcoesNoMes !== null && s.usuario.permissao === 'admin' && uso && (
+        <div className={`aviso${uso.balcoesNoMes >= AVISO_BALCOES_NO_MES ? ' aviso--plano' : ''}`} role="status">
+          <Icone nome="calendario" />
+          <span>
+            Neste mês: {uso.balcoesNoMes} de {s.plano.balcoesNoMes} balcões novos incluídos no plano.
+            {uso.excedentes > 0
+              ? ` ${plural(uso.excedentes, 'excedente gerado', 'excedentes gerados')} (${(uso.valorExcedentesCentavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}), somados à próxima fatura.`
+              : ' Depois disso, cada balcão novo custa R$ 1,00, sem bloqueio.'}
           </span>
         </div>
       )}

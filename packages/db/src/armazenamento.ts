@@ -28,7 +28,8 @@ const s3Publico = cliente(process.env.S3_ENDPOINT_PUBLICO || process.env.S3_ENDP
 
 /** Chave aleatória, sem nome de arquivo nem dado pessoal. */
 export const chaveDocumento = (organizacaoId: string, documentoId: string) => `${organizacaoId}/${documentoId}`;
-export const chaveMiniatura = (organizacaoId: string, documentoId: string) => `${organizacaoId}/${documentoId}.miniatura.webp`;
+/** Miniaturas num prefixo separado; seguem o acesso e a retenção do original. */
+export const chaveMiniatura = (organizacaoId: string, documentoId: string) => `miniaturas/${organizacaoId}/${documentoId}.webp`;
 
 /** POST assinado: o S3 recusa arquivo maior que o limite ou com outro Content-Type. */
 export function urlDeUpload(chave: string, tipo: string, tamanho: number) {
@@ -65,6 +66,12 @@ export async function existe(bucket: string, chave: string) {
 export async function baixar(bucket: string, chave: string) {
   const r = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: chave }));
   return Buffer.from(await r.Body!.transformToByteArray());
+}
+
+/** O objeto como fluxo, para ler sem carregar tudo na memória (exportação em ZIP). */
+export async function abrirFluxo(bucket: string, chave: string) {
+  const r = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: chave }));
+  return r.Body as import('node:stream').Readable;
 }
 
 export function enviar(bucket: string, chave: string, corpo: Buffer, tipo: string) {

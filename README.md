@@ -2,7 +2,7 @@
 
 Uma empresa (escritório de contabilidade, advocacia, consultório) abre um **balcão** para cada cliente com a lista de documentos que precisa. O cliente recebe um link, abre no celular e envia os arquivos. A empresa confere, aprova ou recusa cada documento.
 
-A arquitetura está descrita em `docs/arquitetura.md`. O que ainda falta para produção está em `docs/pendencias.md`. O passo a passo para rodar e testar está em `docs/testes.md`.
+A arquitetura está descrita em `docs/arquitetura.md`, com os ajustes de viabilidade comercial em `docs/viabilidade.md` (quando divergem, vale este). O que ainda falta para produção está em `docs/pendencias.md`. O passo a passo para rodar e testar está em `docs/testes.md`.
 
 ## Estrutura
 
@@ -11,14 +11,14 @@ apps/
   web       painel da empresa e site (React + Vite)                    :5173
   balcao    tela do cliente no celular (React + Vite, sem roteador)     :5174
   api       Express, monólito modular                                   :3000
-  worker    jobs (pg-boss): antivírus, miniaturas, mensagens, lembretes, expiração, retenção
+  worker    jobs (pg-boss): antivírus, miniaturas, mensagens, lembretes, aviso de mudança, ZIP, expiração, retenção
 packages/
   db        schema Prisma, migrações (com RLS), cliente, criptografia, storage, seed
   shared    esquemas Zod, tipos, planos, regras de arquivo, estilos do design system
 infra/dev   docker compose com Postgres, S3 local (moto) e ClamAV
 ```
 
-Módulos da API (`apps/api/src/modulos`): `auth`, `organizacoes`, `balcoes`, `documentos`, `modelos`, `acesso-cliente`, `clientes`, `turu`, `cobranca`, `auditoria`.
+Módulos da API (`apps/api/src/modulos`): `auth`, `organizacoes`, `balcoes`, `documentos`, `modelos`, `acesso-cliente`, `clientes`, `cobranca`, `auditoria` e `turu` (fora do lançamento: só com `TURU=1`).
 
 ## Rodar localmente
 
@@ -37,7 +37,23 @@ pnpm dev                                                # api, worker, web e bal
 
 O ClamAV baixa as assinaturas na primeira vez que sobe; leva alguns minutos. Enquanto isso, os arquivos ficam em quarentena e o worker tenta de novo.
 
-`pnpm test` roda os testes de integração da API (isolamento entre escritórios, código de login, limites de plano, origem, auditoria). Eles usam o banco de desenvolvimento: rode `pnpm db:seed` antes.
+`pnpm test` roda os testes de integração da API (isolamento entre escritórios, código de login, limites e canais por plano, excedente do Ultra, sessão do cliente, edição da lista, retenção, origem, auditoria). Eles usam o banco de desenvolvimento: rode `pnpm db:seed` antes.
+
+`pnpm caixa` mostra as últimas mensagens que sairiam por e-mail ou WhatsApp (em desenvolvimento nada sai de verdade).
+
+## Planos
+
+| | Grátis | Pro | Ultra |
+| --- | --- | --- | --- |
+| Preço | R$ 0 | R$ 69/mês ou R$ 690/ano | R$ 149/mês ou R$ 1.490/ano |
+| Balcões | 3 ativos | 40 ativos | 200 novos por mês; excedente a R$ 1,00, sem bloqueio |
+| Pessoas | 1 | até 3 | ilimitadas |
+| Retenção depois de concluir | 30 dias | 90 dias | 90 dias (30, 90, 180 ou 365) |
+| Código e lembretes | e-mail | e-mail ou WhatsApp (300 msgs/mês) | e-mail ou WhatsApp (1.500 msgs/mês) |
+| Modelos próprios e marca | não | sim | sim |
+| Permissões e relatório | não | não | sim |
+
+As regras ficam em `packages/shared/src/planos.ts` (front e API usam o mesmo arquivo). O contador do mês (`uso_mensal`) é atualizado de forma atômica; cada excedente do Ultra vira uma linha em `itens_cobranca` com o mês de referência. Acabou a cota de WhatsApp, o envio cai para e-mail até o mês virar e quem administra recebe um aviso.
 
 ## Contas de teste
 
@@ -45,25 +61,23 @@ Senha das três: `trames-teste-123`. Depois da senha, a Trames pede um código d
 
 | Plano | E-mail | O que testar |
 | --- | --- | --- |
-| Grátis | `gratis@trames.app` | Clínica Boa Vista (saúde), 2 de 3 balcões. Abra mais um e veja o limite. Turu, relatório, modelos próprios, lembretes, marca e permissões ficam bloqueados (a API responde 402). |
-| Pro | `pro@trames.app` | Albuquerque & Lima (advocacia), 6 de 40 balcões, o caso do Júlio, Turu, modelos próprios, lembretes, sigla e cor no balcão do cliente, equipe de até 3 pessoas. |
-| Ultra | `ultra@trames.app` | Lins & Moura (contabilidade), 46 balcões abertos (mais que o limite do Pro), relatório de prazos e pendências, 6 pessoas com permissões por pessoa. |
+| Grátis | `gratis@trames.app` | Clínica Boa Vista (saúde), 2 de 3 balcões. E-mail do cliente obrigatório, WhatsApp bloqueado, retenção de 30 dias. |
+| Pro | `pro@trames.app` | Albuquerque & Lima (advocacia), o caso do Júlio (canal WhatsApp), miniaturas, editar lista, ZIP, link pelo wa.me. A cota de WhatsApp começa em 298 de 300. |
+| Ultra | `ultra@trames.app` | Lins & Moura (contabilidade), 198 de 200 balcões novos no mês (o 3º que você criar é excedente), retenção configurável, 6 pessoas com permissões. |
 
-Lado do cliente: abra o link, peça o código e use o botão "preencher o código da caixa de saída". O WhatsApp do cliente também não sai em desenvolvimento.
-
-Em desenvolvimento dá para trocar o plano de uma conta pela página Planos (`COBRANCA_SIMULADA=1`).
+O roteiro completo está em `docs/testes.md`. Em desenvolvimento dá para trocar o plano (mensal ou anual) pela página Planos (`COBRANCA_SIMULADA=1`).
 
 ## Turu
 
-Com `ANTHROPIC_API_KEY` no `.env`, o Turu usa o Claude (`claude-opus-5-5`, saída estruturada validada com Zod, fallback do servidor ligado). Sem a chave, usa uma montagem simples por palavras-chave. Ele recebe só o texto da conversa e a lista atual, nunca documentos ou dados do cliente.
+Fora do lançamento (`docs/viabilidade.md`): não aparece no painel, nos planos nem no site. O código continua em `apps/api/src/modulos/turu` e `apps/web/src/paginas/Turu.tsx`; para ligar em desenvolvimento, `TURU=1` e `VITE_TURU=1` no `.env`. Com `ANTHROPIC_API_KEY`, usa o Claude (saída estruturada validada com Zod); sem a chave, uma montagem simples por palavras-chave. Ele recebe só o texto da conversa e a lista atual, nunca documentos ou dados do cliente.
 
 ## Segurança, em resumo
 
 - **Multi-tenant:** `organizacao_id` em todas as tabelas de escritório e Row-Level Security no Postgres. A aplicação conecta como `trames_app`, que não é dono das tabelas, e cada transação define o escritório com `set_config` (`naOrganizacao` e `prismaDaOrganizacao` em `packages/db`). Buscas antes de saber o escritório (login, cookie, link do cliente) passam por funções `SECURITY DEFINER` que devolvem só o mínimo.
-- **Arquivos:** o celular envia direto para o bucket `quarentena` por POST assinado (5 min, limite de tamanho e tipo). O worker confere o tipo real pelos bytes, passa o ClamAV e só então move para `documentos`. Download por URL assinada de 60 s, depois de conferir a permissão e registrar na auditoria.
+- **Arquivos:** o celular envia direto para o bucket `quarentena` por POST assinado (5 min, limite de tamanho e tipo). O worker confere o tipo real pelos bytes, passa o ClamAV, move para `documentos` e gera a miniatura (WebP de ~1200 px; do PDF, a primeira página) no prefixo `miniaturas/`. Conferir usa a miniatura; o original só sai em "Baixar original", por URL assinada de 60 s, registrada na auditoria. O cliente vê só a miniatura do que enviou.
 - **Dados pessoais:** CPF e telefone com criptografia por envelope (KMS; em dev, chave local) e HMAC ao lado para busca. Logs sem dado pessoal: só método, padrão da rota, status e tempo. Respostas da API com `Cache-Control: no-store`.
-- **Acesso do cliente:** token do link de 256 bits, só o hash no banco, enviado no fragmento `#` da URL (não vai para servidor, CDN nem log). Código de 6 dígitos com validade de 10 minutos, 5 tentativas e limite de pedidos. Link revogável e renovável.
+- **Acesso do cliente:** token do link de 256 bits no fragmento `#` da URL (não vai para servidor, CDN nem log). A busca é pelo hash; o token também fica selado com o KMS para lembretes e avisos levarem o mesmo link. Código de 6 dígitos (e-mail por padrão; WhatsApp no Pro e no Ultra) com validade de 10 minutos, 5 tentativas e limite por IP e por balcão. Depois do código, sessão de 30 dias naquele aparelho, só para aquele balcão (cookie httpOnly, Secure, SameSite=Strict; o banco guarda só o hash). Ela cai ao concluir o balcão, gerar link novo ou encerrar o acesso.
 - **Login da empresa:** argon2id, sessão em cookie httpOnly SameSite=Strict, segundo fator obrigatório para todos com código de 6 dígitos por e-mail (10 minutos, 5 tentativas, guardado na sessão só como HMAC), checagem de origem contra CSRF.
 - **Auditoria:** `eventos_auditoria` só aceita inclusão (trigger e permissões). Registra quem viu, baixou, aprovou, recusou ou apagou cada documento, quando e de qual IP. Aba "Histórico" em cada balcão.
-- **Retenção e titular:** arquivos de balcão concluído apagados depois de N dias (configurável na tela Conta). Exportação e exclusão dos dados de um cliente na tela Clientes.
+- **Retenção e titular:** ao concluir, a exclusão dos arquivos fica agendada pela regra do plano; quem administra recebe um e-mail 7 dias antes e pode baixar o ZIP. A exclusão apaga originais e miniaturas e deixa na auditoria só qual documento, de qual balcão e quando. O ciclo de vida dos buckets é a rede de segurança. Exportação e exclusão dos dados de um cliente na tela Clientes.
 - **API:** Zod em toda entrada, Helmet com CSP, rate limit geral e por rota sensível, limite de corpo de 64 KB.

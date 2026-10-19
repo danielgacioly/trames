@@ -13,6 +13,7 @@ export interface ContextoEmpresa {
   usuario: Usuario;
   organizacao: Organizacao;
   plano: PlanoId;
+  periodicidade: 'mensal' | 'anual';
 }
 
 export interface ContextoCliente {
@@ -95,7 +96,10 @@ export const limites = {
   reenviarCodigo: limite(15, 5),
   /** Pedir código: por link e por IP. */
   pedirCodigo: limite(15, 5, (req) => `${req.get('x-link') ?? ''}:${req.ip}`),
+  /** Por balcão (o mesmo link), venha de onde vier: segura quem troca de IP. */
+  codigoPorBalcao: limite(60, 10, (req) => `balcao:${req.get('x-link') ?? ''}`),
   entrarCliente: limite(15, 15),
+  entrarPorBalcao: limite(15, 30, (req) => `entrar:${req.get('x-link') ?? ''}`),
   upload: limite(10, 60),
   turu: limite(1, 15),
 };

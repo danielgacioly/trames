@@ -12,9 +12,9 @@ function iniciar() {
   return pronto;
 }
 
-export async function enfileirar<F extends Fila>(fila: F, dados: PayloadFila[F]) {
+export async function enfileirar<F extends Fila>(fila: F, dados: PayloadFila[F], opcoes: PgBoss.SendOptions = {}) {
   await iniciar();
-  await boss.send(fila, dados as object, { retryLimit: 5, retryBackoff: true });
+  await boss.send(fila, dados as object, { retryLimit: 5, retryBackoff: true, ...opcoes });
 }
 
 export const pararFila = () => boss.stop({ graceful: true });

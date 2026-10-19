@@ -1,27 +1,65 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import type { ItemEntrada as ItemModelo, LinkGerado } from '@trames/shared';
-import { api } from '../dados/api';
+import { PRECO_EXCEDENTE_CENTAVOS, type BalcaoDetalhe, type CanalCodigo, type ItemEntrada as ItemModelo, type LinkGerado, type StatusItem } from '@trames/shared';
+import { api, ErroDaApi } from '../dados/api';
 import { chaves as chavesConsulta, useAcao, useBalcao, useCobranca, useModelos, useSessao } from '../dados/consultas';
-import { AvisoErro, Bloqueio, Carregando, SeloConta } from '../componentes/comuns';
+import { AvisoErro, Bloqueio, Carregando, SeloConta, Status } from '../componentes/comuns';
 import { Icone } from '../componentes/Icone';
 import { dataLonga, diaDaqui, primeiroNome, soDigitos } from '../util';
 
-type Item = ItemModelo & { chave: number };
+/** Item da lista em edição. id e status só existem nos itens que já estão no balcão. */
+type Item = ItemModelo & { chave: number; id?: string; status?: StatusItem; temArquivo?: boolean; pedirDeNovo?: boolean };
 
 let chaves = 0;
 const comChave = (itens: ItemModelo[]): Item[] => itens.map((it) => ({ ...it, chave: ++chaves }));
+const reais = (centavos: number) => (centavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-/** Lista editável de documentos, usada no balcão novo e no editor de modelos. */
-export function ListaDocumentos({ itens, mudar }: { itens: Item[]; mudar: (itens: Item[]) => void }) {
+const botaoIcone = { width: 32, height: 32, flex: 'none', display: 'grid', placeItems: 'center', border: 0, borderRadius: 8, background: 'transparent', color: 'var(--tinta-suave)', cursor: 'pointer' } as const;
+
+/**
+ * Lista editável de documentos: a mesma no balcão novo, em "Editar lista" e no
+ * editor de modelos. Arrastar (ou as setas) muda a ordem em que o cliente vê.
+ */
+export function ListaDocumentos({ itens, mudar, extra, remover }: { itens: Item[]; mudar: (itens: Item[]) => void; extra?: (d: Item) => ReactNode; remover?: (d: Item) => void }) {
+  const [arrastando, setArrastando] = useState<number | null>(null);
   const editar = (chave: number, dados: Partial<Item>) => mudar(itens.map((x) => (x.chave === chave ? { ...x, ...dados } : x)));
+  const mover = (de: number, para: number) => {
+    if (para < 0 || para >= itens.length || de === para) return;
+    const nova = [...itens];
+    const [x] = nova.splice(de, 1);
+    nova.splice(para, 0, x);
+    mudar(nova);
+  };
   return (
     <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
       {itens.map((d, k) => (
-        <li key={d.chave} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 12px 12px 14px', border: '1px solid var(--linha)', borderRadius: 12, background: 'var(--areia)' }}>
-          <span className="miudo texto-suave" style={{ width: 18, paddingTop: 9, flex: 'none' }}>
-            {k + 1}
-          </span>
+        <li
+          key={d.chave}
+          draggable
+          onDragStart={(e) => {
+            setArrastando(k);
+            e.dataTransfer.effectAllowed = 'move';
+          }}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            if (arrastando !== null) mover(arrastando, k);
+            setArrastando(null);
+          }}
+          onDragEnd={() => setArrastando(null)}
+          style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '12px 12px 12px 6px', border: '1px solid var(--linha)', borderRadius: 12, background: 'var(--areia)', opacity: arrastando === k ? 0.5 : 1 }}
+        >
+          <div className="coluna" style={{ gap: 0, flex: 'none', alignItems: 'center' }}>
+            <span title="Arraste para mudar a ordem" style={{ ...botaoIcone, cursor: 'grab', height: 20 }} aria-hidden="true">
+              <Icone nome="alca" tamanho={18} />
+            </span>
+            <button type="button" style={{ ...botaoIcone, height: 24 }} aria-label={`Subir ${d.nome}`} disabled={k === 0} onClick={() => mover(k, k - 1)}>
+              <Icone nome="cima" tamanho={16} />
+            </button>
+            <button type="button" style={{ ...botaoIcone, height: 24 }} aria-label={`Descer ${d.nome}`} disabled={k === itens.length - 1} onClick={() => mover(k, k + 1)}>
+              <Icone nome="baixo" tamanho={16} />
+            </button>
+          </div>
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
             <input
               aria-label={`Nome do documento ${k + 1}`}
@@ -36,6 +74,7 @@ export function ListaDocumentos({ itens, mudar }: { itens: Item[]; mudar: (itens
               onChange={(e) => editar(d.chave, { detalhe: e.target.value })}
               style={{ font: 'inherit', fontSize: 14, border: '1px solid transparent', borderRadius: 8, background: 'transparent', padding: '2px 6px', color: 'var(--tinta-suave)' }}
             />
+            {extra?.(d)}
           </div>
           <button
             type="button"
@@ -56,12 +95,7 @@ export function ListaDocumentos({ itens, mudar }: { itens: Item[]; mudar: (itens
           >
             {d.obrigatorio ? 'Obrigatório' : 'Se tiver'}
           </button>
-          <button
-            type="button"
-            onClick={() => mudar(itens.filter((x) => x.chave !== d.chave))}
-            aria-label={`Remover ${d.nome}`}
-            style={{ width: 32, height: 32, marginTop: 2, flex: 'none', display: 'grid', placeItems: 'center', border: 0, borderRadius: 8, background: 'transparent', color: 'var(--tinta-suave)', cursor: 'pointer' }}
-          >
+          <button type="button" onClick={() => (remover ? remover(d) : mudar(itens.filter((x) => x.chave !== d.chave)))} aria-label={`Remover ${d.nome}`} style={{ ...botaoIcone, marginTop: 2 }}>
             <Icone nome="xis" tamanho={18} />
           </button>
         </li>
@@ -76,6 +110,38 @@ export function novoItem(): Item {
 
 export { comChave, type Item };
 
+/** Puxa os itens de um modelo para a lista (sem repetir o que já está nela). */
+function PuxarModelo({ adicionar }: { adicionar: (itens: ItemModelo[]) => void }) {
+  const modelos = useModelos();
+  const [id, setId] = useState('');
+  if (!modelos.data?.length) return null;
+  return (
+    <label className="linha" style={{ gap: 8 }}>
+      <span className="sr-only">Puxar documentos de um modelo</span>
+      <select className="tr-campo__entrada" style={{ height: 40, maxWidth: 260 }} value={id} onChange={(e) => setId(e.target.value)}>
+        <option value="">Puxar de um modelo…</option>
+        {modelos.data.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.nome}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        className="tr-btn tr-btn--discreto"
+        disabled={!id}
+        onClick={() => {
+          const m = modelos.data.find((x) => x.id === id);
+          if (m) adicionar(m.itens);
+          setId('');
+        }}
+      >
+        Adicionar itens
+      </button>
+    </label>
+  );
+}
+
 /** Carrega o modelo (se veio ?modelo=) antes de montar o formulário. */
 export function NovoBalcao() {
   const [params] = useSearchParams();
@@ -88,22 +154,39 @@ export function NovoBalcao() {
   return <FormularioBalcao key={idModelo ?? 'novo'} modelo={modelo} vindoDoTuru={vindoDoTuru} />;
 }
 
+function Canal({ valor, mudar, pode, rotulo }: { valor: CanalCodigo; mudar: (c: CanalCodigo) => void; pode: boolean; rotulo: string }) {
+  return (
+    <label className="tr-campo tr-campo--largo">
+      <span className="tr-campo__rotulo">{rotulo}</span>
+      <select className="tr-campo__entrada" value={pode ? valor : 'email'} disabled={!pode} onChange={(e) => mudar(e.target.value as CanalCodigo)}>
+        <option value="email">E-mail</option>
+        <option value="whatsapp">WhatsApp</option>
+      </select>
+    </label>
+  );
+}
+
 function FormularioBalcao({ modelo, vindoDoTuru }: { modelo?: { nome: string; itens: ItemModelo[] }; vindoDoTuru: { itens?: ItemModelo[]; tipo?: string } | null }) {
   const sessao = useSessao();
   const navegar = useNavigate();
-  const ativos = useCobranca().data?.balcoesAtivos ?? 0;
+  const uso = useCobranca().data;
   const [tipo, setTipo] = useState(vindoDoTuru?.tipo ?? modelo?.nome ?? '');
   const [itens, setItens] = useState<Item[]>(() => comChave(vindoDoTuru?.itens ?? modelo?.itens ?? []));
   const [cliente, setCliente] = useState({ nome: '', cpf: '', whatsapp: '', email: '' });
   const [prazo, setPrazo] = useState(diaDaqui(21));
-  const [lembrete, setLembrete] = useState(sessao.tem('lembretes'));
+  const [canalCodigo, setCanalCodigo] = useState<CanalCodigo>('email');
+  const [lembrete, setLembrete] = useState(true);
+  const [canalLembrete, setCanalLembrete] = useState<CanalCodigo>('email');
   const [erro, setErro] = useState('');
-  const criarBalcao = useAcao((corpo: unknown) => api<{ id: string; link: LinkGerado }>('POST', '/balcoes', corpo), [chavesConsulta.balcoes, chavesConsulta.cobranca, chavesConsulta.clientes]);
+  const criarBalcao = useAcao((corpo: unknown) => api<{ id: string; link: LinkGerado; excedente: boolean }>('POST', '/balcoes', corpo), [chavesConsulta.balcoes, chavesConsulta.cobranca, chavesConsulta.clientes]);
 
+  const p = sessao.plano;
   const soConfere = sessao.tem('permissoes') && sessao.usuario.permissao === 'confere';
-  const noLimite = sessao.plano.limiteBalcoes !== null && ativos >= sessao.plano.limiteBalcoes;
+  const noLimite = p.limiteBalcoes !== null && (uso?.balcoesAtivos ?? 0) >= p.limiteBalcoes;
+  const excedente = p.balcoesNoMes !== null && (uso?.balcoesNoMes ?? 0) >= p.balcoesNoMes;
   const podeAbrir = !noLimite && !soConfere;
-  const podeLembrar = sessao.tem('lembretes');
+  const comWhatsapp = sessao.tem('whatsapp');
+  const precisaEmail = (comWhatsapp ? canalCodigo : 'email') === 'email' || (lembrete && (comWhatsapp ? canalLembrete : 'email') === 'email');
   const nomeCliente = primeiroNome(cliente.nome) || 'cliente';
   const campo = (k: keyof typeof cliente) => ({ value: cliente[k], onChange: (e: React.ChangeEvent<HTMLInputElement>) => setCliente({ ...cliente, [k]: e.target.value }) });
 
@@ -113,15 +196,18 @@ function FormularioBalcao({ modelo, vindoDoTuru }: { modelo?: { nome: string; it
     setErro('');
     if (!itens.length) return setErro('Inclua pelo menos um documento.');
     if (soDigitos(cliente.whatsapp).length < 10) return setErro('Confira o WhatsApp do cliente, com DDD.');
+    if (precisaEmail && !cliente.email.trim()) return setErro('Informe o e-mail do cliente: o código de acesso e os lembretes vão por e-mail.');
     try {
       const b = await criarBalcao.mutateAsync({
         tipo: tipo.trim(),
-        cliente: { ...cliente, nome: cliente.nome.trim() },
+        cliente: { ...cliente, nome: cliente.nome.trim(), email: cliente.email.trim() },
         prazo,
-        lembrete: podeLembrar && lembrete,
-        itens: itens.map(({ chave: _, ...it }) => it),
+        canalCodigo: comWhatsapp ? canalCodigo : 'email',
+        lembrete,
+        canalLembrete: comWhatsapp ? canalLembrete : 'email',
+        itens: itens.map(({ nome, detalhe, obrigatorio }) => ({ nome, detalhe, obrigatorio })),
       });
-      navegar(`/app/balcao/${b.id}/link`, { state: { link: b.link } });
+      navegar(`/app/balcao/${b.id}/link`, { state: { link: b.link, criado: true, excedente: b.excedente } });
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não deu para criar o balcão.');
     }
@@ -157,8 +243,15 @@ function FormularioBalcao({ modelo, vindoDoTuru }: { modelo?: { nome: string; it
             <div className="aviso aviso--plano">
               <Icone nome="cadeado" />
               <span>
-                O plano {sessao.plano.nome} permite {sessao.plano.limiteBalcoes} balcões ativos e você já está usando todos. Conclua um balcão que já terminou ou{' '}
-                <Link to="/planos">mude de plano</Link> para abrir um novo.
+                O plano {p.nome} permite {p.limiteBalcoes} balcões ativos e você já está usando todos. Conclua um balcão que já terminou ou <Link to="/planos">mude de plano</Link> para abrir um novo.
+              </span>
+            </div>
+          )}
+          {excedente && !soConfere && (
+            <div className="aviso aviso--plano" role="status">
+              <Icone nome="info" />
+              <span>
+                Este balcão será cobrado como excedente ({reais(PRECO_EXCEDENTE_CENTAVOS)}). A conta já criou {uso?.balcoesNoMes} balcões neste mês, e o plano {p.nome} inclui {p.balcoesNoMes}.
               </span>
             </div>
           )}
@@ -172,7 +265,7 @@ function FormularioBalcao({ modelo, vindoDoTuru }: { modelo?: { nome: string; it
           <section className="cartao" style={{ gap: 20 }}>
             <div className="coluna" style={{ gap: 4 }}>
               <h2 className="titulo-2">Para quem é</h2>
-              <p className="pequeno texto-suave">O cliente não precisa criar conta. Com esses dados ele recebe o link e o código de acesso.</p>
+              <p className="pequeno texto-suave">O cliente não precisa criar conta. Ele recebe o link e, ao abrir, um código de acesso.</p>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 16 }}>
               <label className="tr-campo tr-campo--largo">
@@ -186,10 +279,12 @@ function FormularioBalcao({ modelo, vindoDoTuru }: { modelo?: { nome: string; it
               <label className="tr-campo tr-campo--largo">
                 <span className="tr-campo__rotulo">WhatsApp</span>
                 <input className="tr-campo__entrada" inputMode="tel" required placeholder="(81) 90000-0000" {...campo('whatsapp')} />
+                <span className="tr-campo__dica">Para você mandar o link pelo seu WhatsApp.</span>
               </label>
               <label className="tr-campo tr-campo--largo">
-                <span className="tr-campo__rotulo">E-mail</span>
-                <input className="tr-campo__entrada" type="email" {...campo('email')} />
+                <span className="tr-campo__rotulo">E-mail{precisaEmail ? '' : ' (opcional)'}</span>
+                <input className="tr-campo__entrada" type="email" required={precisaEmail} {...campo('email')} />
+                {precisaEmail && <span className="tr-campo__dica">O código de acesso e os lembretes vão para este e-mail.</span>}
               </label>
               <label className="tr-campo tr-campo--largo">
                 <span className="tr-campo__rotulo">Tipo de caso</span>
@@ -203,43 +298,53 @@ function FormularioBalcao({ modelo, vindoDoTuru }: { modelo?: { nome: string; it
             <div className="linha linha--entre" style={{ alignItems: 'flex-end', gap: 12 }}>
               <div className="coluna" style={{ gap: 4 }}>
                 <h2 className="titulo-2">Documentos</h2>
-                <p className="pequeno texto-suave">Escreva o que serve em cada item como você explicaria ao cliente.</p>
+                <p className="pequeno texto-suave">Escreva o que serve em cada item como você explicaria ao cliente. Arraste para mudar a ordem.</p>
               </div>
               <span className="pequeno texto-suave">{itens.length} documentos</span>
             </div>
-            {itens.length === 0 && (
-              <p className="pequeno texto-suave">
-                Nenhum documento ainda. Adicione um por um ou <Link to="/app/modelos">comece por um modelo</Link>.
-              </p>
-            )}
+            {itens.length === 0 && <p className="pequeno texto-suave">Nenhum documento ainda. Adicione um por um ou puxe de um modelo.</p>}
             <ListaDocumentos itens={itens} mudar={setItens} />
             <div className="linha">
               <button type="button" className="tr-btn tr-btn--secundario" onClick={() => setItens([...itens, novoItem()])}>
                 <Icone nome="mais" />
                 Adicionar documento
               </button>
-              {sessao.tem('turu') && (
-                <Link to="/app/turu" className="tr-btn tr-btn--discreto">
-                  <img src="/marca/turu.svg" alt="" style={{ width: 20, height: 20, borderRadius: 6 }} />
-                  Pedir sugestões ao Turu
-                </Link>
-              )}
+              <PuxarModelo adicionar={(novos) => setItens([...itens, ...comChave(novos.filter((n) => !itens.some((i) => i.nome === n.nome)))])} />
             </div>
           </section>
 
           <section className="cartao" style={{ gap: 20 }}>
-            <h2 className="titulo-2">Prazo e lembretes</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 16, alignItems: 'end' }}>
+            <h2 className="titulo-2">Prazo, código e lembretes</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: 16, alignItems: 'end' }}>
               <label className="tr-campo tr-campo--largo">
                 <span className="tr-campo__rotulo">Prazo para o cliente</span>
                 <input className="tr-campo__entrada" type="date" required value={prazo} min={diaDaqui(0)} onChange={(e) => setPrazo(e.target.value)} />
               </label>
-              <label className="linha" style={{ height: 44, fontSize: 15, cursor: podeLembrar ? 'pointer' : 'not-allowed', color: podeLembrar ? 'var(--tinta)' : 'var(--tinta-suave)' }}>
-                <input type="checkbox" checked={podeLembrar && lembrete} disabled={!podeLembrar} onChange={(e) => setLembrete(e.target.checked)} style={{ width: 18, height: 18, accentColor: '#13594b' }} />
-                Lembrar {nomeCliente === 'cliente' ? 'o cliente' : nomeCliente} a cada 3 dias pelo WhatsApp
-              </label>
+              <Canal rotulo="Código de acesso por" valor={canalCodigo} mudar={setCanalCodigo} pode={comWhatsapp} />
             </div>
-            {!podeLembrar && <Bloqueio recurso="lembretes" compacto />}
+            <label className="linha" style={{ fontSize: 15, cursor: 'pointer', alignItems: 'flex-start', flexWrap: 'nowrap' }}>
+              <input type="checkbox" checked={lembrete} onChange={(e) => setLembrete(e.target.checked)} style={{ width: 18, height: 18, marginTop: 2, accentColor: '#13594b', flex: 'none' }} />
+              <span>
+                Lembrar {nomeCliente === 'cliente' ? 'o cliente' : nomeCliente} 3 dias antes do prazo, no dia e 2 dias depois
+                <span className="miudo texto-suave" style={{ display: 'block' }}>
+                  Só se ainda faltar documento obrigatório. O lembrete leva o mesmo link.
+                </span>
+              </span>
+            </label>
+            {lembrete && (
+              <div style={{ maxWidth: 260 }}>
+                <Canal rotulo="Lembretes por" valor={canalLembrete} mudar={setCanalLembrete} pode={comWhatsapp} />
+              </div>
+            )}
+            {comWhatsapp ? (
+              (canalCodigo === 'whatsapp' || (lembrete && canalLembrete === 'whatsapp')) && (
+                <p className="miudo texto-suave">
+                  Mensagens pelo WhatsApp contam na cota do plano ({p.cotaWhatsapp.toLocaleString('pt-BR')} por mês{uso ? `, ${uso.whatsappEnviados} usadas` : ''}). Se a cota acabar, vão por e-mail até o mês virar.
+                </p>
+              )
+            ) : (
+              <Bloqueio recurso="whatsapp" compacto />
+            )}
           </section>
         </div>
 
@@ -273,19 +378,29 @@ function FormularioBalcao({ modelo, vindoDoTuru }: { modelo?: { nome: string; it
   );
 }
 
+/* ---------- Link do balcão ---------- */
+
 export function LinkBalcao() {
   const { id = '' } = useParams();
   const local = useLocation();
   const navegar = useNavigate();
   const sessao = useSessao();
   const consulta = useBalcao(id);
-  // O link só existe na resposta de quem o gerou: o banco guarda o hash.
-  const [link, setLink] = useState<LinkGerado | null>((local.state as { link?: LinkGerado } | null)?.link ?? null);
+  const estado = local.state as { link?: LinkGerado; criado?: boolean; excedente?: boolean } | null;
+  const [link, setLink] = useState<LinkGerado | null>(estado?.link ?? null);
+  const [semLink, setSemLink] = useState(false);
   const [copiado, setCopiado] = useState(false);
   const [mensagem, setMensagem] = useState<string | null>(null);
-  const [enviado, setEnviado] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [erro, setErro] = useState<unknown>(null);
   const gerar = useAcao(() => api<LinkGerado>('POST', `/balcoes/${id}/link`), [chavesConsulta.balcao(id)]);
-  const enviar = useAcao((canal: 'whatsapp' | 'email') => api('POST', `/balcoes/${id}/enviar-link`, { canal, mensagem: mensagem ?? '', url: link!.url }));
+  const porEmail = useAcao((m: string) => api('POST', `/balcoes/${id}/enviar-link`, { mensagem: m }), [chavesConsulta.historico(id)]);
+
+  // Sem o link no estado da navegação, busca o ativo (o token fica selado no banco).
+  useEffect(() => {
+    if (link) return;
+    api<LinkGerado>('GET', `/balcoes/${id}/link`).then(setLink, (e) => (e instanceof ErroDaApi && e.codigo === 'sem_link' ? setSemLink(true) : setErro(e)));
+  }, [id, link]);
 
   if (consulta.isPending) return <Carregando />;
   if (consulta.error) return <AvisoErro erro={consulta.error} />;
@@ -294,11 +409,20 @@ export function LinkBalcao() {
   const texto =
     mensagem ??
     `Olá, ${nome}. Aqui é ${primeiroNome(sessao.usuario.nome)}, do ${sessao.organizacao.nome}. Abrimos um balcão para reunir os documentos${b.tipo ? ` de ${b.tipo.toLowerCase()}` : ''} (protocolo ${b.protocolo}). Por este link você vê a lista e envia tudo pelo celular:`;
+  const ondeCodigo = b.canalCodigo === 'whatsapp' ? `no WhatsApp terminado em ${b.cliente.whatsappFinal}` : `no e-mail ${b.cliente.email}`;
 
-  async function mandar(canal: 'whatsapp' | 'email') {
-    setMensagem(texto);
-    await enviar.mutateAsync(canal);
-    setEnviado(canal === 'whatsapp' ? `Mandamos o link para o WhatsApp terminado em ${b.cliente.whatsappFinal}.` : `Mandamos o link para ${b.cliente.email}.`);
+  /** Abre o WhatsApp do escritório com a mensagem pronta. A janela abre antes da resposta para o navegador não bloquear. */
+  async function abrirWhatsapp() {
+    setErro(null);
+    const janela = window.open('', '_blank');
+    try {
+      const { url } = await api<{ url: string }>('POST', `/balcoes/${id}/whatsapp`, { mensagem: texto });
+      if (janela) janela.location.href = url;
+      else window.location.href = url;
+    } catch (e) {
+      janela?.close();
+      setErro(e);
+    }
   }
 
   return (
@@ -307,15 +431,21 @@ export function LinkBalcao() {
         <Icone nome="voltar" />
         Balcões
       </Link>
-      <div style={{ width: '100%', maxWidth: 640, margin: '0 auto', background: 'var(--areia-elevada)', border: '1px solid var(--linha)', borderRadius: 24, padding: 40, display: 'flex', flexDirection: 'column', gap: 28, boxShadow: 'var(--shadow-lg)' }}>
+      <div style={{ width: '100%', maxWidth: 640, margin: '0 auto', background: 'var(--areia-elevada)', border: '1px solid var(--linha)', borderRadius: 24, padding: 'clamp(20px, 5vw, 40px)', display: 'flex', flexDirection: 'column', gap: 28, boxShadow: 'var(--shadow-lg)' }}>
         <div className="coluna" style={{ gap: 14 }}>
           <span style={{ width: 52, height: 52, borderRadius: 9999, background: 'var(--mangue-suave)', color: 'var(--mangue)', display: 'grid', placeItems: 'center' }}>
             <Icone nome="check" tamanho={26} />
           </span>
-          <h1 style={{ fontSize: 32, lineHeight: '38px', letterSpacing: '-.02em' }}>{local.state ? 'Balcão criado' : `Link do balcão de ${nome}`}</h1>
+          <h1 style={{ fontSize: 32, lineHeight: '38px', letterSpacing: '-.02em' }}>{estado?.criado ? 'Balcão criado' : `Link do balcão de ${nome}`}</h1>
           <p className="subtitulo">
-            Agora é só mandar o link para {nome}. Quando abrir, vamos pedir um código que chega no WhatsApp terminado em {b.cliente.whatsappFinal}.
+            Agora é só mandar o link para {nome}. Quando abrir, vamos pedir um código que chega {ondeCodigo}. Depois disso, o celular dele fica conectado por 30 dias.
           </p>
+          {estado?.excedente && (
+            <div className="aviso aviso--plano">
+              <Icone nome="info" />
+              <span>Este balcão passou dos {sessao.plano.balcoesNoMes} do mês e foi cobrado como excedente ({reais(PRECO_EXCEDENTE_CENTAVOS)}, na próxima fatura).</span>
+            </div>
+          )}
         </div>
 
         {link ? (
@@ -334,6 +464,7 @@ export function LinkBalcao() {
                 onClick={() => {
                   navigator.clipboard?.writeText(link.url).catch(() => {});
                   setCopiado(true);
+                  api('POST', `/balcoes/${id}/registrar-envio`, { canal: 'copiado' }).catch(() => {});
                 }}
               >
                 <Icone nome={copiado ? 'check' : 'copiar'} />
@@ -341,16 +472,16 @@ export function LinkBalcao() {
               </button>
             </div>
             <span className="miudo texto-suave">
-              Protocolo <span className="tr-protocolo">{b.protocolo}</span> · vale até {dataLonga(link.expiraEm.slice(0, 10))}. Guardamos só uma impressão digital do link: se perder, gere um novo.
+              Protocolo <span className="tr-protocolo">{b.protocolo}</span> · vale até {dataLonga(link.expiraEm.slice(0, 10))}. Lembretes e avisos levam este mesmo link.
             </span>
           </div>
-        ) : (
+        ) : semLink ? (
           <div className="aviso">
             <Icone nome="cadeado" />
-            <span>
-              Por segurança, o link só aparece uma vez, quando é gerado. {b.link ? 'Gerar um novo invalida o anterior.' : 'Este balcão está sem link ativo.'}
-            </span>
+            <span>Este balcão está sem link ativo. Gere um novo para mandar ao cliente.</span>
           </div>
+        ) : (
+          <Carregando />
         )}
 
         {link && (
@@ -362,28 +493,44 @@ export function LinkBalcao() {
           </label>
         )}
 
-        <AvisoErro erro={enviar.error ?? gerar.error} />
-        {enviado && (
+        <AvisoErro erro={erro ?? porEmail.error ?? gerar.error} />
+        {aviso && (
           <div className="aviso" role="status">
             <Icone nome="check" />
-            {enviado}
+            {aviso}
           </div>
         )}
 
-        <div className="linha" style={{ gap: 10 }}>
+        <div className="coluna" style={{ gap: 10 }}>
           {link ? (
             <>
-              <button type="button" className="tr-btn tr-btn--primario" style={{ flex: '1 1 200px' }} disabled={enviar.isPending} onClick={() => mandar('whatsapp')}>
-                Enviar pelo WhatsApp
-              </button>
-              <button type="button" className="tr-btn tr-btn--secundario" style={{ flex: '1 1 200px' }} disabled={enviar.isPending || !b.cliente.email} onClick={() => mandar('email')}>
-                Enviar por e-mail
-              </button>
+              <div className="linha" style={{ gap: 10 }}>
+                <button type="button" className="tr-btn tr-btn--primario" style={{ flex: '1 1 200px' }} disabled={b.concluidoEm !== null} onClick={abrirWhatsapp}>
+                  Enviar pelo WhatsApp
+                </button>
+                <button
+                  type="button"
+                  className="tr-btn tr-btn--secundario"
+                  style={{ flex: '1 1 200px' }}
+                  disabled={porEmail.isPending || !b.cliente.email}
+                  title={b.cliente.email ? undefined : 'Este cliente não tem e-mail cadastrado'}
+                  onClick={async () => {
+                    setMensagem(texto);
+                    await porEmail.mutateAsync(texto);
+                    setAviso(`Mandamos o link para ${b.cliente.email}.`);
+                  }}
+                >
+                  Enviar por e-mail
+                </button>
+              </div>
+              <span className="miudo texto-suave">"Enviar pelo WhatsApp" abre o seu WhatsApp com a mensagem pronta para {nome}. Quem envia é você; a Trames não manda essa mensagem.</span>
             </>
           ) : (
-            <button type="button" className="tr-btn tr-btn--primario" disabled={gerar.isPending || !!b.concluidoEm} onClick={async () => setLink(await gerar.mutateAsync())}>
-              Gerar link novo
-            </button>
+            semLink && (
+              <button type="button" className="tr-btn tr-btn--primario" disabled={gerar.isPending || !!b.concluidoEm} onClick={async () => setLink(await gerar.mutateAsync())}>
+                Gerar link novo
+              </button>
+            )
           )}
         </div>
         <div className="linha linha--entre pequeno" style={{ gap: 12, paddingTop: 16, borderTop: '1px solid var(--linha)' }}>
@@ -397,6 +544,143 @@ export function LinkBalcao() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ---------- Editar a lista de um balcão aberto ---------- */
+
+const itensDoBalcao = (b: BalcaoDetalhe): Item[] =>
+  b.itens.map((i) => ({ chave: ++chaves, id: i.id, nome: i.nome, detalhe: i.detalhe, obrigatorio: i.obrigatorio, status: i.status, temArquivo: !!i.documento || i.historico.length > 0 }));
+
+export function EditarLista() {
+  const { id = '' } = useParams();
+  const consulta = useBalcao(id);
+  if (consulta.isPending) return <Carregando />;
+  if (consulta.error) return <AvisoErro erro={consulta.error} />;
+  // Monta uma vez: as atualizações automáticas do balcão não apagam o que está sendo editado.
+  return <EditorLista key={id} b={consulta.data} />;
+}
+
+function EditorLista({ b }: { b: BalcaoDetalhe }) {
+  const navegar = useNavigate();
+  const [original] = useState(() => itensDoBalcao(b));
+  const [itens, setItens] = useState<Item[]>(original);
+  const [removidos, setRemovidos] = useState<Item[]>([]);
+  const [erro, setErro] = useState<unknown>(null);
+  const [salvando, setSalvando] = useState(false);
+  const recarregar = useAcao(async () => undefined, [chavesConsulta.balcao(b.id), chavesConsulta.balcoes, chavesConsulta.historico(b.id)]);
+  const nome = primeiroNome(b.cliente.nome);
+
+  if (b.concluidoEm) {
+    return (
+      <div className="coluna" style={{ gap: 16 }}>
+        <Link to={`/app/balcao/${b.id}`} className="tr-btn tr-btn--discreto tr-btn--sm" style={{ alignSelf: 'flex-start' }}>
+          <Icone nome="voltar" />
+          Voltar
+        </Link>
+        <div className="aviso">
+          <Icone nome="cadeado" />
+          <span>Este balcão está concluído. Para mudar a lista, reabra o balcão.</span>
+        </div>
+      </div>
+    );
+  }
+
+  function remover(d: Item) {
+    if (itens.length <= 1) return setErro(new Error('O balcão precisa de pelo menos um documento.'));
+    if (d.id && d.temArquivo && !window.confirm(`"${d.nome}" já tem arquivo enviado. Tirar da lista? O arquivo sai da lista de ${nome}, mas fica guardado até a retenção do balcão.`)) return;
+    setItens(itens.filter((x) => x.chave !== d.chave));
+    if (d.id) setRemovidos([...removidos, d]);
+  }
+
+  async function salvar() {
+    setErro(null);
+    if (itens.some((i) => !i.nome.trim())) return setErro(new Error('Todo documento precisa de um nome.'));
+    setSalvando(true);
+    try {
+      for (const r of removidos) await api('DELETE', `/itens/${r.id}?confirmar=1`);
+      for (const i of itens) {
+        const antes = original.find((o) => o.id === i.id);
+        if (!antes) continue;
+        const mudou = antes.nome !== i.nome || antes.detalhe !== i.detalhe || antes.obrigatorio !== i.obrigatorio;
+        if (mudou || i.pedirDeNovo) await api('PATCH', `/itens/${i.id}`, { nome: i.nome.trim(), detalhe: i.detalhe.trim(), obrigatorio: i.obrigatorio, pedirDeNovo: !!i.pedirDeNovo });
+      }
+      const novos = itens.filter((i) => !i.id);
+      const ids = new Map<number, string>();
+      if (novos.length) {
+        const r = await api<{ ids: string[] }>('POST', `/balcoes/${b.id}/itens`, { itens: novos.map((n) => ({ nome: n.nome.trim(), detalhe: n.detalhe.trim(), obrigatorio: n.obrigatorio })) });
+        novos.forEach((n, k) => ids.set(n.chave, r.ids[k]));
+      }
+      const ordem = itens.map((i) => i.id ?? ids.get(i.chave)!);
+      const ordemServidor = [...original.filter((o) => !removidos.some((r) => r.id === o.id)).map((o) => o.id!), ...novos.map((n) => ids.get(n.chave)!)];
+      if (ordem.join() !== ordemServidor.join()) await api('PUT', `/balcoes/${b.id}/ordem`, { ids: ordem });
+      await recarregar.mutateAsync();
+      navegar(`/app/balcao/${b.id}`, { state: { aviso: novos.length || itens.some((i) => i.pedirDeNovo) ? `Lista salva. ${nome} recebe um e-mail com o que mudou em até 10 minutos.` : 'Lista salva.' } });
+    } catch (e) {
+      setErro(e);
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <header className="linha linha--entre" style={{ gap: 16 }}>
+        <div className="linha" style={{ gap: 16, minWidth: 0 }}>
+          <Link to={`/app/balcao/${b.id}`} className="tr-btn tr-btn--discreto tr-btn--sm">
+            <Icone nome="voltar" />
+            {b.cliente.nome}
+          </Link>
+          <span style={{ width: 1, height: 24, background: 'var(--linha)' }} />
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 600 }}>Editar lista</span>
+        </div>
+        <div className="linha">
+          <Link to={`/app/balcao/${b.id}`} className="tr-btn tr-btn--discreto">
+            Cancelar
+          </Link>
+          <button type="button" className="tr-btn tr-btn--primario" disabled={salvando} onClick={salvar}>
+            {salvando ? 'Salvando…' : 'Salvar lista'}
+          </button>
+        </div>
+      </header>
+      <AvisoErro erro={erro} />
+      <section className="cartao">
+        <div className="coluna" style={{ gap: 4 }}>
+          <h2 className="titulo-2">Documentos de {nome}</h2>
+          <p className="pequeno texto-suave">
+            {nome} vê a lista nova na próxima vez que abrir o link. Se você incluir um documento ou pedir algum de novo, ele recebe um e-mail avisando (as mudanças de 10 minutos vão juntas).
+          </p>
+        </div>
+        <ListaDocumentos
+          itens={itens}
+          mudar={setItens}
+          remover={remover}
+          extra={(d) =>
+            d.id ? (
+              <div className="linha miudo" style={{ gap: 10, padding: '2px 6px' }}>
+                {d.status && <Status status={d.status} />}
+                {d.status && d.status !== 'pendente' && (
+                  <label className="linha" style={{ gap: 6, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={!!d.pedirDeNovo} onChange={(e) => setItens(itens.map((x) => (x.chave === d.chave ? { ...x, pedirDeNovo: e.target.checked } : x)))} style={{ accentColor: '#13594b' }} />
+                    Pedir de novo (o arquivo atual vai para o histórico)
+                  </label>
+                )}
+              </div>
+            ) : (
+              <span className="miudo" style={{ padding: '2px 6px', color: 'var(--mangue)', fontWeight: 500 }}>
+                Novo · entra como pendente
+              </span>
+            )
+          }
+        />
+        <div className="linha">
+          <button type="button" className="tr-btn tr-btn--secundario" onClick={() => setItens([...itens, novoItem()])}>
+            <Icone nome="mais" />
+            Adicionar documento
+          </button>
+          <PuxarModelo adicionar={(novos) => setItens([...itens, ...comChave(novos.filter((n) => !itens.some((i) => i.nome === n.nome)))])} />
+        </div>
+      </section>
     </div>
   );
 }

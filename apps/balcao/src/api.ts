@@ -12,6 +12,9 @@ export class ErroDaApi extends Error {
 
 const CHAVE_LINK = 'trames:link';
 
+/** Token do link desta aba. Vai em todo pedido: a sessão do cliente vale só para o balcão deste link. */
+let tokenAtual: string | null = null;
+
 /**
  * O token do link chega no fragmento (#) da URL, que não vai para servidor nem
  * para log. Guardamos na aba (sessionStorage) e tiramos da barra de endereço.
@@ -25,19 +28,21 @@ export function tokenDoLink(): { token: string | null; novo: boolean } {
       /* sem sessionStorage: segue só com a memória */
     }
     history.replaceState(null, '', window.location.pathname);
+    tokenAtual = doHash;
     return { token: doHash, novo: true };
   }
   try {
-    return { token: sessionStorage.getItem(CHAVE_LINK), novo: false };
+    tokenAtual = sessionStorage.getItem(CHAVE_LINK);
   } catch {
-    return { token: null, novo: false };
+    tokenAtual = null;
   }
+  return { token: tokenAtual, novo: false };
 }
 
-export async function api<T = void>(metodo: 'GET' | 'POST', caminho: string, corpo?: unknown, token?: string | null): Promise<T> {
+export async function api<T = void>(metodo: 'GET' | 'POST', caminho: string, corpo?: unknown): Promise<T> {
   const headers: Record<string, string> = {};
   if (corpo !== undefined) headers['content-type'] = 'application/json';
-  if (token) headers['x-link'] = token;
+  if (tokenAtual) headers['x-link'] = tokenAtual;
   const r = await fetch(`/api${caminho}`, { method: metodo, credentials: 'same-origin', headers, body: corpo === undefined ? undefined : JSON.stringify(corpo) });
   const dados = r.status === 204 ? undefined : await r.json().catch(() => ({}));
   if (!r.ok) {
