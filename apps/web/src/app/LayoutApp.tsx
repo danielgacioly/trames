@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PLANOS, type Recurso } from '@trames/shared';
 import { api, ErroDaApi } from '../dados/api';
 import { useEu } from '../dados/consultas';
@@ -11,7 +11,7 @@ import { AvisosDeUso } from './AvisosDeUso';
 import { LimiteErro } from './LimiteErro';
 
 const NAV: { para: string; rotulo: string; icone: NomeIcone; recurso?: Recurso; fim?: boolean }[] = [
-  { para: '/app', rotulo: 'Balcões', icone: 'balcoes', fim: true },
+  { para: '/app', rotulo: 'Início', icone: 'inicio', fim: true },
   { para: '/app/modelos', rotulo: 'Modelos', icone: 'modelos' },
   { para: '/app/clientes', rotulo: 'Clientes', icone: 'clientes' },
   // Turu fica fora do lançamento (docs/viabilidade.md); VITE_TURU=1 liga em desenvolvimento.
@@ -59,13 +59,9 @@ export function LayoutApp() {
       <div className="veu" onClick={() => setMenu(false)} />
       <aside className="lateral">
         <Logo altura={28} para="/app" />
-        <Link to="/app/novo" className="tr-btn tr-btn--primario tr-btn--bloco">
-          <Icone nome="mais" />
-          Novo balcão
-        </Link>
         <nav className="lateral__nav" aria-label="Principal">
           {NAV.map((n) => (
-            <NavLink key={n.para} to={n.para} end={n.fim}>
+            <NavLink key={n.para} to={n.para} end={n.fim} className={({ isActive }) => (isActive || (n.fim && local.pathname.startsWith('/app/pastas')) ? 'active' : undefined)}>
               <Icone nome={n.icone} />
               {n.rotulo}
               {n.recurso && !plano.recursos[n.recurso] && (

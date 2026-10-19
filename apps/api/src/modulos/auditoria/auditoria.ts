@@ -26,6 +26,10 @@ export type Acao =
   | 'link.visto'
   | 'cliente.acesso_encerrado'
   | 'balcao.alterado'
+  | 'balcao.pasta'
+  | 'pasta.criada'
+  | 'pasta.alterada'
+  | 'pasta.apagada'
   | 'item.adicionado'
   | 'item.editado'
   | 'item.pedido_de_novo'
@@ -56,7 +60,7 @@ export type Acao =
 
 interface Evento {
   acao: Acao;
-  alvoTipo: 'balcao' | 'documento' | 'item' | 'cliente' | 'usuario' | 'organizacao' | 'link';
+  alvoTipo: 'balcao' | 'documento' | 'item' | 'cliente' | 'usuario' | 'organizacao' | 'link' | 'pasta';
   alvoId?: string | null;
   detalhes?: Prisma.InputJsonObject;
 }

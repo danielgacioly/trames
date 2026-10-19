@@ -12,6 +12,7 @@ import { rotasCobranca } from './modulos/cobranca/cobranca';
 import { rotasAuditoria, rotasDocumentos } from './modulos/documentos/documentos';
 import { rotasModelos } from './modulos/modelos/modelos';
 import { rotasOrganizacao } from './modulos/organizacoes/organizacoes';
+import { rotasPastas } from './modulos/pastas/pastas';
 import { rotasTuru } from './modulos/turu/turu';
 
 /** A API só responde requisições: trabalho pesado (antivírus, mensagens, retenção) vai para o worker. */
@@ -48,6 +49,7 @@ export function criarApp() {
   api.use('/documentos', exigirEmpresa, rotasDocumentos);
   api.use('/auditoria', exigirEmpresa, rotasAuditoria);
   api.use('/modelos', exigirEmpresa, rotasModelos);
+  api.use('/pastas', exigirEmpresa, rotasPastas);
   api.use('/clientes', exigirEmpresa, rotasClientes);
   api.use('/organizacao', exigirEmpresa, rotasOrganizacao);
   api.use('/cobranca', exigirEmpresa, rotasCobranca);

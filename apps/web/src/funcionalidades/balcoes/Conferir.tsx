@@ -5,6 +5,7 @@ import { api } from '../../dados/api';
 import { chaves, useAcao, useBalcao, useCobranca, useHistorico, useSessao } from '../../dados/consultas';
 import { AvisoErro, Carregando, Progresso, Status, useToast } from '../../ui/comuns';
 import { Icone } from '../../ui/Icone';
+import { PastaDoBalcao } from './PastaDoBalcao';
 import { dataLonga, primeiroNome, quandoEnviado, tamanhoLegivel } from '../../util/formatos';
 
 const ACOES: Record<string, string> = {
@@ -13,6 +14,7 @@ const ACOES: Record<string, string> = {
   'balcao.reaberto': 'reabriu o balcão',
   'balcao.arquivado': 'arquivou o balcão',
   'balcao.alterado': 'mudou o prazo ou os lembretes',
+  'balcao.pasta': 'mudou o balcão de pasta',
   'link.criado': 'gerou um link',
   'link.revogado': 'revogou o link',
   'link.enviado': 'enviou o link por e-mail',
@@ -276,7 +278,7 @@ export function Conferir() {
       <header style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <Link to="/app" className="tr-btn tr-btn--discreto tr-btn--sm" style={{ alignSelf: 'flex-start' }}>
           <Icone nome="voltar" />
-          Balcões
+          Início
         </Link>
         <div className="linha linha--entre" style={{ alignItems: 'flex-end', gap: 20 }}>
           <div className="coluna" style={{ gap: 6 }}>
@@ -284,6 +286,7 @@ export function Conferir() {
               <h1 style={{ fontSize: 32, lineHeight: '38px', letterSpacing: '-.02em' }}>{b.cliente.nome}</h1>
               {b.tipo && <span className="tr-etiqueta">{b.tipo}</span>}
               {!aberto && (b.arquivadoEm ? <Status status="pendente" texto="Arquivado" /> : <Status status="aprovado" texto="Concluído" />)}
+              <PastaDoBalcao id={b.id} pastaId={b.pastaId} editavel={!soConfere} />
             </div>
             <span className="tr-protocolo texto-suave">
               {b.protocolo} · WhatsApp final {b.cliente.whatsappFinal} · prazo {dataLonga(b.prazo)}

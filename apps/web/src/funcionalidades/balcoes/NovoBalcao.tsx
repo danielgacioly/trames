@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { PRECO_EXCEDENTE_CENTAVOS, type CanalCodigo, type ItemEntrada as ItemModelo, type LinkGerado } from '@trames/shared';
 import { api } from '../../dados/api';
-import { chaves as chavesConsulta, useAcao, useCobranca, useModelos, useSessao } from '../../dados/consultas';
+import { chaves as chavesConsulta, useAcao, useCobranca, useModelos, usePastas, useSessao } from '../../dados/consultas';
 import { Bloqueio, Carregando, SeloConta } from '../../ui/comuns';
 import { Icone } from '../../ui/Icone';
 import { useNotificar } from '../../ui/Notificacoes';
@@ -20,7 +20,7 @@ export function NovoBalcao() {
   if (idModelo && modelos.isPending) return <Carregando />;
   const modelo = modelos.data?.find((m) => m.id === idModelo);
   const vindoDoTuru = local.state as { itens?: ItemModelo[]; tipo?: string } | null;
-  return <FormularioBalcao key={idModelo ?? 'novo'} modelo={modelo} vindoDoTuru={vindoDoTuru} />;
+  return <FormularioBalcao key={idModelo ?? 'novo'} modelo={modelo} vindoDoTuru={vindoDoTuru} pastaInicial={params.get('pasta')} />;
 }
 
 function Canal({ valor, mudar, pode, rotulo }: { valor: CanalCodigo; mudar: (c: CanalCodigo) => void; pode: boolean; rotulo: string }) {
@@ -35,11 +35,13 @@ function Canal({ valor, mudar, pode, rotulo }: { valor: CanalCodigo; mudar: (c: 
   );
 }
 
-function FormularioBalcao({ modelo, vindoDoTuru }: { modelo?: { nome: string; itens: ItemModelo[] }; vindoDoTuru: { itens?: ItemModelo[]; tipo?: string } | null }) {
+function FormularioBalcao({ modelo, vindoDoTuru, pastaInicial }: { modelo?: { nome: string; itens: ItemModelo[] }; vindoDoTuru: { itens?: ItemModelo[]; tipo?: string } | null; pastaInicial: string | null }) {
   const sessao = useSessao();
   const navegar = useNavigate();
   const uso = useCobranca().data;
   const [tipo, setTipo] = useState(vindoDoTuru?.tipo ?? modelo?.nome ?? '');
+  const pastas = usePastas().data ?? [];
+  const [pastaId, setPastaId] = useState(pastaInicial ?? '');
   const [itens, setItens] = useState<Item[]>(() => comChave(vindoDoTuru?.itens ?? modelo?.itens ?? []));
   const [cliente, setCliente] = useState({ nome: '', cpf: '', whatsapp: '', email: '' });
   const [prazo, setPrazo] = useState(diaDaqui(21));
@@ -85,6 +87,7 @@ function FormularioBalcao({ modelo, vindoDoTuru }: { modelo?: { nome: string; it
         canalCodigo: comWhatsapp ? canalCodigo : 'email',
         lembrete,
         canalLembrete: comWhatsapp ? canalLembrete : 'email',
+        pastaId: pastas.some((p) => p.id === pastaId) ? pastaId : null,
         itens: itens.map(({ nome, detalhe, obrigatorio }) => ({ nome, detalhe, obrigatorio })),
       });
       if (b.excedente) notificar({ titulo: 'Balcão cobrado como excedente', texto: `${reais(PRECO_EXCEDENTE_CENTAVOS)}, na próxima fatura.`, acao: { rotulo: 'Ver em Minha conta', para: '/app/conta' } });
@@ -154,8 +157,22 @@ function FormularioBalcao({ modelo, vindoDoTuru }: { modelo?: { nome: string; it
               <label className="tr-campo tr-campo--largo">
                 <span className="tr-campo__rotulo">Tipo de caso</span>
                 <input className="tr-campo__entrada" placeholder="Ex.: Inventário" value={tipo} onChange={(e) => setTipo(e.target.value)} />
-                <span className="tr-campo__dica">Aparece como etiqueta no painel.</span>
+                <span className="tr-campo__dica">Os balcões do mesmo tipo ficam juntos, numa pasta em Início.</span>
               </label>
+              {pastas.length > 0 && (
+                <label className="tr-campo tr-campo--largo">
+                  <span className="tr-campo__rotulo">Pasta</span>
+                  <select className="tr-campo__entrada" value={pastaId} onChange={(e) => setPastaId(e.target.value)}>
+                    <option value="">Sem pasta</option>
+                    {pastas.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nome}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="tr-campo__dica">Opcional. Dá para mudar depois, na tela do balcão.</span>
+                </label>
+              )}
             </div>
           </section>
 

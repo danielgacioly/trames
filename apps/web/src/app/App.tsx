@@ -4,7 +4,8 @@ import { Conferir } from '../funcionalidades/balcoes/Conferir';
 import { EditarLista } from '../funcionalidades/balcoes/EditarLista';
 import { LinkBalcao } from '../funcionalidades/balcoes/LinkBalcao';
 import { NovoBalcao } from '../funcionalidades/balcoes/NovoBalcao';
-import { Painel } from '../funcionalidades/balcoes/Painel';
+import { Inicio } from '../funcionalidades/balcoes/Inicio';
+import { PastaPagina } from '../funcionalidades/balcoes/PastaPagina';
 import { Clientes } from '../funcionalidades/clientes/Clientes';
 import { Conta } from '../funcionalidades/conta/Conta';
 import { Equipe } from '../funcionalidades/conta/Equipe';
@@ -52,7 +53,8 @@ export function App() {
         <Route path="/criar-conta/area" element={<EscolherArea />} />
 
         <Route path="/app" element={<LayoutApp />}>
-          <Route index element={<Painel />} />
+          <Route index element={<Inicio />} />
+          <Route path="pastas/:grupo/:valor" element={<PastaPagina />} />
           <Route path="novo" element={<NovoBalcao />} />
           <Route path="balcao/:id" element={<Conferir />} />
           <Route path="balcao/:id/link" element={<LinkBalcao />} />

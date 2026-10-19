@@ -10,6 +10,7 @@ import {
   EditarItemEntrada,
   EnviarLinkEntrada,
   mesDe,
+  MoverParaPastaEntrada,
   PRECO_EXCEDENTE_CENTAVOS,
   RecusarEntrada,
   RegistrarEnvioEntrada,
@@ -37,12 +38,21 @@ const ATIVOS = { removidoEm: null };
 
 type BalcaoComItens = Awaited<ReturnType<typeof buscarBalcoes>>[number];
 
-function buscarBalcoes(tx: Tx, where: { id?: string; concluidoEm?: null } = {}) {
-  return tx.balcao.findMany({
+async function buscarBalcoes(tx: Tx, where: { id?: string; concluidoEm?: null } = {}) {
+  const lista = await tx.balcao.findMany({
     where,
     include: { cliente: { select: { id: true, nome: true, email: true, telefoneFinal: true } }, itens: { where: ATIVOS, select: { status: true } } },
     orderBy: { prazo: 'asc' },
   });
+  // Quem abriu cada balcão (para as pastas por pessoa). Pessoa removida da conta fica sem nome.
+  const ids = [...new Set(lista.map((b) => b.criadoPorId).filter((x): x is string => !!x))];
+  const pessoas = new Map((ids.length ? await tx.usuario.findMany({ where: { id: { in: ids } }, select: { id: true, nome: true } }) : []).map((u) => [u.id, u]));
+  return lista.map((b) => ({ ...b, responsavel: (b.criadoPorId && pessoas.get(b.criadoPorId)) || null }));
+}
+
+/** Confere que a pasta é do escritório. A FK não passa pelo RLS, então a checagem é aqui. */
+export async function exigirPasta(tx: Tx, pastaId: string | null) {
+  if (pastaId && !(await tx.pasta.findUnique({ where: { id: pastaId }, select: { id: true } }))) throw naoEncontrado('Pasta não encontrada.');
 }
 
 export function contar(itens: { status: keyof Omit<Contagem, 'total'> }[]): Contagem {
@@ -66,6 +76,8 @@ export function resumo(b: BalcaoComItens): BalcaoResumo {
     apagarArquivosEm: b.apagarArquivosEm?.toISOString() ?? null,
     arquivosApagadosEm: b.arquivosApagadosEm?.toISOString() ?? null,
     contagem: contar(b.itens),
+    pastaId: b.pastaId,
+    responsavel: b.responsavel,
   };
 }
 
@@ -205,6 +217,7 @@ rotasBalcoes.post(
     const cifrado = await cifrarDadosCliente(org, d.cliente.cpf, d.cliente.whatsapp);
     const r = await naOrganizacao(org, async (tx) => {
       await exigirLimite(tx, p.limiteBalcoes);
+      await exigirPasta(tx, d.pastaId);
       // Mesmo cliente (pelo HMAC do telefone) reaproveita o cadastro.
       const existente = await tx.cliente.findFirst({ where: { telefoneHmac: hmac(org, d.cliente.whatsapp) } });
       const cliente = existente
@@ -222,6 +235,7 @@ rotasBalcoes.post(
           lembrete: d.lembrete,
           canalLembrete: d.canalLembrete,
           criadoPorId: req.empresa!.usuario.id,
+          pastaId: d.pastaId,
           itens: { create: d.itens.map((it, k) => ({ ...it, ordem: k, organizacaoId: org })) },
         },
       });
@@ -287,6 +301,23 @@ rotasBalcoes.patch(
       });
       const antes = { prazo: dataISO(b.prazo), lembrete: b.lembrete, canalLembrete: b.canalLembrete, canalCodigo: b.canalCodigo };
       await auditar(tx, req, { acao: 'balcao.alterado', alvoTipo: 'balcao', alvoId: b.id, detalhes: { antes, depois: { ...antes, ...d } } });
+    });
+    res.status(204).end();
+  }),
+);
+
+/** Põe o balcão numa pasta do escritório ou tira dele (vale também para balcões encerrados). */
+rotasBalcoes.put(
+  '/:id/pasta',
+  rota(async (req, res) => {
+    exigirMontar(req);
+    const { pastaId } = validar(MoverParaPastaEntrada, req.body);
+    await naOrganizacao(req.empresa!.organizacao.id, async (tx) => {
+      const b = await tx.balcao.findUnique({ where: { id: req.params.id }, select: { id: true, pastaId: true } });
+      if (!b) throw naoEncontrado('Balcão não encontrado.');
+      await exigirPasta(tx, pastaId);
+      await tx.balcao.update({ where: { id: b.id }, data: { pastaId } });
+      await auditar(tx, req, { acao: 'balcao.pasta', alvoTipo: 'balcao', alvoId: b.id, detalhes: { de: b.pastaId, para: pastaId } });
     });
     res.status(204).end();
   }),

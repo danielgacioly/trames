@@ -83,6 +83,7 @@ model Organizacao {
   modelos     Modelo[]
   usos        UsoMensal[]
   cobrancas   ItemCobranca[]
+  pastas      Pasta[]
 
   @@map("organizacoes")
 }
@@ -185,6 +186,8 @@ model Balcao {
   /// Quando a lista mudou e o cliente ainda não foi avisado (o aviso agrupa 10 minutos).
   ultimoAvisoMudancaEm DateTime? @map("ultimo_aviso_mudanca_em")
   criadoPorId          String?   @map("criado_por_id") @db.Uuid
+  /// Pasta criada pelo escritório (opcional). Apagar a pasta só tira o balcão dela.
+  pastaId              String?   @map("pasta_id") @db.Uuid
   criadoEm             DateTime  @default(now()) @map("criado_em")
   /// Encerramento: concluído pelo escritório ou arquivado. Encerrado não conta como ativo.
   concluidoEm          DateTime? @map("concluido_em")
@@ -203,10 +206,26 @@ model Balcao {
   documentos  Documento[]
   links       LinkAcesso[]
   exportacoes Exportacao[]
+  pasta       Pasta?       @relation(fields: [pastaId], references: [id], onDelete: SetNull)
 
   @@unique([organizacaoId, protocolo])
   @@index([organizacaoId, concluidoEm])
   @@map("balcoes")
+}
+
+/// Pastas que o escritório cria para organizar os balcões (as automáticas, por situação, tipo e pessoa, são calculadas na tela).
+model Pasta {
+  id            String   @id @default(uuid()) @db.Uuid
+  organizacaoId String   @map("organizacao_id") @db.Uuid
+  nome          String
+  cor           String   @default("#13594b")
+  criadaEm      DateTime @default(now()) @map("criada_em")
+
+  organizacao Organizacao @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+  balcoes     Balcao[]
+
+  @@unique([organizacaoId, nome])
+  @@map("pastas")
 }
 
 /// Documento pedido ao cliente.

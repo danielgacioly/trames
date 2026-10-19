@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { PLANOS, type BalcaoDetalhe, type BalcaoResumo, type ClienteDto, type Eu, type EventoDto, type ModeloDto, type PessoaDto, type UsoDto } from '@trames/shared';
+import { PLANOS, type BalcaoDetalhe, type BalcaoResumo, type ClienteDto, type Eu, type EventoDto, type ModeloDto, type PastaDto, type PessoaDto, type UsoDto } from '@trames/shared';
 import { api, ErroDaApi } from './api';
 
 export const chaves = {
@@ -12,6 +12,7 @@ export const chaves = {
   clientes: ['clientes'] as const,
   relatorio: ['relatorio'] as const,
   cobranca: ['cobranca'] as const,
+  pastas: ['pastas'] as const,
 };
 
 export function useEu() {
@@ -44,6 +45,7 @@ export const useModelos = () => useQuery({ queryKey: chaves.modelos, queryFn: ()
 export const useEquipe = () => useQuery({ queryKey: chaves.equipe, queryFn: () => api<PessoaDto[]>('GET', '/organizacao/equipe') });
 export const useClientes = () => useQuery({ queryKey: chaves.clientes, queryFn: () => api<ClienteDto[]>('GET', '/clientes') });
 export const useRelatorio = (ativo: boolean) => useQuery({ queryKey: chaves.relatorio, queryFn: () => api<BalcaoResumo[]>('GET', '/relatorio'), enabled: ativo });
+export const usePastas = () => useQuery({ queryKey: chaves.pastas, queryFn: () => api<PastaDto[]>('GET', '/pastas'), staleTime: 60_000 });
 export const useCobranca = (ativo = true) => useQuery({ queryKey: chaves.cobranca, queryFn: () => api<UsoDto>('GET', '/cobranca'), enabled: ativo });
 
 /** Mutação que, ao terminar, recarrega as consultas indicadas. */

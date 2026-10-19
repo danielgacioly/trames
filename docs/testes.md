@@ -129,6 +129,21 @@ Para trocar de conta, saia pelo menu e entre com outro e-mail. Ou use uma janela
 
 Avisos de uso (limite de balcões, excedente, cota de WhatsApp) aparecem só no canto da tela, uma vez por sessão, para quem administra. O uso do mês fica sempre em **Minha conta** (antes chamada Conta e marca).
 
+### Início e pastas (qualquer conta)
+
+- [ ] A tela **Início** tem três ações rápidas: **Novo balcão**, **Novo modelo** (bloqueado no Grátis) e **Nova pasta**.
+- [ ] Os balcões ficam em pastas, cada uma com quantos estão abertos e, no círculo azul, quantos têm documento para conferir:
+  - **Situação**: Para conferir, Com o cliente, Prazo vencido, Tudo aprovado, Todos os abertos, Encerrados.
+  - **Minhas pastas**: as que o escritório cria. O seed traz "Prioridade" e "Esperando cartório" no Pro, e três no Ultra.
+  - **Por tipo de caso**: uma pasta por tipo.
+  - **Por pessoa**: quem abriu o balcão; só aparece quando a conta tem mais de uma pessoa (Pro e Ultra no seed).
+- [ ] Abra uma pasta: os balcões aparecem numa lista enxuta (nome, protocolo, progresso, uma situação e o prazo). Nas pastas que não são de situação, **Abertos** e **Encerrados** ficam separados.
+- [ ] A busca do Início procura em todos os balcões (cliente, protocolo ou tipo).
+- [ ] **Nova pasta**: dê nome e cor. Ela abre vazia, com **Novo balcão nesta pasta**. O balcão criado por ali já entra nela.
+- [ ] Na tela do balcão, ao lado do nome, troque a pasta (ou tire o balcão dela). Fica no Histórico.
+- [ ] Dentro da pasta, **Renomear** e **Apagar pasta**. Apagar não apaga os balcões, só tira da pasta. Nome repetido não é aceito.
+- [ ] Depois de criar um balcão, a tela mostra, à esquerda, o envio do link e o que acontece agora (com as datas dos lembretes) e, à direita, o resumo e os documentos pedidos.
+
 ### Grátis (`gratis@trames.app`)
 
 - [ ] Ao entrar, um aviso no canto da tela mostra que resta 1 balcão. **Minha conta** mostra 2 de 3 balcões ativos.
@@ -172,11 +187,11 @@ O Turu está fora do lançamento e não aparece. Para ligar em desenvolvimento, 
 ## 6. Roteiro do cliente
 
 1. Entre com uma conta (Pro é a mais completa) e crie um balcão.
-2. Na tela **"Balcão criado"**, clique em **Ver como o cliente** (ou copie o link e abra numa janela anônima, no modo celular do navegador).
+2. Na tela **"Balcão criado"**, clique em **Ver como o cliente**, no topo à direita, (ou copie o link e abra numa janela anônima, no modo celular do navegador).
 3. Clique em **Receber o código**: ele vai pelo canal que o escritório escolheu (e-mail, por padrão). Como nada sai em desenvolvimento, use **"preencher o código da caixa de saída"**.
 4. Envie uma foto e um PDF. O arquivo aparece como **"Recebido. Estamos verificando o arquivo."** enquanto o worker confere o tipo, passa o antivírus e gera a miniatura. Depois fica **em análise**, e o cliente pode tocar em **Ver o que enviei** (a miniatura, nunca o original).
 5. Feche a aba e abra o link de novo: entra direto na lista, sem código. A sessão vale 30 dias naquele aparelho e só para aquele balcão, por qualquer link dele (o do lembrete também).
-6. No painel, aprove ou recuse cada documento. Recarregue a tela do cliente: o recusado aparece com o motivo.
+6. No painel, abra o balcão (Início › Para conferir) e aprove ou recuse cada documento. Recarregue a tela do cliente: o recusado aparece com o motivo.
 7. No painel, clique em **Encerrar acesso**: no celular, o código é pedido de novo. Concluir, arquivar ou **Cancelar links e gerar novo** também encerra o acesso.
 8. Edite a lista e inclua um documento: 10 minutos depois o worker manda ao cliente um e-mail com o que mudou (todas as mudanças desses 10 minutos vão juntas).
 

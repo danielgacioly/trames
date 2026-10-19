@@ -27,6 +27,9 @@ const CAMINHOS = {
   alca: 'M9 6v.1M15 6v.1M9 12v.1M15 12v.1M9 18v.1M15 18v.1',
   baixar: 'M12 4v11M7.5 10.5L12 15l4.5-4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3',
   menu: 'M4 7h16M4 12h16M4 17h16',
+  pasta: 'M3.5 7A1.5 1.5 0 0 1 5 5.5h4.2l2 2.2H19a1.5 1.5 0 0 1 1.5 1.5v8.3A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z',
+  avancar: 'M9 6l6 6-6 6',
+  inicio: 'M4 11l8-6.5 8 6.5M6 9.5V19h12V9.5',
 } as const;
 
 export type NomeIcone = keyof typeof CAMINHOS;

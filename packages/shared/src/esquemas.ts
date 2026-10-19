@@ -64,6 +64,8 @@ export const CriarBalcaoEntrada = z
     lembrete: z.boolean().default(true),
     canalLembrete: CanalCodigo.default('email'),
     itens: z.array(ItemEntrada).min(1).max(60),
+    /** Pasta do escritório onde o balcão entra (opcional). */
+    pastaId: Uuid.nullable().default(null),
   });
 export type CriarBalcaoEntrada = z.infer<typeof CriarBalcaoEntrada>;
 
@@ -96,6 +98,16 @@ export const EnviarLinkEntrada = z.object({ mensagem: texto(1000).default(''), u
 
 /** O escritório copiou o link ou abriu o WhatsApp dele para mandar: fica na auditoria. */
 export const RegistrarEnvioEntrada = z.object({ canal: z.enum(['whatsapp', 'copiado']) });
+
+/* ---------- Pastas ---------- */
+
+export const PastaEntrada = z.object({
+  nome: texto(60).min(1, 'Dê um nome para a pasta.'),
+  cor: z.string().regex(/^#[0-9a-f]{6}$/i).default('#13594b'),
+});
+
+/** Põe o balcão numa pasta ou tira dela (null). */
+export const MoverParaPastaEntrada = z.object({ pastaId: Uuid.nullable() });
 
 export const ModeloEntrada = z.object({
   nome: texto(120).min(2),
@@ -169,6 +181,15 @@ export interface BalcaoResumo {
   apagarArquivosEm: string | null;
   arquivosApagadosEm: string | null;
   contagem: Contagem;
+  pastaId: string | null;
+  /** Quem abriu o balcão (para as pastas por pessoa). */
+  responsavel: { id: string; nome: string } | null;
+}
+
+export interface PastaDto {
+  id: string;
+  nome: string;
+  cor: string;
 }
 
 export interface DocumentoDto {

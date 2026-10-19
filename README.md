@@ -20,7 +20,7 @@ infra/dev   docker compose com Postgres, S3 local (moto) e ClamAV
 
 Painel (`apps/web/src`): `app/` (rotas, layout, avisos de uso), `ui/` (componentes comuns, ícones, notificações), `estilos/`, `dados/` (API e consultas), `util/` e `funcionalidades/` (`balcoes`, `clientes`, `modelos`, `relatorio`, `conta`, `publico`, `turu`), uma tela por arquivo.
 
-Módulos da API (`apps/api/src/modulos`): `auth`, `organizacoes`, `balcoes`, `documentos`, `modelos`, `acesso-cliente`, `clientes`, `cobranca`, `auditoria` e `turu` (fora do lançamento: só com `TURU=1`).
+Módulos da API (`apps/api/src/modulos`): `auth`, `organizacoes`, `balcoes`, `pastas`, `documentos`, `modelos`, `acesso-cliente`, `clientes`, `cobranca`, `auditoria` e `turu` (fora do lançamento: só com `TURU=1`).
 
 ## Rodar localmente
 

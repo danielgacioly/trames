@@ -223,3 +223,32 @@ describe('editar a lista', () => {
     await agente.patch(`/api/itens/${det.itens[0].id}`).set('origin', ORIGEM).send({ nome: 'x' }).expect(409);
   });
 });
+
+describe('pastas', () => {
+  it('cria, põe o balcão, não aceita pasta de outro escritório e, ao apagar, só tira os balcões dela', async () => {
+    const pro = await entrar(1);
+    const ultra = await entrar(2);
+    const nome = `Teste ${Date.now()}`;
+    const p = (await pro.agente.post('/api/pastas').set('origin', ORIGEM).send({ nome, cor: '#1c5d84' }).expect(201)).body as { id: string };
+    try {
+      await pro.agente.post('/api/pastas').set('origin', ORIGEM).send({ nome: nome.toUpperCase() }).expect(409);
+      const b = await criar(pro.agente, { pastaId: p.id });
+      const lista = (await pro.agente.get('/api/balcoes').expect(200)).body as { id: string; pastaId: string | null; responsavel: { nome: string } | null }[];
+      const doBalcao = lista.find((x) => x.id === b.id)!;
+      expect(doBalcao.pastaId).toBe(p.id);
+      expect(doBalcao.responsavel?.nome).toBe('Ana Albuquerque');
+
+      // O outro escritório não vê, não usa e não apaga a pasta.
+      expect(((await ultra.agente.get('/api/pastas').expect(200)).body as { id: string }[]).some((x) => x.id === p.id)).toBe(false);
+      await ultra.agente.post('/api/balcoes').set('origin', ORIGEM).send(novoBalcao({ pastaId: p.id })).expect(404);
+      await ultra.agente.delete(`/api/pastas/${p.id}`).set('origin', ORIGEM).expect(404);
+
+      await pro.agente.put(`/api/balcoes/${b.id}/pasta`).set('origin', ORIGEM).send({ pastaId: null }).expect(204);
+      await pro.agente.put(`/api/balcoes/${b.id}/pasta`).set('origin', ORIGEM).send({ pastaId: p.id }).expect(204);
+      await pro.agente.delete(`/api/pastas/${p.id}`).set('origin', ORIGEM).expect(204);
+      expect((await dono.balcao.findUnique({ where: { id: b.id } }))?.pastaId).toBeNull();
+    } finally {
+      await dono.pasta.deleteMany({ where: { id: p.id } });
+    }
+  });
+});

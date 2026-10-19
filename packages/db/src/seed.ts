@@ -94,6 +94,8 @@ interface NovoBalcao {
   concluidoHa?: number;
   arquivado?: boolean;
   diasRetencao?: number;
+  criadoPorId?: string;
+  pastaId?: string;
 }
 
 let docs = 0;
@@ -109,6 +111,8 @@ async function criarBalcao(b: NovoBalcao) {
       lembrete: b.lembrete ?? true,
       canalCodigo: b.canal ?? 'email',
       canalLembrete: b.canal ?? 'email',
+      criadoPorId: b.criadoPorId ?? null,
+      pastaId: b.pastaId ?? null,
       criadoEm: momento(-14 - (b.n % 10)),
       concluidoEm: b.concluido ? momento(-(b.concluidoHa ?? 2), 16) : null,
       arquivadoEm: b.concluido && b.arquivado ? momento(-(b.concluidoHa ?? 2), 16) : null,
@@ -175,10 +179,14 @@ async function criarUsuario(organizacaoId: string, nome: string, email: string, 
   return db.usuario.create({ data: { organizacaoId, nome, email, senhaHash, permissao } });
 }
 
+async function criarPasta(organizacaoId: string, nome: string, cor: string) {
+  return db.pasta.create({ data: { organizacaoId, nome, cor } });
+}
+
 async function main() {
   // Limpa (como dono, sem RLS). eventos_auditoria é append-only: o trigger deixa o dono truncar.
   await db.$executeRawUnsafe(
-    'TRUNCATE organizacoes, assinaturas, usuarios, sessoes, clientes, balcoes, itens_balcao, documentos, modelos, itens_modelo, links_acesso, codigos_acesso, sessoes_cliente, eventos_auditoria, caixa_saida_dev, uso_mensal, itens_cobranca, exportacoes CASCADE',
+    'TRUNCATE organizacoes, assinaturas, usuarios, sessoes, clientes, balcoes, itens_balcao, documentos, modelos, itens_modelo, links_acesso, codigos_acesso, sessoes_cliente, eventos_auditoria, caixa_saida_dev, uso_mensal, itens_cobranca, exportacoes, pastas CASCADE',
   );
 
   for (const m of MODELOS_PADRAO) {
@@ -189,17 +197,21 @@ async function main() {
 
   // Grátis
   const g = await criarOrganizacao({ nome: 'Clínica Boa Vista', sigla: 'BV', cor: '#1c5d84', area: 'saude', plano: 'gratis' });
-  await criarUsuario(g.id, 'Carla Menezes', CONTAS_TESTE[0].email, 'admin');
-  await criarBalcao({ organizacaoId: g.id, n: 3101, tipo: 'Pré-operatório', cliente: cliFalso('Roberta Lins', 3101), prazo: 6, itens: itensDoModelo('sau-preop', [A, A, E]) });
-  await criarBalcao({ organizacaoId: g.id, n: 3107, tipo: 'Reembolso do plano', cliente: cliFalso('Marcos Teixeira', 3107), prazo: 9, itens: itensDoModelo('sau-reembolso', []) });
-  await criarBalcao({ organizacaoId: g.id, n: 3088, tipo: 'Primeira consulta', cliente: cliFalso('Helena Prado', 3088), prazo: -3, itens: itensDoModelo('sau-consulta', [A, A, A, A]), concluido: true, diasRetencao: 30 });
+  const carla = await criarUsuario(g.id, 'Carla Menezes', CONTAS_TESTE[0].email, 'admin');
+  await criarBalcao({ organizacaoId: g.id, criadoPorId: carla.id, n: 3101, tipo: 'Pré-operatório', cliente: cliFalso('Roberta Lins', 3101), prazo: 6, itens: itensDoModelo('sau-preop', [A, A, E]) });
+  await criarBalcao({ organizacaoId: g.id, criadoPorId: carla.id, n: 3107, tipo: 'Reembolso do plano', cliente: cliFalso('Marcos Teixeira', 3107), prazo: 9, itens: itensDoModelo('sau-reembolso', []) });
+  await criarBalcao({ organizacaoId: g.id, criadoPorId: carla.id, n: 3088, tipo: 'Primeira consulta', cliente: cliFalso('Helena Prado', 3088), prazo: -3, itens: itensDoModelo('sau-consulta', [A, A, A, A]), concluido: true, diasRetencao: 30 });
 
   // Pro
   const p = await criarOrganizacao({ nome: 'Albuquerque & Lima Advocacia', sigla: 'AL', cor: '#8a5330', area: 'advocacia', plano: 'pro' });
-  await criarUsuario(p.id, 'Ana Albuquerque', CONTAS_TESTE[1].email, 'admin');
-  await criarUsuario(p.id, 'Bruno Lima', 'bruno@albuquerquelima.adv.br', 'monta');
+  const ana = await criarUsuario(p.id, 'Ana Albuquerque', CONTAS_TESTE[1].email, 'admin');
+  const bruno = await criarUsuario(p.id, 'Bruno Lima', 'bruno@albuquerquelima.adv.br', 'monta');
+  const prioridade = await criarPasta(p.id, 'Prioridade', '#a9361b');
+  const cartorio = await criarPasta(p.id, 'Esperando cartório', '#1c5d84');
   await criarBalcao({
     organizacaoId: p.id,
+    criadoPorId: ana.id,
+    pastaId: prioridade.id,
     n: 4127,
     tipo: 'Inventário',
     lembrete: true,
@@ -215,12 +227,12 @@ async function main() {
       { nome: 'Documento do carro (CRLV)', detalhe: 'O documento mais recente, em PDF ou foto.', obrigatorio: true, status: P },
     ],
   });
-  await criarBalcao({ organizacaoId: p.id, n: 4131, tipo: 'Previdenciário', cliente: cliFalso('Marta Cavalcanti', 4131), prazo: 24, lembrete: true, itens: itensDoModelo('adv-aposentadoria', [A, E, E, E]) });
-  await criarBalcao({ organizacaoId: p.id, n: 4109, tipo: 'Divórcio', cliente: cliFalso('Roberto e Camila Sales', 4109), prazo: 3, itens: itensDoModelo('adv-divorcio', [A, A, A, A, A, A]) });
-  await criarBalcao({ organizacaoId: p.id, n: 4140, tipo: 'Inventário', cliente: cliFalso('Lúcia Ferraz', 4140), prazo: 12, lembrete: true, itens: itensDoModelo('adv-inventario', []) });
-  await criarBalcao({ organizacaoId: p.id, n: 4098, tipo: 'Previdenciário', cliente: cliFalso('Paulo Henrique Rocha', 4098), prazo: 16, itens: itensDoModelo('adv-aposentadoria', [A, A, R, A, A]) });
-  await criarBalcao({ organizacaoId: p.id, n: 4088, tipo: 'Imóveis', cliente: cliFalso('Condomínio Maré Alta', 4088), prazo: 27, itens: itensDoModelo('adv-imovel', [A, A, A, A, A, A, A]) });
-  await criarBalcao({ organizacaoId: p.id, n: 4051, tipo: 'Família', cliente: cliFalso('Fernanda Rêgo', 4051), prazo: -4, itens: itensDoModelo('adv-pensao', [A, A, A, A, A, A]), concluido: true, concluidoHa: 85, diasRetencao: 90 });
+  await criarBalcao({ organizacaoId: p.id, criadoPorId: bruno.id, n: 4131, tipo: 'Previdenciário', cliente: cliFalso('Marta Cavalcanti', 4131), prazo: 24, lembrete: true, itens: itensDoModelo('adv-aposentadoria', [A, E, E, E]) });
+  await criarBalcao({ organizacaoId: p.id, criadoPorId: ana.id, pastaId: prioridade.id, n: 4109, tipo: 'Divórcio', cliente: cliFalso('Roberto e Camila Sales', 4109), prazo: 3, itens: itensDoModelo('adv-divorcio', [A, A, A, A, A, A]) });
+  await criarBalcao({ organizacaoId: p.id, criadoPorId: bruno.id, pastaId: cartorio.id, n: 4140, tipo: 'Inventário', cliente: cliFalso('Lúcia Ferraz', 4140), prazo: 12, lembrete: true, itens: itensDoModelo('adv-inventario', []) });
+  await criarBalcao({ organizacaoId: p.id, criadoPorId: bruno.id, n: 4098, tipo: 'Previdenciário', cliente: cliFalso('Paulo Henrique Rocha', 4098), prazo: 16, itens: itensDoModelo('adv-aposentadoria', [A, A, R, A, A]) });
+  await criarBalcao({ organizacaoId: p.id, criadoPorId: ana.id, pastaId: cartorio.id, n: 4088, tipo: 'Imóveis', cliente: cliFalso('Condomínio Maré Alta', 4088), prazo: 27, itens: itensDoModelo('adv-imovel', [A, A, A, A, A, A, A]) });
+  await criarBalcao({ organizacaoId: p.id, criadoPorId: ana.id, n: 4051, tipo: 'Família', cliente: cliFalso('Fernanda Rêgo', 4051), prazo: -4, itens: itensDoModelo('adv-pensao', [A, A, A, A, A, A]), concluido: true, concluidoHa: 85, diasRetencao: 90 });
   for (const m of [
     { nome: 'Inventário com herdeiro no exterior', quando: 'Criado com o Turu a partir do caso da família Albuquerque.', base: 'adv-inventario' },
     { nome: 'Usucapião', quando: 'Para quem mora há anos num imóvel sem escritura.', base: 'adv-imovel' },
@@ -231,10 +243,13 @@ async function main() {
 
   // Ultra
   const u = await criarOrganizacao({ nome: 'Lins & Moura Contabilidade', sigla: 'LM', cor: '#13594b', area: 'contabilidade', plano: 'ultra' });
-  await criarUsuario(u.id, 'Rafael Moura', CONTAS_TESTE[2].email, 'admin');
-  await criarUsuario(u.id, 'Patrícia Lins', 'patricia@linsmoura.com.br', 'admin');
-  await criarUsuario(u.id, 'Diego Santos', 'diego@linsmoura.com.br', 'monta');
-  await criarUsuario(u.id, 'Juliana Rocha', 'juliana@linsmoura.com.br', 'monta');
+  const responsaveis = [
+    await criarUsuario(u.id, 'Rafael Moura', CONTAS_TESTE[2].email, 'admin'),
+    await criarUsuario(u.id, 'Patrícia Lins', 'patricia@linsmoura.com.br', 'admin'),
+    await criarUsuario(u.id, 'Diego Santos', 'diego@linsmoura.com.br', 'monta'),
+    await criarUsuario(u.id, 'Juliana Rocha', 'juliana@linsmoura.com.br', 'monta'),
+  ];
+  const pastasUltra = { pj: await criarPasta(u.id, 'Clientes PJ', '#13594b'), ir: await criarPasta(u.id, 'IR 2026', '#865600'), vip: await criarPasta(u.id, 'Atendimento prioritário', '#a9361b') };
   await criarUsuario(u.id, 'Thiago Barros', 'thiago@linsmoura.com.br', 'confere');
   await criarUsuario(u.id, 'Marina Costa', 'marina@linsmoura.com.br', 'confere');
   const nomes = ['Ana', 'Bruno', 'Cecília', 'Daniel', 'Eduarda', 'Felipe', 'Gabriela', 'Heitor', 'Isabela', 'João', 'Larissa', 'Mateus', 'Natália', 'Otávio', 'Priscila', 'Renato', 'Sofia', 'Tiago', 'Vanessa', 'Wagner'];
@@ -262,7 +277,8 @@ async function main() {
       return P;
     });
     const n = 5000 + k * 3;
-    await criarBalcao({ organizacaoId: u.id, n, tipo: t.tipo, cliente: cliFalso(nome, n), prazo: concluido ? -6 : ((k * 11) % 46) - 6, lembrete: k % 3 !== 0, canal: k % 4 === 0 ? 'whatsapp' : 'email', itens: itensDoModelo(t.modelo, status), concluido, arquivado: k === 48 });
+    const pasta = k % 7 === 3 ? pastasUltra.vip : empresa ? pastasUltra.pj : t.tipo === 'Imposto de Renda' && k % 2 === 0 ? pastasUltra.ir : undefined;
+    await criarBalcao({ organizacaoId: u.id, criadoPorId: responsaveis[k % responsaveis.length].id, pastaId: pasta?.id, n, tipo: t.tipo, cliente: cliFalso(nome, n), prazo: concluido ? -6 : ((k * 11) % 46) - 6, lembrete: k % 3 !== 0, canal: k % 4 === 0 ? 'whatsapp' : 'email', itens: itensDoModelo(t.modelo, status), concluido, arquivado: k === 48 });
   }
 
   // Uso do mês, para testar os limites sem criar centenas de balcões:
