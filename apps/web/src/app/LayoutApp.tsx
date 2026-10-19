@@ -1,6 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { acompanharSistema, aplicarTema, limparTema } from '../ui/tema';
+import { useTermoNaTela } from '../ui/termo';
+import { TERMO_PADRAO } from '@trames/shared';
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PLANOS, type Recurso } from '@trames/shared';
 import { api, ErroDaApi } from '../dados/api';
@@ -39,6 +41,8 @@ export function LayoutApp() {
   useEffect(() => {
     setMenu(false);
   }, [local.pathname]);
+
+  useTermoNaTela(eu.data?.organizacao.termo ?? TERMO_PADRAO);
 
   if (eu.isPending) return <Carregando />;
   if (eu.error) {

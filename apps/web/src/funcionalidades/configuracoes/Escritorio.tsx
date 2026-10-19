@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { diasRetencao, NOMES_AREA } from '@trames/shared';
+import { diasRetencao, NOMES_AREA, TERMOS_SUGERIDOS, trocarTermo, type Termo } from '@trames/shared';
 import { api } from '../../dados/api';
 import { chaves, useAcao, useSessao } from '../../dados/consultas';
 import { AvisoErro, Bloqueio, SeloConta, useToast } from '../../ui/comuns';
@@ -10,7 +10,9 @@ const CORES = ['#13594b', '#8a5330', '#1c5d84', '#a9361b', '#865600', '#2e241b']
 export function Escritorio() {
   const s = useSessao();
   const { organizacao: o, plano } = s;
-  const [f, setF] = useState({ nome: o.nome, sigla: o.sigla, cor: o.cor, diasRetencao: o.diasRetencao });
+  const [f, setF] = useState({ nome: o.nome, sigla: o.sigla, cor: o.cor, diasRetencao: o.diasRetencao, termo: o.termo as Termo });
+  const sugerido = TERMOS_SUGERIDOS.find((x) => x.singular === f.termo.singular && x.plural === f.termo.plural);
+  const [proprio, setProprio] = useState(!sugerido);
   const [toast, avisar] = useToast();
   const salvar = useAcao((corpo: typeof f) => api('PUT', '/organizacao', corpo), [chaves.eu]);
   const marca = s.tem('marca');
@@ -18,7 +20,8 @@ export function Escritorio() {
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
-    await salvar.mutateAsync({ ...f, sigla: f.sigla.toUpperCase().slice(0, 2), diasRetencao: diasRetencao(plano.id, f.diasRetencao) });
+    if (f.termo.singular.trim().length < 2 || f.termo.plural.trim().length < 2) return;
+    await salvar.mutateAsync({ ...f, termo: { ...f.termo, singular: f.termo.singular.trim(), plural: f.termo.plural.trim() }, sigla: f.sigla.toUpperCase().slice(0, 2), diasRetencao: diasRetencao(plano.id, f.diasRetencao) });
     avisar('Alterações salvas.');
   }
 
@@ -80,6 +83,57 @@ export function Escritorio() {
             ) : (
               <Bloqueio recurso="marca" compacto />
             )}
+          </div>
+        </section>
+
+        <section className="secao inteira" data-termo-fixo>
+          <div className="secao__cabeca">
+            <h2>Como vocês chamam os balcões</h2>
+            <p className="pequeno texto-suave">Se no escritório o nome é outro (processo, projeto, pedido...), o painel e as mensagens passam a usar o seu. O endereço do site não muda.</p>
+          </div>
+          <div className="secao__corpo">
+            <div className="termos" role="radiogroup" aria-label="Nome dos balcões">
+              {TERMOS_SUGERIDOS.map((x) => (
+                <button
+                  key={x.singular}
+                  type="button"
+                  role="radio"
+                  aria-checked={!proprio && sugerido?.singular === x.singular}
+                  className="termo-opcao"
+                  onClick={() => {
+                    setProprio(false);
+                    setF({ ...f, termo: x });
+                  }}
+                >
+                  {x.plural.charAt(0).toUpperCase() + x.plural.slice(1)}
+                </button>
+              ))}
+              <button type="button" role="radio" aria-checked={proprio} className="termo-opcao" onClick={() => setProprio(true)}>
+                Outro nome
+              </button>
+            </div>
+            {proprio && (
+              <div className="campos-3c">
+                <label className="tr-campo tr-campo--largo">
+                  <span className="tr-campo__rotulo">No singular</span>
+                  <input className="tr-campo__entrada" required minLength={2} maxLength={30} placeholder="Ex.: atendimento" value={f.termo.singular} onChange={(e) => setF({ ...f, termo: { ...f.termo, singular: e.target.value } })} />
+                </label>
+                <label className="tr-campo tr-campo--largo">
+                  <span className="tr-campo__rotulo">No plural</span>
+                  <input className="tr-campo__entrada" required minLength={2} maxLength={32} placeholder="Ex.: atendimentos" value={f.termo.plural} onChange={(e) => setF({ ...f, termo: { ...f.termo, plural: e.target.value } })} />
+                </label>
+                <label className="tr-campo tr-campo--largo">
+                  <span className="tr-campo__rotulo">A palavra é</span>
+                  <select className="tr-campo__entrada" value={f.termo.feminino ? 'a' : 'o'} onChange={(e) => setF({ ...f, termo: { ...f.termo, feminino: e.target.value === 'a' } })}>
+                    <option value="o">Masculina (o, um, novo)</option>
+                    <option value="a">Feminina (a, uma, nova)</option>
+                  </select>
+                </label>
+              </div>
+            )}
+            <p className="miudo texto-suave">
+              Exemplo: “{trocarTermo('Novo balcão', f.termo)}”, “{trocarTermo('6 balcões abertos', f.termo)}”, “{trocarTermo('Este balcão está concluído.', f.termo)}”
+            </p>
           </div>
         </section>
 

@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
+import { trocarTermo } from '@trames/shared';
 import { log } from './logger';
 
 export class ErroHttp extends Error {
@@ -21,7 +22,10 @@ export const tratarErros: ErrorRequestHandler = (err, req, res, _next) => {
     return;
   }
   if (err instanceof ErroHttp) {
-    res.status(err.status).json({ erro: err.message, codigo: err.codigo });
+    // A mensagem usa o nome que o escritório dá aos balcões (processo, projeto...).
+    const o = req.empresa?.organizacao;
+    const erro = o ? trocarTermo(err.message, { singular: o.termoSingular, plural: o.termoPlural, feminino: o.termoFeminino }) : err.message;
+    res.status(err.status).json({ erro, codigo: err.codigo });
     return;
   }
   if (err?.type === 'entity.too.large') {

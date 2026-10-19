@@ -103,7 +103,7 @@ function eu(s: NonNullable<Awaited<ReturnType<typeof carregarSessao>>>): Eu {
   const { usuario: u, organizacao: o } = s;
   return {
     usuario: { id: u.id, nome: u.nome, email: u.email, cargo: u.cargo, permissao: u.permissao },
-    organizacao: { id: o.id, nome: o.nome, sigla: o.sigla, cor: o.cor, area: o.area, diasRetencao: o.diasRetencao },
+    organizacao: { id: o.id, nome: o.nome, sigla: o.sigla, cor: o.cor, area: o.area, diasRetencao: o.diasRetencao, termo: { singular: o.termoSingular, plural: o.termoPlural, feminino: o.termoFeminino } },
     plano: s.plano,
     periodicidade: s.periodicidade,
     etapa: s.etapa,

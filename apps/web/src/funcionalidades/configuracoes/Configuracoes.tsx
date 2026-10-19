@@ -41,23 +41,21 @@ export function Configuracoes() {
           </p>
         </div>
       </div>
-      <div className="config">
-        <nav className="config__menu" aria-label="Configurações">
-          {GRUPOS.map((g) => (
-            <div key={g.titulo} className="config__grupo">
-              <span className="config__grupo-titulo">{g.titulo}</span>
-              {g.secoes.map((id) => (
-                <NavLink key={id} to={`/app/configuracoes/${id}`}>
-                  <Icone nome={SECOES[id].icone} tamanho={18} />
-                  {SECOES[id].rotulo}
-                </NavLink>
-              ))}
-            </div>
-          ))}
-        </nav>
-        <div className="config__conteudo">
-          <Tela />
-        </div>
+      <nav className="abas config-abas" aria-label="Configurações">
+        {GRUPOS.map((g, k) => (
+          <div key={g.titulo} className="config-abas__grupo">
+            {k > 0 && <span className="config-abas__divisor" aria-hidden="true" />}
+            {g.secoes.map((id) => (
+              <NavLink key={id} to={`/app/configuracoes/${id}`} className={({ isActive }) => `aba${isActive ? ' aba--ativa' : ''}`}>
+                <Icone nome={SECOES[id].icone} tamanho={16} />
+                {SECOES[id].rotulo}
+              </NavLink>
+            ))}
+          </div>
+        ))}
+      </nav>
+      <div className="config__conteudo">
+        <Tela />
       </div>
     </>
   );

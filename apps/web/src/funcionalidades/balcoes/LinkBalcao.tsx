@@ -5,6 +5,7 @@ import { api } from '../../dados/api';
 import { chaves as chavesConsulta, useAcao, useBalcao, usePastas, useSessao } from '../../dados/consultas';
 import { AvisoErro, Carregando } from '../../ui/comuns';
 import { Icone } from '../../ui/Icone';
+import { useTermo } from '../../ui/termo';
 import { dataLonga, diasAte, plural, prazoRelativo, primeiroNome } from '../../util/formatos';
 
 export function LinkBalcao() {
@@ -13,6 +14,7 @@ export function LinkBalcao() {
   const navegar = useNavigate();
   const sessao = useSessao();
   const consulta = useBalcao(id);
+  const t = useTermo();
   const pastas = usePastas().data ?? [];
   const estado = local.state as { link?: LinkGerado; criado?: boolean } | null;
   const [link, setLink] = useState<LinkGerado | null>(estado?.link ?? null);
@@ -30,7 +32,7 @@ export function LinkBalcao() {
   const nome = primeiroNome(b.cliente.nome);
   const texto =
     mensagem ??
-    `Olá, ${nome}. Aqui é ${primeiroNome(sessao.usuario.nome)}, do ${sessao.organizacao.nome}. Abrimos um balcão para reunir os documentos${b.tipo ? ` de ${b.tipo.toLowerCase()}` : ''} (protocolo ${b.protocolo}). Por este link você vê a lista e envia tudo pelo celular:`;
+    t(`Olá, ${nome}. Aqui é ${primeiroNome(sessao.usuario.nome)}, do ${sessao.organizacao.nome}. Abrimos um balcão para reunir os documentos${b.tipo ? ` de ${b.tipo.toLowerCase()}` : ''} (protocolo ${b.protocolo}). Por este link você vê a lista e envia tudo pelo celular:`);
   const ondeCodigo = b.canalCodigo === 'whatsapp' ? `no WhatsApp terminado em ${b.cliente.whatsappFinal}` : `em ${b.cliente.email}`;
 
   /** Abre o WhatsApp do escritório com a mensagem pronta. A janela abre antes da resposta para o navegador não bloquear. */

@@ -1,5 +1,6 @@
 import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
 import type { Tx } from '@trames/db';
+import { trocarTermo } from '@trames/shared';
 
 /*
  * Envio de WhatsApp e e-mail. Em desenvolvimento (MENSAGENS=dev) as mensagens
@@ -68,7 +69,11 @@ async function email(destino: string, assunto: string, texto: string) {
 }
 
 /** tx é usado só pelo modo dev, para gravar na caixa de saída (com RLS do escritório). */
-export async function enviar(tx: Tx, e: Envio) {
+export async function enviar(tx: Tx, e0: Envio) {
+  // Os textos dizem "balcão"; vai o nome que o escritório escolheu (processo, projeto...).
+  const o = await tx.organizacao.findUnique({ where: { id: e0.organizacaoId }, select: { termoSingular: true, termoPlural: true, termoFeminino: true } });
+  const termo = o ? { singular: o.termoSingular, plural: o.termoPlural, feminino: o.termoFeminino } : undefined;
+  const e = { ...e0, assunto: trocarTermo(e0.assunto, termo), texto: trocarTermo(e0.texto, termo) };
   if (modo === 'dev') {
     const final = e.canal === 'whatsapp' ? `WhatsApp terminado em ${e.destino.slice(-4)}` : `e-mail ${e.destino.replace(/^(.).*@/, '$1***@')}`;
     const modelo = e.canal === 'whatsapp' && e.template ? `[template ${e.template.nome}]\n` : '';

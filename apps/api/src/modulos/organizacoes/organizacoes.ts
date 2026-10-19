@@ -28,7 +28,7 @@ rotasOrganizacao.put(
     await naOrganizacao(org, async (tx) => {
       await tx.organizacao.update({
         where: { id: org },
-        data: { nome: d.nome, ...(escolheRetencao ? { diasRetencao: d.diasRetencao } : {}), ...(comMarca && d.sigla ? { sigla: d.sigla } : {}), ...(comMarca && d.cor ? { cor: d.cor } : {}) },
+        data: { nome: d.nome, ...(d.termo ? { termoSingular: d.termo.singular.toLocaleLowerCase('pt-BR'), termoPlural: d.termo.plural.toLocaleLowerCase('pt-BR'), termoFeminino: d.termo.feminino } : {}), ...(escolheRetencao ? { diasRetencao: d.diasRetencao } : {}), ...(comMarca && d.sigla ? { sigla: d.sigla } : {}), ...(comMarca && d.cor ? { cor: d.cor } : {}) },
       });
       if (escolheRetencao) await limitarRetencao(tx, d.diasRetencao);
       await auditar(tx, req, {

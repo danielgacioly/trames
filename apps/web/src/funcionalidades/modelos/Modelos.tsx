@@ -14,11 +14,11 @@ const ORDENS = [
   { id: 'menos', rotulo: 'Menos documentos' },
 ] as const;
 
-function LinhaModelo({ m, podeEditar }: { m: Modelo; podeEditar: boolean }) {
+function LinhaModelo({ m, podeEditar, secundario = false }: { m: Modelo; podeEditar: boolean; secundario?: boolean }) {
   return (
-    <li className="linha-m">
+    <li className={`linha-m${secundario ? ' linha-m--secundaria' : ''}`}>
       <div className="coluna" style={{ gap: 0, minWidth: 0 }}>
-        <span style={{ fontWeight: 500 }}>{m.nome}</span>
+        <span className="linha-m__nome">{m.nome}</span>
         <span className="miudo texto-suave">{m.quando}</span>
       </div>
       <span className="num miudo texto-suave">{m.itens.length} documentos</span>
@@ -28,7 +28,7 @@ function LinhaModelo({ m, podeEditar }: { m: Modelo; podeEditar: boolean }) {
             {m.proprio ? 'Editar' : 'Duplicar e editar'}
           </Link>
         )}
-        <Link to={`/app/novo?modelo=${m.id}`} className="tr-btn tr-btn--secundario tr-btn--sm">
+        <Link to={`/app/novo?modelo=${m.id}`} className={`tr-btn tr-btn--sm ${secundario ? 'tr-btn--discreto' : 'tr-btn--secundario'}`}>
           Usar modelo
         </Link>
       </div>
@@ -81,11 +81,19 @@ export function Modelos() {
       </div>
 
       <div>
-        <GrupoModelos titulo={NOMES_AREA[area]} n={daArea(area).length}>
-          {daArea(area).map((m) => (
-            <LinhaModelo key={m.id} m={m} podeEditar={proprios} />
-          ))}
-        </GrupoModelos>
+        <section className="modelos-da-area">
+          <div className="modelos-da-area__cabeca">
+            <h2 className="titulo-2">{NOMES_AREA[area]}</h2>
+            <span className="pequeno texto-suave">
+              <span className="num">{daArea(area).length}</span> modelos prontos da área do escritório
+            </span>
+          </div>
+          <ul className="linhas">
+            {daArea(area).map((m) => (
+              <LinhaModelo key={m.id} m={m} podeEditar={proprios} />
+            ))}
+          </ul>
+        </section>
 
         <section className="grupo-linhas">
           <h2 className="grupo-linhas__titulo rotulo">
@@ -110,13 +118,13 @@ export function Modelos() {
         </section>
 
         <section className="outras-areas">
-          <h2 className="titulo-cartao">Modelos de outras áreas</h2>
-          <p className="miudo texto-suave">Prontos para usar ou duplicar, mesmo fora da área do escritório.</p>
+          <h2 className="rotulo">Modelos de outras áreas</h2>
+          <p className="miudo texto-suave">Dá para usar ou duplicar, mas não foram pensados para a sua área.</p>
           {outras.map((a) =>
             daArea(a).length ? (
               <GrupoModelos key={a} titulo={NOMES_AREA[a]} n={daArea(a).length}>
                 {daArea(a).map((m) => (
-                  <LinhaModelo key={m.id} m={m} podeEditar={proprios} />
+                  <LinhaModelo key={m.id} m={m} podeEditar={proprios} secundario />
                 ))}
               </GrupoModelos>
             ) : null,

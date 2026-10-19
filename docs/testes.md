@@ -152,6 +152,7 @@ Avisos de uso (limite de balcões, excedente, cota de WhatsApp) aparecem só no 
 - [ ] **Configurações › Meu perfil**: mude o nome e o cargo e salve. O nome muda no rodapé do menu.
 - [ ] **Senha e acesso**: troque a senha (pede a atual). Os outros aparelhos saem e chega um e-mail avisando (`pnpm caixa`). A lista mostra os aparelhos conectados, com **Desconectar**.
 - [ ] **Aparência**: Claro, Escuro ou Automático. Vale para o painel neste navegador; o site e a página do cliente continuam claros.
+- [ ] Em **Escritório e marca**, "Como vocês chamam os balcões": escolha Processos (ou um nome seu, dizendo se a palavra é feminina) e salve. O menu, os títulos, os botões, os avisos, as mensagens de erro e os e-mails passam a usar o nome escolhido; com um nome feminino, "Novo balcão" vira "Nova solicitação" e "Abertos" vira "Abertas". O endereço do site não muda.
 - [ ] **Escritório e marca** e **Plano e uso** (antes, Minha conta). Em Plano e uso, troque o plano direto ali (em desenvolvimento, sem cobrança).
 - [ ] Na tela de entrar, **Esqueci a senha**: em desenvolvimento aparece o botão que abre o link do e-mail. A senha nova pede o código do e-mail, como um login.
 - [ ] Apagar cliente, pasta, arquivo ou pessoa da equipe abre uma confirmação do próprio app, não a do navegador.

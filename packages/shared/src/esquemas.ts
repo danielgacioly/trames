@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TAMANHO_MAXIMO_ARQUIVO, TIPOS_PERMITIDOS } from './arquivos';
+import type { Termo } from './termo';
 import { AreaId, CanalCodigo, EtapaSessao, Permissao, PlanoId, StatusDocumento, StatusItem } from './tipos';
 
 /*
@@ -121,6 +122,8 @@ export const OrganizacaoEntrada = z.object({
   cor: z.string().regex(/^#[0-9a-f]{6}$/i).optional(),
   /** Só vale no Ultra (30, 90, 180 ou 365); nos outros planos a API usa a retenção do plano. */
   diasRetencao: z.number().int().refine((d) => [30, 90, 180, 365].includes(d), 'Escolha 30, 90, 180 ou 365 dias.'),
+  /** Como o escritório chama os balcões. */
+  termo: z.object({ singular: texto(30).min(2), plural: texto(32).min(2), feminino: z.boolean() }).optional(),
 });
 
 export const ConviteEntrada = z.object({ nome: texto(120).min(2), email: Email, permissao: Permissao });
@@ -157,7 +160,7 @@ export const IniciarUploadEntrada = z.object({
 
 export interface Eu {
   usuario: { id: string; nome: string; email: string; cargo: string | null; permissao: Permissao };
-  organizacao: { id: string; nome: string; sigla: string; cor: string; area: AreaId; diasRetencao: number };
+  organizacao: { id: string; nome: string; sigla: string; cor: string; area: AreaId; diasRetencao: number; termo: Termo };
   plano: PlanoId;
   periodicidade: 'mensal' | 'anual';
   etapa: EtapaSessao;
