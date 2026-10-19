@@ -8,9 +8,6 @@ const Config = z.object({
   URL_BALCAO: z.string().url(),
   CHAVE_HMAC: z.string().min(40),
   COBRANCA_SIMULADA: z.string().optional(),
-  ANTHROPIC_API_KEY: z.string().optional(),
-  /** Turu fica fora do lançamento (docs/viabilidade.md). TURU=1 liga em desenvolvimento. */
-  TURU: z.string().optional(),
 });
 
 export const config = Config.parse(process.env);

@@ -159,33 +159,6 @@ export function LinkBalcao() {
             )}
           </section>
 
-          <section className="cartao cartao--fundo">
-            <h2 className="titulo-cartao">O que acontece agora</h2>
-            <ol className="passos">
-              <li>
-                <strong>{nome} abre o link</strong>
-                <span>e entra com o código que chega {ondeCodigo}. Não precisa criar conta.</span>
-              </li>
-              <li>
-                <strong>Envia os documentos pelo celular</strong>
-                <span>Cada arquivo passa pelo antivírus antes de aparecer para você.</span>
-              </li>
-              <li>
-                <strong>Você confere aqui</strong>
-                <span>Aprove ou recuse cada documento; se recusar, {nome} vê o motivo e manda outro pelo mesmo link.</span>
-              </li>
-              <li>
-                <strong>{lembretes.length ? 'Lembretes automáticos' : b.lembrete ? 'Lembretes' : 'Sem lembretes automáticos'}</strong>
-                <span>
-                  {lembretes.length
-                    ? `Se ainda faltar documento obrigatório, ${nome} recebe um lembrete por ${b.canalLembrete === 'whatsapp' && sessao.tem('whatsapp') ? 'WhatsApp' : 'e-mail'} em ${lembretes.map((d) => dataLonga(d)).join(', ').replace(/, ([^,]*)$/, ' e $1')}.`
-                    : b.lembrete
-                      ? 'As datas dos lembretes já passaram. Mude o prazo no balcão para recomeçar.'
-                      : 'Dá para ligar na tela do balcão, em Prazo e lembretes.'}
-                </span>
-              </li>
-            </ol>
-          </section>
         </div>
 
         <div className="coluna" style={{ gap: 16 }}>
@@ -204,6 +177,14 @@ export function LinkBalcao() {
               </dd>
               <dt>Código por</dt>
               <dd>{b.canalCodigo === 'whatsapp' ? 'WhatsApp' : 'E-mail'}</dd>
+              <dt>Lembretes</dt>
+              <dd>
+                {lembretes.length
+                  ? `${lembretes.map((d) => dataLonga(d)).join(', ').replace(/, ([^,]*)$/, ' e $1')}, por ${b.canalLembrete === 'whatsapp' && sessao.tem('whatsapp') ? 'WhatsApp' : 'e-mail'}`
+                  : b.lembrete
+                    ? 'As datas já passaram'
+                    : 'Desligados'}
+              </dd>
               {pasta && (
                 <>
                   <dt>Pasta</dt>

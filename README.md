@@ -18,9 +18,9 @@ packages/
 infra/dev   docker compose com Postgres, S3 local (moto) e ClamAV
 ```
 
-Painel (`apps/web/src`): `app/` (rotas, layout, avisos de uso), `ui/` (componentes comuns, ícones, notificações), `estilos/`, `dados/` (API e consultas), `util/` e `funcionalidades/` (`balcoes`, `clientes`, `modelos`, `relatorio`, `conta`, `publico`, `turu`), uma tela por arquivo.
+Painel (`apps/web/src`): `app/` (rotas, layout, avisos de uso), `ui/` (componentes comuns, ícones, notificações), `estilos/`, `dados/` (API e consultas), `util/` e `funcionalidades/` (`balcoes`, `clientes`, `modelos`, `relatorio`, `conta`, `publico`), uma tela por arquivo.
 
-Módulos da API (`apps/api/src/modulos`): `auth`, `organizacoes`, `balcoes`, `pastas`, `documentos`, `modelos`, `acesso-cliente`, `clientes`, `cobranca`, `auditoria` e `turu` (fora do lançamento: só com `TURU=1`).
+Módulos da API (`apps/api/src/modulos`): `auth`, `organizacoes`, `balcoes`, `pastas`, `documentos`, `modelos`, `acesso-cliente`, `clientes`, `cobranca` e `auditoria`.
 
 ## Rodar localmente
 
@@ -70,10 +70,6 @@ Senha das três: `trames-teste-123`. Depois da senha, a Trames pede um código d
 | Ultra | `ultra@trames.app` | Lins & Moura (contabilidade), 198 de 200 balcões novos no mês (o 3º que você criar é excedente), retenção configurável, 6 pessoas com permissões. |
 
 O roteiro completo está em `docs/testes.md`. Em desenvolvimento dá para trocar o plano (mensal ou anual) pela página Planos (`COBRANCA_SIMULADA=1`).
-
-## Turu
-
-Fora do lançamento (`docs/viabilidade.md`): não aparece no painel, nos planos nem no site. O código continua em `apps/api/src/modulos/turu` e `apps/web/src/funcionalidades/turu/Turu.tsx`; para ligar em desenvolvimento, `TURU=1` e `VITE_TURU=1` no `.env`. Com `ANTHROPIC_API_KEY`, usa o Claude (saída estruturada validada com Zod); sem a chave, uma montagem simples por palavras-chave. Ele recebe só o texto da conversa e a lista atual, nunca documentos ou dados do cliente.
 
 ## Segurança, em resumo
 

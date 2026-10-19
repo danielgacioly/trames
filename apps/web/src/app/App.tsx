@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Link, Route, Routes, useLocation } from 'react-router-dom';
+import { Balcoes } from '../funcionalidades/balcoes/Balcoes';
 import { Conferir } from '../funcionalidades/balcoes/Conferir';
 import { EditarLista } from '../funcionalidades/balcoes/EditarLista';
 import { LinkBalcao } from '../funcionalidades/balcoes/LinkBalcao';
@@ -15,7 +16,6 @@ import { Convite, CriarConta, Entrar, EscolherArea, SegundoFator } from '../func
 import { Landing } from '../funcionalidades/publico/Landing';
 import { Planos } from '../funcionalidades/publico/Planos';
 import { Relatorio } from '../funcionalidades/relatorio/Relatorio';
-import { Turu } from '../funcionalidades/turu/Turu';
 import { LayoutApp } from './LayoutApp';
 
 function NaoEncontrada() {
@@ -54,6 +54,7 @@ export function App() {
 
         <Route path="/app" element={<LayoutApp />}>
           <Route index element={<Inicio />} />
+          <Route path="balcoes" element={<Balcoes />} />
           <Route path="pastas/:grupo/:valor" element={<PastaPagina />} />
           <Route path="novo" element={<NovoBalcao />} />
           <Route path="balcao/:id" element={<Conferir />} />
@@ -63,7 +64,6 @@ export function App() {
           <Route path="modelos/novo" element={<EditorModelo />} />
           <Route path="modelos/:id" element={<EditorModelo />} />
           <Route path="clientes" element={<Clientes />} />
-          {import.meta.env.VITE_TURU === '1' && <Route path="turu" element={<Turu />} />}
           <Route path="relatorio" element={<Relatorio />} />
           <Route path="equipe" element={<Equipe />} />
           <Route path="conta" element={<Conta />} />

@@ -49,7 +49,7 @@ Ficam como estavam (confirme se concordar):
 
 ## Jurídico e LGPD
 
-- [ ] Contrato de operador com cada assinante, com a lista de suboperadores: AWS, Meta e o provedor de pagamento (a Anthropic sai enquanto o Turu estiver fora).
+- [ ] Contrato de operador com cada assinante, com a lista de suboperadores: AWS, Meta e o provedor de pagamento.
 - [ ] Nomear o encarregado (DPO).
 - [ ] Política de privacidade e termos de uso (os links do site ainda apontam para `#`). Precisam citar a retenção por plano e a sessão de 30 dias no aparelho do cliente.
 - [ ] Registro das operações de tratamento e relatório de impacto (RIPD).
@@ -63,4 +63,3 @@ Ficam como estavam (confirme se concordar):
 - [ ] "Sair de todos os aparelhos" e lista de sessões ativas para a equipe do escritório.
 - [ ] CI (GitHub Actions) com Postgres, para rodar os testes e o typecheck a cada PR.
 - [ ] Teste de ponta a ponta no repositório. Rodei com Playwright durante o desenvolvimento, mas não versionei.
-- [ ] Turu: fora do lançamento. O código continua no repositório, desligado (`TURU=1` e `VITE_TURU=1` ligam em desenvolvimento).

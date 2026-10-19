@@ -234,7 +234,7 @@ async function main() {
   await criarBalcao({ organizacaoId: p.id, criadoPorId: ana.id, pastaId: cartorio.id, n: 4088, tipo: 'Imóveis', cliente: cliFalso('Condomínio Maré Alta', 4088), prazo: 27, itens: itensDoModelo('adv-imovel', [A, A, A, A, A, A, A]) });
   await criarBalcao({ organizacaoId: p.id, criadoPorId: ana.id, n: 4051, tipo: 'Família', cliente: cliFalso('Fernanda Rêgo', 4051), prazo: -4, itens: itensDoModelo('adv-pensao', [A, A, A, A, A, A]), concluido: true, concluidoHa: 85, diasRetencao: 90 });
   for (const m of [
-    { nome: 'Inventário com herdeiro no exterior', quando: 'Criado com o Turu a partir do caso da família Albuquerque.', base: 'adv-inventario' },
+    { nome: 'Inventário com herdeiro no exterior', quando: 'Criado a partir do caso da família Albuquerque.', base: 'adv-inventario' },
     { nome: 'Usucapião', quando: 'Para quem mora há anos num imóvel sem escritura.', base: 'adv-imovel' },
   ]) {
     const itens = MODELOS_PADRAO.find((x) => x.id === m.base)!.itens.slice(0, 6);

@@ -127,14 +127,6 @@ export const ConviteEntrada = z.object({ nome: texto(120).min(2), email: Email, 
 export const PermissaoEntrada = z.object({ permissao: Permissao });
 export const AceitarConviteEntrada = z.object({ senha: Senha });
 
-export const TuruEntrada = z.object({
-  mensagens: z
-    .array(z.object({ de: z.enum(['eu', 'turu']), texto: texto(2000).min(1) }))
-    .min(1)
-    .max(30),
-  lista: z.array(ItemEntrada).max(60).nullable(),
-});
-
 export const MudarPlanoEntrada = z.object({ plano: PlanoId, periodicidade: z.enum(['mensal', 'anual']).default('mensal') });
 
 /** O canal do código é o que o escritório escolheu para o balcão; o cliente não escolhe. */
@@ -330,12 +322,6 @@ export interface UploadIniciado {
   documentoId: string;
   url: string;
   campos: Record<string, string>;
-}
-
-export interface TuruResposta {
-  resposta: string;
-  lista: ItemEntrada[] | null;
-  tipo: string | null;
 }
 
 /** Corpo de erro padrão da API. */

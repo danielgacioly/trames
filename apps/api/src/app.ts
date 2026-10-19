@@ -1,7 +1,6 @@
 import cookieParser from 'cookie-parser';
 import express, { Router } from 'express';
 import helmet from 'helmet';
-import { config } from './infra/config';
 import { tratarErros } from './infra/erros';
 import { limites, registrarAcesso, verificarOrigem } from './infra/http';
 import { exigirCliente, rotasAcesso, rotasCliente } from './modulos/acesso-cliente/acesso';
@@ -13,7 +12,6 @@ import { rotasAuditoria, rotasDocumentos } from './modulos/documentos/documentos
 import { rotasModelos } from './modulos/modelos/modelos';
 import { rotasOrganizacao } from './modulos/organizacoes/organizacoes';
 import { rotasPastas } from './modulos/pastas/pastas';
-import { rotasTuru } from './modulos/turu/turu';
 
 /** A API só responde requisições: trabalho pesado (antivírus, mensagens, retenção) vai para o worker. */
 export function criarApp() {
@@ -54,8 +52,6 @@ export function criarApp() {
   api.use('/organizacao', exigirEmpresa, rotasOrganizacao);
   api.use('/cobranca', exigirEmpresa, rotasCobranca);
   api.use('/relatorio', exigirEmpresa, rotasRelatorio);
-  // Turu fica fora do lançamento; só existe com TURU=1.
-  if (config.TURU === '1') api.use('/turu', exigirEmpresa, rotasTuru);
 
   // Cliente (link + código)
   api.use('/acesso', rotasAcesso);

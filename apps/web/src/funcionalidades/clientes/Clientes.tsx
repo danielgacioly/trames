@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../../dados/api';
 import { chaves, useAcao, useClientes, useSessao } from '../../dados/consultas';
 import { AvisoErro, Carregando, useToast } from '../../ui/comuns';
+import { Icone } from '../../ui/Icone';
 import { plural } from '../../util/formatos';
 
 export function Clientes() {
@@ -35,9 +36,9 @@ export function Clientes() {
           <h1 className="titulo-1">Clientes</h1>
           <p className="subtitulo">Todo mundo para quem você já abriu um balcão. A pedido do cliente, dá para exportar ou apagar os dados dele (LGPD).</p>
         </div>
-        <label className="tr-campo" style={{ width: 320 }}>
-          <span className="sr-only">Buscar cliente</span>
-          <input className="tr-campo__entrada" placeholder="Buscar cliente" value={busca} onChange={(e) => setBusca(e.target.value)} />
+        <label className="busca">
+          <Icone nome="lupa" tamanho={18} />
+          <input placeholder="Buscar cliente" aria-label="Buscar cliente" value={busca} onChange={(e) => setBusca(e.target.value)} />
         </label>
       </div>
       <AvisoErro erro={excluir.error} />

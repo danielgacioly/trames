@@ -68,15 +68,10 @@ export function Modelos() {
           <p className="subtitulo">Um modelo é a lista de documentos que você costuma pedir num tipo de caso. Ao abrir um balcão a partir dele, você ainda pode tirar ou acrescentar itens.</p>
         </div>
         {proprios && (
-          <div className="linha">
-            <Link to="/app/turu" className="tr-btn tr-btn--secundario">
-              Montar com o Turu
-            </Link>
-            <Link to="/app/modelos/novo" className="tr-btn tr-btn--primario">
-              <Icone nome="mais" />
-              Criar modelo
-            </Link>
-          </div>
+          <Link to="/app/modelos/novo" className="tr-btn tr-btn--primario">
+            <Icone nome="mais" />
+            Criar modelo
+          </Link>
         )}
       </div>
 

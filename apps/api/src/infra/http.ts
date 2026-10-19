@@ -99,5 +99,4 @@ export const limites = {
   /** O limite por balcão fica no banco (acesso.ts), porque um balcão tem vários links. */
   entrarCliente: limite(15, 15),
   upload: limite(10, 60),
-  turu: limite(1, 15),
 };

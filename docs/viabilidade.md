@@ -31,7 +31,6 @@ Regras:
   - No plano anual, o excedente é cobrado mês a mês, à parte.
 - **Cotas de WhatsApp:** contam as mensagens enviadas pela Trames (código de acesso por WhatsApp e lembretes). Ao atingir a cota, o envio cai para e-mail até o mês virar, e o admin recebe um aviso.
 - **Cobrança:** Pix e cartão. O plano anual é pago de uma vez.
-- O assistente de IA (Turu) fica fora do lançamento.
 
 ## 2. Envio do link pelo WhatsApp do escritório
 
@@ -151,4 +150,3 @@ O escritório pode mudar a lista de documentos de um balcão a qualquer momento 
 ## 10. Fora do escopo deste ajuste
 
 - Compressão das fotos no envio: não aprovada por enquanto. Os originais ficam como foram enviados.
-- Turu.

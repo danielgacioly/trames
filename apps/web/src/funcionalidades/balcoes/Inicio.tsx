@@ -4,8 +4,8 @@ import { NOMES_AREA, type BalcaoResumo } from '@trames/shared';
 import { useBalcoes, useModelos, usePastas, useSessao } from '../../dados/consultas';
 import { AvisoErro, Carregando } from '../../ui/comuns';
 import { Icone, type NomeIcone } from '../../ui/Icone';
-import { plural, primeiroNome, saudacao } from '../../util/formatos';
-import { ListaBalcoes } from './ListaBalcoes';
+import { diasAte, plural, primeiroNome, saudacao } from '../../util/formatos';
+import { CartaoBalcao } from './Balcoes';
 import { busca, minhasPastas, ordenar, pastasDePessoa, pastasDeTipo, SITUACOES, type Pasta } from './pastas';
 import { CartaoPasta, FormularioPasta } from './PastasUi';
 
@@ -39,28 +39,14 @@ function PrimeiroAcesso() {
             <span style={{ fontWeight: 500 }}>Balcão em branco</span>
           </Link>
         </div>
-        {import.meta.env.VITE_TURU === '1' && (
-        <Link
-          to="/app/turu"
-          style={{ textDecoration: 'none', color: 'var(--tinta)', alignSelf: 'center', width: '100%', maxWidth: 640, display: 'flex', alignItems: 'center', gap: 12, background: 'var(--areia-elevada)', border: '1px solid var(--linha)', borderRadius: 9999, padding: '8px 8px 8px 10px' }}
-        >
-          <img src="/marca/turu.svg" alt="" style={{ width: 36, height: 36, borderRadius: 9999, flex: 'none' }} />
-          <span className="texto-suave" style={{ flex: 1, fontSize: 15 }}>
-            Prefere contar o caso? O Turu monta a lista para você.
-          </span>
-          <span className="tr-btn tr-btn--secundario tr-btn--sm" style={{ borderRadius: 9999 }}>
-            Falar com o Turu
-          </span>
-        </Link>
-        )}
       </div>
     </div>
   );
 }
 
-function AcaoRapida({ icone, titulo, texto, para, onClick, bloqueada }: { icone: NomeIcone; titulo: string; texto: string; para?: string; onClick?: () => void; bloqueada?: boolean }) {
-  const corpo = (
-    <>
+function AcaoRapida({ icone, titulo, texto, para, bloqueada }: { icone: NomeIcone; titulo: string; texto: string; para: string; bloqueada?: boolean }) {
+  return (
+    <Link to={para} className="acao-rapida">
       <span className="acao-rapida__icone">
         <Icone nome={bloqueada ? 'cadeado' : icone} tamanho={20} />
       </span>
@@ -68,27 +54,18 @@ function AcaoRapida({ icone, titulo, texto, para, onClick, bloqueada }: { icone:
         <span className="pasta__nome">{titulo}</span>
         <span className="miudo texto-suave">{texto}</span>
       </span>
-    </>
-  );
-  return para ? (
-    <Link to={para} className="acao-rapida">
-      {corpo}
     </Link>
-  ) : (
-    <button type="button" className="acao-rapida" onClick={onClick}>
-      {corpo}
-    </button>
   );
 }
 
-function GrupoDePastas({ titulo, texto, children }: { titulo: string; texto?: string; children: ReactNode }) {
+function GrupoDePastas({ titulo, texto, tres, children }: { titulo: string; texto?: string; tres?: boolean; children: ReactNode }) {
   return (
     <section className="grupo-pastas">
       <div className="grupo-pastas__cabeca">
         <h2>{titulo}</h2>
-        {texto && <span className="miudo texto-suave">{texto}</span>}
+        {texto && <p className="pequeno texto-suave">{texto}</p>}
       </div>
-      <div className="pastas">{children}</div>
+      <div className={`pastas${tres ? ' pastas--tres' : ''}`}>{children}</div>
     </section>
   );
 }
@@ -101,8 +78,9 @@ const contar = (p: Pasta, balcoes: BalcaoResumo[]) => {
 };
 
 /**
- * Início: ações rápidas e os balcões organizados em pastas (por situação, as do
- * escritório, por tipo de caso e por pessoa). Buscar mostra os balcões direto.
+ * Início: ações rápidas, os balcões que pedem atenção agora e as pastas (por
+ * situação, as do escritório, por tipo de caso e por pessoa). Buscar mostra os
+ * balcões direto. A grade com todos fica em Balcões.
  */
 export function Inicio() {
   const s = useSessao();
@@ -125,11 +103,7 @@ export function Inicio() {
   const pessoas = pastasDePessoa(todos);
   const minhas = minhasPastas(pastas);
 
-  function novaPasta() {
-    setCriandoPasta(true);
-    setTermo('');
-    setTimeout(() => document.getElementById('minhas-pastas')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
-  }
+  const atencao = ordenar(abertos.filter((b) => b.contagem.analise > 0 || diasAte(b.prazo) < 0));
 
   return (
     <>
@@ -151,7 +125,7 @@ export function Inicio() {
 
       {t ? (
         <section className="grupo-pastas">
-          <div className="grupo-pastas__cabeca">
+          <div className="grupo-pastas__cabeca grupo-pastas__cabeca--linha">
             <h2>Resultados</h2>
             <button type="button" className="tr-btn tr-btn--discreto tr-btn--sm" onClick={() => setTermo('')}>
               Limpar busca
@@ -159,7 +133,15 @@ export function Inicio() {
           </div>
           {(() => {
             const achados = ordenar(todos.filter((b) => busca(b, t)));
-            return achados.length ? <ListaBalcoes balcoes={achados} /> : <p className="texto-suave">Nenhum balcão encontrado.</p>;
+            return achados.length ? (
+              <div className="grade">
+                {achados.map((b) => (
+                  <CartaoBalcao key={b.id} b={b} />
+                ))}
+              </div>
+            ) : (
+              <p className="texto-suave">Nenhum balcão encontrado.</p>
+            );
           })()}
         </section>
       ) : (
@@ -174,11 +156,27 @@ export function Inicio() {
                 para={s.tem('modelosProprios') ? '/app/modelos/novo' : '/app/modelos'}
                 bloqueada={!s.tem('modelosProprios')}
               />
-              <AcaoRapida icone="pasta" titulo="Nova pasta" texto="Para separar do seu jeito" onClick={novaPasta} />
+              <AcaoRapida icone="balcoes" titulo="Todos os balcões" texto="A grade completa, com filtros" para="/app/balcoes" />
             </section>
           )}
 
-          <GrupoDePastas titulo="Situação">
+          {atencao.length > 0 && (
+            <section className="grupo-pastas">
+              <div className="grupo-pastas__cabeca grupo-pastas__cabeca--linha">
+                <h2>Pedem a sua atenção</h2>
+                <Link to="/app/balcoes" className="pequeno" style={{ fontWeight: 500 }}>
+                  Ver todos os balcões
+                </Link>
+              </div>
+              <div className="grade">
+                {atencao.slice(0, 3).map((b) => (
+                  <CartaoBalcao key={b.id} b={b} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          <GrupoDePastas titulo="Situação" tres>
             {SITUACOES.map((p) => (
               <CartaoPasta key={p.valor} p={p} {...contar(p, todos)} />
             ))}

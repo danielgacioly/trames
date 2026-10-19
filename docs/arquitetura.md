@@ -5,7 +5,6 @@
 Plataforma em que uma empresa (escritório de contabilidade, advocacia, consultório) cria um **balcão** para cada cliente com a lista de documentos que precisa. O cliente recebe um link, abre no celular e envia os arquivos. A empresa confere, aprova ou recusa cada documento.
 
 - Planos: Grátis (3 balcões ativos), Pro (40, R$ 59/mês), Ultra (ilimitado, R$ 119/mês).
-- **Turu**: assistente de IA que monta listas de documentos a partir da descrição do caso.
 - Meta: centenas de assinantes. Prioridades: escalabilidade e segurança (LGPD muito rigorosa).
 
 ## Stack
@@ -35,7 +34,7 @@ O `balcao` fica separado do `web` para ter um pacote pequeno (o cliente abre pel
 
 Um backend só, sem microsserviços, dividido em módulos com fronteiras claras:
 
-`auth`, `organizacoes`, `balcoes`, `documentos`, `modelos`, `acesso-cliente`, `turu`, `cobranca`, `auditoria`
+`auth`, `organizacoes`, `balcoes`, `documentos`, `modelos`, `acesso-cliente`, `cobranca`, `auditoria`
 
 Dois processos rodando do mesmo código:
 
@@ -89,10 +88,6 @@ Dois processos rodando do mesmo código:
 
 **Logs**
 - Nenhum dado pessoal nos logs da aplicação (nem CPF, nem nome de arquivo).
-
-**Turu**
-- Recebe só a descrição do caso, nunca os documentos.
-- O provedor de IA é suboperador e precisa aparecer no contrato e na política.
 
 **API**
 - Validação com Zod em toda entrada.

@@ -131,7 +131,9 @@ Avisos de uso (limite de balcões, excedente, cota de WhatsApp) aparecem só no 
 
 ### Início e pastas (qualquer conta)
 
-- [ ] A tela **Início** tem três ações rápidas: **Novo balcão**, **Novo modelo** (bloqueado no Grátis) e **Nova pasta**.
+- [ ] A tela **Início** tem três ações rápidas: **Novo balcão**, **Novo modelo** (bloqueado no Grátis) e **Todos os balcões**.
+- [ ] Logo abaixo, **Pedem a sua atenção** mostra até 3 balcões com documento para conferir ou prazo vencido, com o link **Ver todos os balcões**.
+- [ ] A tela **Balcões** (no menu) mostra todos os balcões numa grade de cartões, com filtros (Abertos, Para conferir, Com o cliente, Concluídos e arquivados), busca e o botão **Novo balcão**.
 - [ ] Os balcões ficam em pastas, cada uma com quantos estão abertos e, no círculo azul, quantos têm documento para conferir:
   - **Situação**: Para conferir, Com o cliente, Prazo vencido, Tudo aprovado, Todos os abertos, Encerrados.
   - **Minhas pastas**: as que o escritório cria. O seed traz "Prioridade" e "Esperando cartório" no Pro, e três no Ultra.
@@ -142,7 +144,7 @@ Avisos de uso (limite de balcões, excedente, cota de WhatsApp) aparecem só no 
 - [ ] **Nova pasta**: dê nome e cor. Ela abre vazia, com **Novo balcão nesta pasta**. O balcão criado por ali já entra nela.
 - [ ] Na tela do balcão, ao lado do nome, troque a pasta (ou tire o balcão dela). Fica no Histórico.
 - [ ] Dentro da pasta, **Renomear** e **Apagar pasta**. Apagar não apaga os balcões, só tira da pasta. Nome repetido não é aceito.
-- [ ] Depois de criar um balcão, a tela mostra, à esquerda, o envio do link e o que acontece agora (com as datas dos lembretes) e, à direita, o resumo e os documentos pedidos.
+- [ ] Depois de criar um balcão, a tela mostra, à esquerda, o envio do link e, à direita, o resumo (com as datas dos lembretes) e os documentos pedidos.
 
 ### Grátis (`gratis@trames.app`)
 
@@ -181,8 +183,6 @@ Avisos de uso (limite de balcões, excedente, cota de WhatsApp) aparecem só no 
 ### Troca de plano
 
 Em desenvolvimento a cobrança é simulada. Na página **Planos**, escolha mensal ou anual e troque o plano de uma conta: os recursos liberam ou bloqueiam na hora. Rode `pnpm db:seed` para voltar ao original.
-
-O Turu está fora do lançamento e não aparece. Para ligar em desenvolvimento, ponha `TURU=1` e `VITE_TURU=1` no `.env` e reinicie o `pnpm dev`.
 
 ## 6. Roteiro do cliente
 

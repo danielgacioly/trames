@@ -12,10 +12,9 @@ import { LimiteErro } from './LimiteErro';
 
 const NAV: { para: string; rotulo: string; icone: NomeIcone; recurso?: Recurso; fim?: boolean }[] = [
   { para: '/app', rotulo: 'Início', icone: 'inicio', fim: true },
+  { para: '/app/balcoes', rotulo: 'Balcões', icone: 'balcoes' },
   { para: '/app/modelos', rotulo: 'Modelos', icone: 'modelos' },
   { para: '/app/clientes', rotulo: 'Clientes', icone: 'clientes' },
-  // Turu fica fora do lançamento (docs/viabilidade.md); VITE_TURU=1 liga em desenvolvimento.
-  ...(import.meta.env.VITE_TURU === '1' ? [{ para: '/app/turu', rotulo: 'Turu', icone: 'turu' as const }] : []),
   { para: '/app/relatorio', rotulo: 'Relatório', icone: 'relatorio', recurso: 'relatorio' },
   { para: '/app/equipe', rotulo: 'Equipe', icone: 'equipe' },
   { para: '/app/conta', rotulo: 'Minha conta', icone: 'ajustes' },
@@ -90,9 +89,11 @@ export function LayoutApp() {
         </div>
       </aside>
       <main className="principal">
-        <LimiteErro chave={local.pathname}>
-          <Outlet />
-        </LimiteErro>
+        <div className="principal__conteudo">
+          <LimiteErro chave={local.pathname}>
+            <Outlet />
+          </LimiteErro>
+        </div>
       </main>
       <AvisosDeUso />
     </div>

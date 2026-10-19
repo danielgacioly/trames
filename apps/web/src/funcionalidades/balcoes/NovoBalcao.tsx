@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { PRECO_EXCEDENTE_CENTAVOS, type CanalCodigo, type ItemEntrada as ItemModelo, type LinkGerado } from '@trames/shared';
 import { api } from '../../dados/api';
 import { chaves as chavesConsulta, useAcao, useCobranca, useModelos, usePastas, useSessao } from '../../dados/consultas';
@@ -14,13 +14,11 @@ const reais = (centavos: number) => (centavos / 100).toLocaleString('pt-BR', { s
 /** Carrega o modelo (se veio ?modelo=) antes de montar o formulário. */
 export function NovoBalcao() {
   const [params] = useSearchParams();
-  const local = useLocation();
   const modelos = useModelos();
   const idModelo = params.get('modelo');
   if (idModelo && modelos.isPending) return <Carregando />;
   const modelo = modelos.data?.find((m) => m.id === idModelo);
-  const vindoDoTuru = local.state as { itens?: ItemModelo[]; tipo?: string } | null;
-  return <FormularioBalcao key={idModelo ?? 'novo'} modelo={modelo} vindoDoTuru={vindoDoTuru} pastaInicial={params.get('pasta')} />;
+  return <FormularioBalcao key={idModelo ?? 'novo'} modelo={modelo} pastaInicial={params.get('pasta')} />;
 }
 
 function Canal({ valor, mudar, pode, rotulo }: { valor: CanalCodigo; mudar: (c: CanalCodigo) => void; pode: boolean; rotulo: string }) {
@@ -35,14 +33,14 @@ function Canal({ valor, mudar, pode, rotulo }: { valor: CanalCodigo; mudar: (c: 
   );
 }
 
-function FormularioBalcao({ modelo, vindoDoTuru, pastaInicial }: { modelo?: { nome: string; itens: ItemModelo[] }; vindoDoTuru: { itens?: ItemModelo[]; tipo?: string } | null; pastaInicial: string | null }) {
+function FormularioBalcao({ modelo, pastaInicial }: { modelo?: { nome: string; itens: ItemModelo[] }; pastaInicial: string | null }) {
   const sessao = useSessao();
   const navegar = useNavigate();
   const uso = useCobranca().data;
-  const [tipo, setTipo] = useState(vindoDoTuru?.tipo ?? modelo?.nome ?? '');
+  const [tipo, setTipo] = useState(modelo?.nome ?? '');
   const pastas = usePastas().data ?? [];
   const [pastaId, setPastaId] = useState(pastaInicial ?? '');
-  const [itens, setItens] = useState<Item[]>(() => comChave(vindoDoTuru?.itens ?? modelo?.itens ?? []));
+  const [itens, setItens] = useState<Item[]>(() => comChave(modelo?.itens ?? []));
   const [cliente, setCliente] = useState({ nome: '', cpf: '', whatsapp: '', email: '' });
   const [prazo, setPrazo] = useState(diaDaqui(21));
   const [canalCodigo, setCanalCodigo] = useState<CanalCodigo>('email');
@@ -101,14 +99,13 @@ function FormularioBalcao({ modelo, vindoDoTuru, pastaInicial }: { modelo?: { no
     <form onSubmit={criar} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <header className="linha linha--entre" style={{ gap: 16 }}>
         <div className="linha" style={{ gap: 16, minWidth: 0 }}>
-          <Link to="/app" className="tr-btn tr-btn--discreto tr-btn--sm">
+          <Link to="/app/balcoes" className="tr-btn tr-btn--discreto tr-btn--sm">
             <Icone nome="voltar" />
             Balcões
           </Link>
           <span style={{ width: 1, height: 24, background: 'var(--linha)' }} />
           <span style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 600 }}>Novo balcão</span>
           {modelo && <span className="tr-etiqueta">Modelo: {modelo.nome}</span>}
-          {vindoDoTuru && <span className="tr-etiqueta">Lista do Turu</span>}
         </div>
         <button type="submit" className="tr-btn tr-btn--primario" disabled={!podeAbrir || criarBalcao.isPending}>
           {criarBalcao.isPending ? 'Criando…' : 'Criar balcão e gerar link'}
